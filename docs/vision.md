@@ -17,7 +17,10 @@ an attempt to build that bench from generic parts, and to publish every step so 
 follow.
 
 The name is tent + Shenzhen: a bench you can set up anywhere, stocked from the world's
-electronics surplus.
+electronics surplus. In Chinese it is written 腾振 (téng zhèn): 腾, to soar; 振, to vibrate or
+rouse — the 振 of 振荡 (oscillation) and 振幅 (amplitude).
+
+Tentzhen is a Via Balaena project. Its site will live at tentzhen.com.
 
 ## What "rich" means here
 
