@@ -1,0 +1,160 @@
+/* tentzhen.com. Desktop first; the rail and the skyline assume a column of about 1440 px. */
+
+:root {
+  --bg: #111111;
+  --ink: #e9e5dc;
+  --cream: #f6efe0;
+  --soft: #c9cdd2;
+  --muted: #a3a7ad;
+  --copper: #e0aa45;
+  --yellow: #ffc81a;
+  --trace: #6f5424;
+  --line: #26292d;
+  --card: #151619;
+  --silk: #eeeeea;
+  --display: 'Chakra Petch', sans-serif;
+  --body: 'IBM Plex Sans', sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --column: 1440px;
+  --gutter: 72px;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); }
+a { color: var(--copper); }
+a:hover { color: var(--yellow); }
+h1, h2, h3, p { margin: 0; }
+
+.column { max-width: var(--column); margin: 0 auto; padding: 0 var(--gutter); }
+
+/* ---------- header ---------- */
+.site-header { height: 88px; display: flex; justify-content: space-between; align-items: center; }
+.brand { display: flex; align-items: center; gap: 16px; text-decoration: none; }
+.brand img { width: 48px; height: 48px; }
+.wordmark { font-family: var(--display); font-size: 22px; font-weight: 600; letter-spacing: 0.24em; color: var(--cream); }
+.site-nav { display: flex; gap: 36px; font-family: var(--mono); font-size: 13px; letter-spacing: 0.16em; }
+.site-nav a { color: var(--silk); text-decoration: none; }
+.site-nav a:hover { color: var(--copper); }
+
+/* ---------- hero: the mural ---------- */
+.hero { position: relative; }
+.mural { display: block; width: 100%; height: auto; }
+.hero-text {
+  position: absolute; top: 5.5%;
+  left: max(var(--gutter), calc((100% - var(--column)) / 2 + var(--gutter)));
+  max-width: 540px; display: flex; flex-direction: column; gap: 16px;
+  text-shadow: 0 0 18px var(--bg), 0 0 36px var(--bg);
+}
+.eyebrow { font-family: var(--mono); font-size: 13px; letter-spacing: 0.16em; color: var(--copper); }
+.hero h1 { font-family: var(--display); font-size: 60px; line-height: 1.02; font-weight: 600; color: var(--cream); }
+.hero-text p { font-size: 20px; line-height: 1.5; font-weight: 300; color: var(--ink); }
+
+/* The mural's path ends at the bottom centre; a via there hands it to the rail. */
+.junction { position: relative; height: 104px; max-width: var(--column); margin: 0 auto; }
+.junction span { position: absolute; background: var(--trace); border-radius: 3px; }
+.junction .via {
+  left: 50%; top: -22px; width: 44px; height: 44px; margin-left: -22px; border-radius: 50%;
+  background: var(--copper); display: flex; align-items: center; justify-content: center;
+}
+.junction .via::after { content: ''; width: 16px; height: 16px; border-radius: 50%; background: var(--bg); }
+.junction .down { left: 50%; margin-left: -3px; top: 20px; height: 42px; width: 6px; }
+.junction .across { top: 56px; left: 117px; width: calc(50% - 114px); height: 6px; }
+.junction .drop { left: 117px; top: 56px; bottom: 0; width: 6px; }
+
+/* ---------- the board: sections hang off the rail ---------- */
+.stop { display: grid; grid-template-columns: 96px minmax(0, 1fr); }
+.rail { position: relative; }
+.rail::before { content: ''; position: absolute; left: 45px; top: 0; bottom: 0; width: 6px; background: var(--trace); }
+.rail::after {
+  content: ''; position: absolute; left: 33px; top: 6px; width: 30px; height: 30px; border-radius: 50%;
+  background: radial-gradient(circle, var(--bg) 5.5px, var(--copper) 6px);
+}
+.stop-body { padding-bottom: 112px; display: flex; flex-direction: column; gap: 32px; }
+.stop-head { display: flex; align-items: baseline; gap: 20px; }
+.ref { font-family: var(--mono); font-size: 15px; color: var(--copper); }
+.stop h2 { font-family: var(--display); font-size: 36px; font-weight: 600; color: var(--cream); }
+.lede { font-size: 26px; line-height: 1.45; font-weight: 300; color: var(--ink); }
+.note { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+
+.intro { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 64px; align-items: center; }
+.intro img { width: 100%; height: auto; }
+.intro-text { display: flex; flex-direction: column; gap: 24px; }
+.intro-text h2 { font-family: var(--display); font-size: 42px; line-height: 1.12; font-weight: 600; color: var(--cream); }
+.intro-text p { font-size: 19px; line-height: 1.6; color: var(--soft); }
+.buttons { display: flex; gap: 16px; }
+.button {
+  display: inline-flex; align-items: center; height: 48px; padding: 0 24px; border-radius: 4px;
+  border: 1.5px solid var(--copper); color: var(--copper); text-decoration: none; font-size: 16px; font-weight: 500;
+}
+.button.solid { background: var(--copper); color: var(--bg); }
+.button:hover { border-color: var(--yellow); color: var(--yellow); }
+.button.solid:hover { background: var(--yellow); color: var(--bg); }
+
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.card { padding: 28px; border: 1px solid #2a2d31; border-radius: 8px; background: var(--card); display: flex; flex-direction: column; gap: 12px; }
+.card .ref { font-size: 12px; letter-spacing: 0.14em; }
+.card h3 { font-size: 20px; font-weight: 500; color: var(--cream); }
+.card p { font-size: 16px; line-height: 1.6; color: var(--muted); }
+
+.split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 56px; }
+.parts { display: flex; flex-direction: column; }
+.parts div { display: grid; grid-template-columns: 72px minmax(0, 1fr); padding: 14px 0; border-top: 1px solid var(--line); align-items: baseline; }
+.parts div:last-child { border-bottom: 1px solid var(--line); }
+.parts dt { font-family: var(--mono); font-size: 13px; letter-spacing: 0.1em; color: var(--copper); }
+.parts dd { margin: 0; font-size: 17px; color: var(--ink); }
+.compare { width: 100%; border-collapse: collapse; }
+.compare th { padding-bottom: 12px; font-family: var(--mono); font-size: 12px; font-weight: 400; letter-spacing: 0.1em; color: var(--muted); text-align: left; }
+.compare th.ours { color: var(--copper); }
+.compare td { padding: 14px 0; border-top: 1px solid var(--line); font-size: 16px; color: var(--ink); }
+.compare tr:last-child td { border-bottom: 1px solid var(--line); }
+.compare td:first-child { color: var(--muted); width: 150px; }
+.compare td.ours { color: var(--cream); }
+.graded { display: flex; align-items: center; gap: 14px; margin-top: 20px; font-size: 15px; line-height: 1.5; color: var(--muted); }
+.grade {
+  display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px; border-radius: 999px;
+  border: 1px solid var(--yellow); font-family: var(--mono); font-size: 13px; color: var(--yellow);
+}
+.grade::before { content: ''; width: 10px; height: 10px; border: 2px solid var(--yellow); border-radius: 50%; box-sizing: border-box; }
+
+/* tiers: a street at the tier's level, one building per pad */
+.tiers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding-top: 8px; }
+.tier { position: relative; padding: 244px 40px 0 0; display: flex; flex-direction: column; gap: 10px; }
+.tier svg { position: absolute; left: 0; top: 0; }
+.tier::before { content: ''; position: absolute; left: 0; right: 0; top: 193px; height: 6px; background: var(--trace); }
+.tier:first-child::before { left: 16px; }
+.tier:last-child::before { right: auto; width: 16px; }
+.tier::after {
+  content: ''; position: absolute; left: 0; top: 180px; width: 32px; height: 32px; border-radius: 50%;
+  background: radial-gradient(circle, var(--bg) 6px, var(--copper) 6.5px);
+}
+.tier .ref { font-size: 13px; letter-spacing: 0.14em; }
+.tier h3 { font-size: 20px; font-weight: 500; color: var(--cream); }
+.tier p { font-size: 15px; line-height: 1.6; color: var(--muted); }
+
+.status { font-family: var(--display); font-size: 44px; line-height: 1.15; font-weight: 500; color: var(--cream); }
+.status-body { max-width: 760px; font-size: 19px; line-height: 1.6; color: var(--soft); }
+
+/* the rail's last run: onto the street and in at the tallest tower's door */
+.skyline { max-width: var(--column); margin: 0 auto; overflow: hidden; }
+.skyline svg { display: block; }
+
+/* ---------- help ---------- */
+.help { margin-top: 96px; }
+.help-box { padding: 48px; border: 1px solid #2a2d31; border-radius: 8px; display: flex; flex-direction: column; gap: 32px; }
+.help h2 { font-size: 32px; font-weight: 500; color: var(--cream); }
+.help-box > div > p { margin-top: 10px; font-size: 17px; color: var(--muted); }
+.lines { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+.lines div { display: flex; flex-direction: column; gap: 8px; }
+.lines h3 { font-size: 18px; font-weight: 500; color: var(--cream); }
+.lines a { font-family: var(--mono); font-size: 24px; text-decoration: none; }
+.lines p { font-size: 15px; line-height: 1.6; color: var(--muted); }
+
+/* ---------- footer ---------- */
+.site-footer {
+  margin-top: 96px; border-top: 1px solid var(--line);
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em; color: var(--muted);
+}
+.site-footer .column { height: 88px; display: flex; justify-content: space-between; align-items: center; }
+.site-footer a { color: var(--muted); text-decoration: none; }
+.site-footer a:hover { color: var(--copper); }
