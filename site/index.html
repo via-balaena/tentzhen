@@ -31,7 +31,6 @@
   <img class="mural" src="img/mural-street-night.svg" width="1600" height="1000"
        alt="A Chinatown street at night, seen from the sidewalk. Tents line the wall; the nearest is lit, with an antenna. A copper trace leaves its door and joins a path that runs from your feet straight down the street, under a gate and past neon signs, to the door of the tallest tower in a lit skyline. A puddle at your feet reflects the towers.">
   <div class="hero-text">
-    <span class="eyebrow">TENTZHEN · 腾振 · TENT-ZHEN</span>
     <h1>Build your own safety net.</h1>
     <p>Cheap electronics and free tools are everywhere. Learn to measure, fix and build with them.</p>
   </div>
@@ -56,19 +55,6 @@
             <a class="button" href="https://github.com/via-balaena/tentzhen">Source on GitHub</a>
           </div>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="stop" aria-labelledby="who">
-    <div class="rail"></div>
-    <div class="stop-body">
-      <div class="stop-head"><span class="ref">J1</span><h2 id="who">Who it's for</h2></div>
-      <p class="lede">Someone with a laptop, a lot of curiosity, and not much money.</p>
-      <div class="cards">
-        <div class="card"><span class="ref">C1</span><h3>Surplus</h3><p>Shenzhen's electronics surplus puts FPGA boards, ADCs and passives within reach of a small budget.</p></div>
-        <div class="card"><span class="ref">C2</span><h3>Open toolchains</h3><p>Yosys, nextpnr, KiCad, ngspice and Rust: nothing in the chain has to be bought or taken on faith.</p></div>
-        <div class="card"><span class="ref">C3</span><h3>An engineer on call</h3><p>An AI assistant can play the experienced engineer most people could never hire: explaining a datasheet, reviewing a schematic, writing a first test.</p></div>
       </div>
     </div>
   </section>
@@ -99,51 +85,6 @@
           <p class="graded"><span class="grade">unknown</span>Every Tentzhen figure is a target until it is measured.</p>
         </div>
       </div>
-    </div>
-  </section>
-
-  <section class="stop" id="tiers" aria-labelledby="start">
-    <div class="rail"></div>
-    <div class="stop-body">
-      <div class="stop-head"><span class="ref">TP1</span><h2 id="start">Start with nothing</h2></div>
-      <p class="lede">Nobody should need to buy anything to start contributing.</p>
-      <div class="tiers">
-        <div class="tier">
-          <svg width="240" height="196" viewBox="0 0 240 196" aria-hidden="true"><path d="M8 196 V130 H120 V196 M100 130 V90" fill="none" stroke="#887e6b" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="100" cy="90" r="8" fill="#887e6b"/><circle cx="100" cy="90" r="3.5" fill="#111111"/><circle cx="50" cy="160" r="5" fill="#887e6b"/><circle cx="50" cy="160" r="2" fill="#111111"/><circle cx="80" cy="160" r="5" fill="#887e6b"/><circle cx="80" cy="160" r="2" fill="#111111"/></svg>
-          <span class="ref">TIER 0</span>
-          <h3>A computer</h3>
-          <p>Simulate and prove gateware, simulate analog, build the bitstream, run host tools against a simulated instrument.</p>
-        </div>
-        <div class="tier">
-          <svg width="240" height="196" viewBox="0 0 240 196" aria-hidden="true"><path d="M8 196 V110 L48 70 H88 L128 110 V196" fill="none" stroke="#a68d5f" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><g fill="none" stroke-linecap="round" stroke-dasharray="0 32"><path d="M40 140 V172.5 M96 140 V172.5" stroke="#a68d5f" stroke-width="10"/><path d="M40 140 V172.5 M96 140 V172.5" stroke="#111111" stroke-width="4"/></g></svg>
-          <span class="ref">TIER 1</span>
-          <h3>+ an FPGA board and a Pico</h3>
-          <p>Bring-up, digital loopback, the Pico as a test-signal source.</p>
-        </div>
-        <div class="tier">
-          <svg width="240" height="196" viewBox="0 0 240 196" aria-hidden="true"><path d="M8 196 V50 H128 V196" fill="none" stroke="#c39b52" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><g fill="none" stroke-linecap="round" stroke-dasharray="0 32"><path d="M36 76 V172.5 M68 76 V172.5 M100 76 V172.5" stroke="#c39b52" stroke-width="10"/><path d="M36 76 V172.5 M68 76 V172.5 M100 76 V172.5" stroke="#111111" stroke-width="4"/></g></svg>
-          <span class="ref">TIER 2</span>
-          <h3>+ ADC and DAC modules</h3>
-          <p>A working two-channel scope and generator on module front ends.</p>
-        </div>
-        <div class="tier">
-          <svg width="240" height="196" viewBox="0 0 240 196" aria-hidden="true"><path d="M8 196 V40 L38 10 H98 L128 40 V196" fill="none" stroke="#e0aa45" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><g fill="none" stroke-linecap="round" stroke-dasharray="0 28"><path d="M36 56 V168.5 M68 56 V168.5 M100 56 V168.5" stroke="#e0aa45" stroke-width="10"/><path d="M36 56 V168.5 M68 56 V168.5 M100 56 V168.5" stroke="#111111" stroke-width="4"/></g></svg>
-          <span class="ref">TIER 3</span>
-          <h3>+ the front-end PCB</h3>
-          <p>The real instrument, characterized.</p>
-        </div>
-      </div>
-      <p class="note">Tier prices will come from the BOM tool, with a date on every price.</p>
-    </div>
-  </section>
-
-  <section class="stop" aria-labelledby="status">
-    <div class="rail"></div>
-    <div class="stop-body">
-      <div class="stop-head"><span class="ref">R1</span><h2 id="status">Status</h2></div>
-      <p class="status">Planning. Nothing works yet.</p>
-      <p class="status-body">Phase 0 comes first: foundations that need no hardware and cost nothing. No part is ordered until it is done.</p>
-      <div class="buttons"><a class="button" href="https://github.com/via-balaena/tentzhen/blob/main/docs/roadmap.md">Read the roadmap</a></div>
     </div>
   </section>
 

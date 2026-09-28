@@ -46,7 +46,6 @@ h1, h2, h3, p { margin: 0; }
   max-width: 540px; display: flex; flex-direction: column; gap: 16px;
   text-shadow: 0 0 18px var(--bg), 0 0 36px var(--bg);
 }
-.eyebrow { font-family: var(--mono); font-size: 13px; letter-spacing: 0.16em; color: var(--copper); }
 .hero h1 { font-family: var(--display); font-size: 60px; line-height: 1.02; font-weight: 600; color: var(--cream); }
 .hero-text p { font-size: 20px; line-height: 1.5; font-weight: 300; color: var(--ink); }
 
@@ -75,7 +74,6 @@ h1, h2, h3, p { margin: 0; }
 .ref { font-family: var(--mono); font-size: 15px; color: var(--copper); }
 .stop h2 { font-family: var(--display); font-size: 36px; font-weight: 600; color: var(--cream); }
 .lede { font-size: 26px; line-height: 1.45; font-weight: 300; color: var(--ink); }
-.note { font-family: var(--mono); font-size: 13px; color: var(--muted); }
 
 .intro { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 64px; align-items: center; }
 .intro img { width: 100%; height: auto; }
@@ -90,12 +88,6 @@ h1, h2, h3, p { margin: 0; }
 .button.solid { background: var(--copper); color: var(--bg); }
 .button:hover { border-color: var(--yellow); color: var(--yellow); }
 .button.solid:hover { background: var(--yellow); color: var(--bg); }
-
-.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
-.card { padding: 28px; border: 1px solid #2a2d31; border-radius: 8px; background: var(--card); display: flex; flex-direction: column; gap: 12px; }
-.card .ref { font-size: 12px; letter-spacing: 0.14em; }
-.card h3 { font-size: 20px; font-weight: 500; color: var(--cream); }
-.card p { font-size: 16px; line-height: 1.6; color: var(--muted); }
 
 .split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 56px; }
 .parts { display: flex; flex-direction: column; }
@@ -116,24 +108,6 @@ h1, h2, h3, p { margin: 0; }
   border: 1px solid var(--yellow); font-family: var(--mono); font-size: 13px; color: var(--yellow);
 }
 .grade::before { content: ''; width: 10px; height: 10px; border: 2px solid var(--yellow); border-radius: 50%; box-sizing: border-box; }
-
-/* tiers: a street at the tier's level, one building per pad */
-.tiers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding-top: 8px; }
-.tier { position: relative; padding: 244px 40px 0 0; display: flex; flex-direction: column; gap: 10px; }
-.tier svg { position: absolute; left: 0; top: 0; }
-.tier::before { content: ''; position: absolute; left: 0; right: 0; top: 193px; height: 6px; background: var(--trace); }
-.tier:first-child::before { left: 16px; }
-.tier:last-child::before { right: auto; width: 16px; }
-.tier::after {
-  content: ''; position: absolute; left: 0; top: 180px; width: 32px; height: 32px; border-radius: 50%;
-  background: radial-gradient(circle, var(--bg) 6px, var(--copper) 6.5px);
-}
-.tier .ref { font-size: 13px; letter-spacing: 0.14em; }
-.tier h3 { font-size: 20px; font-weight: 500; color: var(--cream); }
-.tier p { font-size: 15px; line-height: 1.6; color: var(--muted); }
-
-.status { font-family: var(--display); font-size: 44px; line-height: 1.15; font-weight: 500; color: var(--cream); }
-.status-body { max-width: 760px; font-size: 19px; line-height: 1.6; color: var(--soft); }
 
 /* the rail's last run: onto the street and in at the tallest tower's door */
 .skyline { max-width: var(--column); margin: 0 auto; overflow: hidden; }
