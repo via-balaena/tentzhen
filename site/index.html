@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tentzhen · 腾振 — build your own safety net</title>
+<meta name="description" content="An open bench of electronics instruments built from cheap generic parts, for people with more curiosity than money. Every step published.">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500&amp;display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="column site-header">
+  <a class="brand" href="/" aria-label="Tentzhen home">
+    <img src="img/mark-black.svg" alt="">
+    <span class="wordmark">TENTZHEN</span>
+  </a>
+  <nav class="site-nav" aria-label="Main">
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/vision.md">VISION</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">INSTRUMENT</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/verification.md">VERIFICATION</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/roadmap.md">ROADMAP</a>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <img class="mural" src="img/mural-street-night.svg" width="1600" height="1000"
+       alt="A Chinatown street at night, seen from the sidewalk. Tents line the wall; the nearest is lit, with an antenna. A copper trace leaves its door and joins a path that runs from your feet straight down the street, under a gate and past neon signs, to the door of the tallest tower in a lit skyline. A puddle at your feet reflects the towers.">
+  <div class="hero-text">
+    <span class="eyebrow">TENTZHEN · 腾振 · TENT-ZHEN</span>
+    <h1>Build your own safety net.</h1>
+    <p>Cheap electronics and free tools are everywhere. Learn to measure, fix and build with them.</p>
+  </div>
+</section>
+
+<div class="junction" aria-hidden="true">
+  <span class="down"></span><span class="across"></span><span class="drop"></span><span class="via"></span>
+</div>
+
+<main class="column">
+
+  <section class="stop" aria-labelledby="bench">
+    <div class="rail"></div>
+    <div class="stop-body">
+      <div class="intro">
+        <img src="img/lockup-black.svg" alt="The Tentzhen mark: a peregrine falcon beside 腾振, drawn as circuit-board traces">
+        <div class="intro-text">
+          <h2 id="bench">A bench you can set up anywhere, stocked from the world's electronics surplus.</h2>
+          <p>An attempt to build the whole bench — scope, signal generator, supply and load — from generic parts, and to publish every step so others can follow.</p>
+          <div class="buttons">
+            <a class="button solid" href="https://github.com/via-balaena/tentzhen/blob/main/docs/roadmap.md">Read the plan</a>
+            <a class="button" href="https://github.com/via-balaena/tentzhen">Source on GitHub</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stop" aria-labelledby="who">
+    <div class="rail"></div>
+    <div class="stop-body">
+      <div class="stop-head"><span class="ref">J1</span><h2 id="who">Who it's for</h2></div>
+      <p class="lede">Someone with a laptop, a lot of curiosity, and not much money.</p>
+      <div class="cards">
+        <div class="card"><span class="ref">C1</span><h3>Surplus</h3><p>Shenzhen's electronics surplus puts FPGA boards, ADCs and passives within reach of a small budget.</p></div>
+        <div class="card"><span class="ref">C2</span><h3>Open toolchains</h3><p>Yosys, nextpnr, KiCad, ngspice and Rust: nothing in the chain has to be bought or taken on faith.</p></div>
+        <div class="card"><span class="ref">C3</span><h3>An engineer on call</h3><p>An AI assistant can play the experienced engineer most people could never hire: explaining a datasheet, reviewing a schematic, writing a first test.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stop" aria-labelledby="instrument">
+    <div class="rail"></div>
+    <div class="stop-body">
+      <div class="stop-head"><span class="ref">U1</span><h2 id="instrument">Instrument #1</h2></div>
+      <p class="lede">A two-channel digitizer and signal generator in the Red Pitaya class.</p>
+      <div class="split">
+        <dl class="parts">
+          <div><dt>FPGA</dt><dd>Colorlight i9 · Lattice ECP5 LFE5U-45F</dd></div>
+          <div><dt>ADC</dt><dd>2× AD9226 modules · 12-bit · up to 65 MS/s</dd></div>
+          <div><dt>SOC</dt><dd>LiteX + VexRiscv · firmware in Rust</dd></div>
+          <div><dt>AFE</dt><dd>Custom analog front end · KiCad, fabricated at JLCPCB</dd></div>
+          <div><dt>HOST</dt><dd>Rust services: DuckDB ingest, SCPI, MCP</dd></div>
+        </dl>
+        <div>
+          <table class="compare">
+            <thead><tr><th></th><th>RED PITAYA 125-14</th><th class="ours">TENTZHEN #1 TARGET</th></tr></thead>
+            <tbody>
+              <tr><td>Channels in / out</td><td>2 / 2</td><td class="ours">2 / 2, outputs in phase 5</td></tr>
+              <tr><td>Sample rate</td><td>125 MS/s</td><td class="ours">up to 65 MS/s</td></tr>
+              <tr><td>Resolution</td><td>14-bit</td><td class="ours">12-bit</td></tr>
+              <tr><td>Bandwidth</td><td>DC–60 MHz</td><td class="ours">20–30 MHz usable</td></tr>
+            </tbody>
+          </table>
+          <p class="graded"><span class="grade">unknown</span>Every Tentzhen figure is a target until it is measured.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stop" id="tiers" aria-labelledby="start">
+    <div class="rail"></div>
+    <div class="stop-body">
+      <div class="stop-head"><span class="ref">TP1</span><h2 id="start">Start with nothing</h2></div>
+      <p class="lede">Nobody should need to buy anything to start contributing.</p>
+      <div class="tiers">
+        <div class="tier">
+          <svg width="240" height="196" viewBox="0 0 240 196" aria-hidden="true"><path d="M8 196 V130 H120 V196 M100 130 V90" fill="none" stroke="#887e6b" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="100" cy="90" r="8" fill="#887e6b"/><circle cx="100" cy="90" r="3.5" fill="#111111"/><circle cx="50" cy="160" r="5" fill="#887e6b"/><circle cx="50" cy="160" r="2" fill="#111111"/><circle cx="80" cy="160" r="5" fill="#887e6b"/><circle cx="80" cy="160" r="2" fill="#111111"/></svg>
+          <span class="ref">TIER 0</span>
+          <h3>A computer</h3>
+          <p>Simulate and prove gateware, simulate analog, build the bitstream, run host tools against a simulated instrument.</p>
+        </div>
+        <div class="tier">
+          <svg width="240" height="196" viewBox="0 0 240 196" aria-hidden="true"><path d="M8 196 V110 L48 70 H88 L128 110 V196" fill="none" stroke="#a68d5f" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><g fill="none" stroke-linecap="round" stroke-dasharray="0 32"><path d="M40 140 V172.5 M96 140 V172.5" stroke="#a68d5f" stroke-width="10"/><path d="M40 140 V172.5 M96 140 V172.5" stroke="#111111" stroke-width="4"/></g></svg>
+          <span class="ref">TIER 1</span>
+          <h3>+ an FPGA board and a Pico</h3>
+          <p>Bring-up, digital loopback, the Pico as a test-signal source.</p>
+        </div>
+        <div class="tier">
+          <svg width="240" height="196" viewBox="0 0 240 196" aria-hidden="true"><path d="M8 196 V50 H128 V196" fill="none" stroke="#c39b52" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><g fill="none" stroke-linecap="round" stroke-dasharray="0 32"><path d="M36 76 V172.5 M68 76 V172.5 M100 76 V172.5" stroke="#c39b52" stroke-width="10"/><path d="M36 76 V172.5 M68 76 V172.5 M100 76 V172.5" stroke="#111111" stroke-width="4"/></g></svg>
+          <span class="ref">TIER 2</span>
+          <h3>+ ADC and DAC modules</h3>
+          <p>A working two-channel scope and generator on module front ends.</p>
+        </div>
+        <div class="tier">
+          <svg width="240" height="196" viewBox="0 0 240 196" aria-hidden="true"><path d="M8 196 V40 L38 10 H98 L128 40 V196" fill="none" stroke="#e0aa45" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><g fill="none" stroke-linecap="round" stroke-dasharray="0 28"><path d="M36 56 V168.5 M68 56 V168.5 M100 56 V168.5" stroke="#e0aa45" stroke-width="10"/><path d="M36 56 V168.5 M68 56 V168.5 M100 56 V168.5" stroke="#111111" stroke-width="4"/></g></svg>
+          <span class="ref">TIER 3</span>
+          <h3>+ the front-end PCB</h3>
+          <p>The real instrument, characterized.</p>
+        </div>
+      </div>
+      <p class="note">Tier prices will come from the BOM tool, with a date on every price.</p>
+    </div>
+  </section>
+
+  <section class="stop" aria-labelledby="status">
+    <div class="rail"></div>
+    <div class="stop-body">
+      <div class="stop-head"><span class="ref">R1</span><h2 id="status">Status</h2></div>
+      <p class="status">Planning. Nothing works yet.</p>
+      <p class="status-body">Phase 0 comes first: foundations that need no hardware and cost nothing. No part is ordered until it is done.</p>
+      <div class="buttons"><a class="button" href="https://github.com/via-balaena/tentzhen/blob/main/docs/roadmap.md">Read the roadmap</a></div>
+    </div>
+  </section>
+
+</main>
+
+<div class="skyline" aria-hidden="true">
+  <svg width="1440" height="560" viewBox="0 0 1440 560">
+    <path d="M0 520 H1440" stroke="#3b3120" stroke-width="4" stroke-linecap="round"/>
+    <g fill="none" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M260 520 V300 H360 V520" stroke="#c39b52"/>
+      <path d="M420 520 V200 L450 170 H510 L540 200 V520" stroke="#e0aa45"/>
+      <path d="M600 520 V250 H700 V520" stroke="#c39b52"/>
+      <path d="M760 520 V120 L800 80 H860 L900 120 V520" stroke="#e0aa45"/>
+      <path d="M960 520 V180 H1060 V520" stroke="#e0aa45"/>
+      <path d="M1100 520 V70 L1140 30 H1220 L1260 70 V520 M1180 30 V14" stroke="#e0aa45"/>
+      <path d="M1300 520 V220 L1330 190 H1370 L1400 220 V520" stroke="#e0aa45"/>
+    </g>
+    <!-- windows: one column per subpath; a zero-length dash with a round cap is a pad, every 40 px -->
+    <g fill="none" stroke-linecap="round" stroke-dasharray="0 40">
+      <path d="M285 330 V450.5 M310 330 V450.5 M335 330 V450.5 M625 290 V450.5 M650 290 V450.5 M675 290 V450.5" stroke="#c39b52" stroke-width="10"/>
+      <path d="M285 330 V450.5 M310 330 V450.5 M335 330 V450.5 M625 290 V450.5 M650 290 V450.5 M675 290 V450.5" stroke="#111111" stroke-width="4"/>
+      <path d="M442.5 230 V470.5 M467.5 230 V470.5 M492.5 230 V470.5 M517.5 230 V470.5 M780 150 V470.5 M805 150 V470.5 M830 150 V470.5 M855 150 V470.5 M880 150 V470.5 M985 220 V460.5 M1010 220 V460.5 M1035 220 V460.5 M1117.5 110 V470.5 M1142.5 110 V470.5 M1167.5 110 V470.5 M1192.5 110 V470.5 M1217.5 110 V470.5 M1242.5 110 V470.5 M1325 260 V460.5 M1350 260 V460.5 M1375 260 V460.5" stroke="#e0aa45" stroke-width="10"/>
+      <path d="M442.5 230 V470.5 M467.5 230 V470.5 M492.5 230 V470.5 M517.5 230 V470.5 M780 150 V470.5 M805 150 V470.5 M830 150 V470.5 M855 150 V470.5 M880 150 V470.5 M985 220 V460.5 M1010 220 V460.5 M1035 220 V460.5 M1117.5 110 V470.5 M1142.5 110 V470.5 M1167.5 110 V470.5 M1192.5 110 V470.5 M1217.5 110 V470.5 M1242.5 110 V470.5 M1325 260 V460.5 M1350 260 V460.5 M1375 260 V460.5" stroke="#111111" stroke-width="4"/>
+    </g>
+    <circle cx="1180" cy="14" r="9" fill="#e0aa45"/><circle cx="1180" cy="14" r="3.5" fill="#111111"/>
+    <path d="M120 0 V480 L160 520 H1180" fill="none" stroke="#6f5424" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="1180" cy="520" r="14" fill="#e0aa45"/><circle cx="1180" cy="520" r="5.5" fill="#111111"/>
+  </svg>
+</div>
+
+<section class="column help" aria-labelledby="help">
+  <div class="help-box">
+    <div>
+      <h2 id="help">If you need someone right now</h2>
+      <p>Free and confidential, day or night.</p>
+    </div>
+    <div class="lines">
+      <div><h3>Never Use Alone</h3><a href="tel:+18004843731">800-484-3731</a><p>Someone stays on the line while you use, and sends help if you stop responding.</p></div>
+      <div><h3>SAMHSA National Helpline</h3><a href="tel:+18006624357">1-800-662-4357</a><p>Treatment referral and information for substance use and mental health.</p></div>
+      <div><h3>988 Suicide &amp; Crisis Lifeline</h3><a href="tel:988">988</a><p>Call or text, any time.</p></div>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="column">
+    <span>腾振 TENTZHEN · A VIA BALAENA PROJECT</span>
+    <span>MIT OR APACHE-2.0</span>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB.COM/VIA-BALAENA/TENTZHEN</a>
+  </div>
+</footer>
+
+</body>
+</html>
