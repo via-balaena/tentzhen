@@ -29,8 +29,8 @@ Everything here runs at tier 0, and all of it must exist before the first order 
 - **`crates/lcsc`, `tested`.** Typed client for the LCSC API: request signing, both rate limits,
   local cache, Keychain credentials, no order endpoints. Tested against recorded fixtures we
   generate ourselves, since real responses may not be committed.
-- **LCSC API application.** The user's action; it asks for business details, and approval for an
-  individual is `unknown`. The tools work without it.
+- **LCSC API application.** Submitted 2026-09-28 as Via Balaena; not yet approved. The tools
+  work without it (jlcparts for data, LCSC's Upload a BOM page for carts).
 - **Parts records + BOM tool, `tested`.** TOML records → DuckDB; `bom` prices a BOM from the
   user's LCSC key or jlcparts, reports unique JLCPCB extended parts, and prints the date of every
   price. This produces the tier prices.

@@ -19,9 +19,12 @@ the board from published files.
 
 Source: lcsc.com/docs/index.html, lcsc.com/docs/openapi/index.html, lcsc.com/agent.
 
-- **Access is by application.** LCSC asks for a company website, business license (or
-  equivalent), contact details, estimated order quantity and cooperation mode, then issues a key
-  via support@lcsc.com. Whether an individual or an open-source project is approved is `unknown`.
+- **Access is by application**, at lcsc.com/agent/apply after logging in. The form asks for
+  the business, its size and purchase volume, the intended use ("for your own use" vs "for your
+  customers' use"), the API modules wanted, and a **required IP allow-list** — calls from any
+  other address are refused. Whether an individual or an open-source project is approved is
+  `unknown`. Via Balaena applied on 2026-09-28 for its own use, Product and Cart modules only;
+  not yet approved.
 - **Auth:** `key`, `nonce`, `timestamp` and `signature = sha1(key=…&nonce=…&secret=…&timestamp=…)`.
   Timestamps older than 60 s are refused. Host: `https://ips.lcsc.com`.
 - **Services:** category, brand, category product list, product info
@@ -42,7 +45,12 @@ Source: lcsc.com/docs/index.html, lcsc.com/docs/openapi/index.html, lcsc.com/age
 - The client does not implement `submit order`. Carts and BOMs yes, orders no (`CLAUDE.md`).
 - Output that shows LCSC data credits LCSC.
 - Keys come from the macOS Keychain or the environment, never a file in the tree.
-- **Without a key** the tools must still work: manual `C` numbers plus jlcparts (below).
+- **Without a key** the tools must still work, and this is the path built first: jlcparts
+  (below) for search, stock, prices and JLCPCB basic/extended status, and LCSC's website **Upload
+  a BOM** page for carts — the BOM tool exports a file, a person uploads it. The API is an upgrade
+  on top: live stock at checkout and product-change notifications.
+- **An API rejection may mean the address changed, not the key.** When the client gets one, it
+  prints the machine's current public address beside the error.
 
 ## JLCPCB
 
