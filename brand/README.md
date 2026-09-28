@@ -40,13 +40,11 @@ feet reflects the towers.
 
 - **Perspective breaks the 0°/45°/90° rule**, because it has to. Traces on the ground keep it in
   plan: the tent's trace runs 45° then 0° into a path at 90°.
-- **Camera**, for redrawing it: eye 1.6 m above the sidewalk, 7.6 m left of the road's centre
-  line, focal length 820 px, vanishing point (800, 540) in a 1600 × 1000 viewBox. Road ±5.5 m,
-  walls at −11 m and +10 m, gate 82 m away, towers 560–780 m away.
-- **Signs:** 茶楼 tea house, 饭店 restaurant, 药材 herbal medicine, 电器维修 appliance repair,
-  腾振. They are SVG text, so they render in the viewer's own Chinese font. Only rendered so far
+- **Signs** are SVG text, so they render in the viewer's own Chinese font. Only rendered so far
   with `rsvg-convert` on macOS.
-- **Source:** a throwaway Python script drew it and was not kept. This SVG is the source.
+- **Source:** `brand/mural.py` draws it — camera, street, towers and signs are all in there.
+  Change the script, then run `python3 brand/mural.py` to rewrite the SVG. The Quality Gate runs
+  it and fails if the committed SVG differs.
 
 ## Source
 
