@@ -1,0 +1,74 @@
+# Sourcing
+
+Research date for everything below: 2026-09-28, unless a line says otherwise.
+
+## Where each kind of part comes from
+
+**AliExpress (commodity, low risk):** Colorlight i9 + extension board (Muse Lab official store
+only), AD9226 modules (buy 3, keep the best 2), DAC module, SMA/BNC connectors and cables, 10x
+probes, wire, headers, general-purpose passives.
+
+**LCSC or authorized distributors (quality-critical):** front-end op amps, precision
+resistors/capacitors in the signal path, LM4040 voltage reference, low-jitter oscillators,
+signal relays, Pico boards, anything security-related.
+
+**JLCPCB:** front-end PCB fabrication and SMD assembly with LCSC parts, so anyone can reproduce
+the board from published files.
+
+## The LCSC API
+
+Source: lcsc.com/docs/index.html, lcsc.com/docs/openapi/index.html, lcsc.com/agent.
+
+- **Access is by application.** LCSC asks for a company website, business license (or
+  equivalent), contact details, estimated order quantity and cooperation mode, then issues a key
+  via support@lcsc.com. Whether an individual or an open-source project is approved is `unknown`.
+- **Auth:** `key`, `nonce`, `timestamp` and `signature = sha1(key=…&nonce=…&secret=…&timestamp=…)`.
+  Timestamps older than 60 s are refused. Host: `https://ips.lcsc.com`.
+- **Services:** category, brand, category product list, product info
+  (`/rest/wmsc2agent/product/info/{C-number}`), keyword search (30 per page), submit order, order
+  query, shipment options. The response schema for price breaks, stock and datasheet URL is
+  `unknown` until we hold a key.
+- **Limits:** 1000 searches/day, 200/minute (more on approval). HTTP 429 = per-minute, 430 = daily.
+- **Terms that shape the design:** no bulk data capture; no hosting or providing retrieved
+  material (including datasheets and images) to any third party; no selling or aggregating it
+  into public APIs or data services; LCSC must be credited; the key may not be shared outside
+  the holder's company.
+
+### What that means for Tentzhen
+
+- The repo ships a **client**, never data. Each user brings their own key; responses are cached
+  locally under the user's data dir and never committed.
+- Parts records in the repo hold only identifiers (`C` numbers, MPNs) and our own measurements.
+- The client does not implement `submit order`. Carts and BOMs yes, orders no (`CLAUDE.md`).
+- Output that shows LCSC data credits LCSC.
+- Keys come from the macOS Keychain or the environment, never a file in the tree.
+- **Without a key** the tools must still work: manual `C` numbers plus jlcparts (below).
+
+## JLCPCB
+
+- **Parts API:** by application at api.jlcpcb.com, reviewed against "previous orders at JLCPCB,
+  company and business situation" — not all are approved (jlcpcb.com help, updated 2026-09-09).
+  Offers PCB, stencil, 3D printing and components APIs. An assembly-ordering API is `unknown`.
+  Rate limits and data-reuse terms are behind the portal login: `unknown`.
+- **Basic vs extended parts drive assembly cost** (jlcpcb.com/help/article/pcb-assembly-faqs,
+  2026-09-09): basic parts are always loaded on the machines, so no loading fee; extended parts
+  cost $3 each, charged per **unique** part. So the design rule is: prefer basic parts, and have
+  the BOM tool report the count of unique extended parts, because that number is a cost.
+
+## Tools to reuse, not rebuild
+
+- **jlcparts** (github.com/yaqwsx/jlcparts, MIT): rebuilds a searchable JLCPCB/LCSC catalogue
+  three times a day and publishes JSONL and SQLite at yaqwsx.github.io/jlcparts/data/. It fetches
+  with official API keys; how its publishing squares with LCSC's no-redistribution term is
+  `unknown`, so we **link to it and query it at runtime; we do not vendor its data.**
+- **KiCad:** Bouni/kicad-jlcpcb-tools (MIT) assigns LCSC numbers per footprint;
+  bennymeg/Fabrication-Toolkit (Apache-2.0) reads a symbol field named `LCSC Part #`. We use that
+  field name.
+- **Rust:** no crate wraps the official LCSC API (crates.io search, 2026-09-28). Ours will be
+  `crates/lcsc`.
+
+## Incoming QA
+
+Every received part is tested against genuine references and logged in DuckDB: part, seller,
+order, measurements, pass/fail. The seller-quality data we publish is **our own measurements
+only** — never LCSC-retrieved data.

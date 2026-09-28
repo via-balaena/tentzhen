@@ -1,7 +1,7 @@
 [package]
 name = "tentzhen"
 version = "0.0.1"
-description = "Host tools for Tentzhen, an open low-cost two-channel digitizer and signal generator (placeholder, nothing works yet)"
+description = "Host tools for Tentzhen, a bench of open, verifiable, low-cost electronics instruments (placeholder, nothing works yet)"
 readme = "README.md"
 edition.workspace = true
 license.workspace = true

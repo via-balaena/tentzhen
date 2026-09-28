@@ -1,6 +1,6 @@
 # tentzhen
 
-Host tools for [Tentzhen](https://github.com/via-balaena/tentzhen), an open, low-cost two-channel
-digitizer and signal generator built from generic parts.
+Host tools for [Tentzhen](https://github.com/via-balaena/tentzhen), a bench of open, verifiable,
+low-cost electronics instruments built from generic parts.
 
 This release is a placeholder and contains no functionality yet.

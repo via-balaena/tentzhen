@@ -1,3 +1,3 @@
-//! Host tools for Tentzhen, an open, low-cost two-channel digitizer and signal generator.
+//! Host tools for Tentzhen, a bench of open, verifiable, low-cost electronics instruments.
 //!
 //! This release is a placeholder and contains no functionality yet.
