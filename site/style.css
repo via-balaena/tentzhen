@@ -113,17 +113,6 @@ h1, h2, h3, p { margin: 0; }
 .skyline { max-width: var(--column); margin: 0 auto; overflow: hidden; }
 .skyline svg { display: block; }
 
-/* ---------- help ---------- */
-.help { margin-top: 96px; }
-.help-box { padding: 48px; border: 1px solid #2a2d31; border-radius: 8px; display: flex; flex-direction: column; gap: 32px; }
-.help h2 { font-size: 32px; font-weight: 500; color: var(--cream); }
-.help-box > div > p { margin-top: 10px; font-size: 17px; color: var(--muted); }
-.lines { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
-.lines div { display: flex; flex-direction: column; gap: 8px; }
-.lines h3 { font-size: 18px; font-weight: 500; color: var(--cream); }
-.lines a { font-family: var(--mono); font-size: 24px; text-decoration: none; }
-.lines p { font-size: 15px; line-height: 1.6; color: var(--muted); }
-
 /* ---------- footer ---------- */
 .site-footer {
   margin-top: 96px; border-top: 1px solid var(--line);
