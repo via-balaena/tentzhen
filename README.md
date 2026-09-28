@@ -16,6 +16,7 @@ trusted, or unknown.
 - [Verification](docs/verification.md) — what can be proven today, and the trusted base
 - [Sourcing](docs/sourcing.md) — LCSC, JLCPCB, incoming QA
 - [Instrument #1](docs/scope.md) — the digitizer and generator
+- [Brand](brand/README.md) — the peregrine mark and the 腾振 lockup
 
 ## License
 
