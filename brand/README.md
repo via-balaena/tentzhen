@@ -10,6 +10,7 @@ at 0°, 45° and 90°, with through-hole pads at the free ends.
 | `lockup-light.svg` | falcon + 腾振 on white |
 | `mark-{green,black,light}.svg` | the falcon alone |
 | `favicon.svg`, `favicon-32.png` | the falcon without barring, which turns to noise below ~64 px |
+| `mural-street-night.svg` | the homepage mural: a Chinatown street at night, seen from the sidewalk (desktop, 16:10) |
 
 ## Colours
 
@@ -29,6 +30,23 @@ at 0°, 45° and 90°, with through-hole pads at the free ends.
 - The eye is a via: yellow ring, dark drill.
 - The legs are yellow traces routed at 45°/90°, with a pad at the ankle; the toes end in talon
   pads.
+
+## The mural
+
+First person, standing on a sidewalk at night. Tents line the wall beside you; the nearest is lit,
+with an antenna. Its trace leaves the door, jogs 45°, and joins a path that starts at your feet and
+runs straight down the street, under a gate, to the door of the tallest tower. A puddle at your
+feet reflects the towers.
+
+- **Perspective breaks the 0°/45°/90° rule**, because it has to. Traces on the ground keep it in
+  plan: the tent's trace runs 45° then 0° into a path at 90°.
+- **Camera**, for redrawing it: eye 1.6 m above the sidewalk, 7.6 m left of the road's centre
+  line, focal length 820 px, vanishing point (800, 540) in a 1600 × 1000 viewBox. Road ±5.5 m,
+  walls at −11 m and +10 m, gate 82 m away, towers 560–780 m away.
+- **Signs:** 茶楼 tea house, 饭店 restaurant, 药材 herbal medicine, 电器维修 appliance repair,
+  腾振. They are SVG text, so they render in the viewer's own Chinese font. Only rendered so far
+  with `rsvg-convert` on macOS.
+- **Source:** a throwaway Python script drew it and was not kept. This SVG is the source.
 
 ## Source
 
