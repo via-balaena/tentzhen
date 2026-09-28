@@ -78,5 +78,7 @@ rewritten in Rust.
 - Every experiment gets a record: hardware revision, gateware hash, firmware hash, toolchain
   versions, setup notes, results.
 - KiCad symbols carry an `LCSC Part #` field (the field JLCPCB fabrication plugins read).
-- Signed commits: `main` refuses unsigned pushes. Pin every dependency version.
+- `main` takes changes only through a PR that passes the Quality Gate
+  (`.github/workflows/quality-gate.yml`), with signed commits and linear history; the
+  `main-protection` ruleset enforces it. Pin every dependency version.
 - Docs are written for someone following along on a budget.
