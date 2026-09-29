@@ -6,6 +6,8 @@ use duckdb::{Connection, params};
 use tentzhen_lab::{LIMITS, Limits, Value};
 use tentzhen_records::Catalogue;
 
+pub mod catalogue;
+
 pub const SCHEMA: &str = include_str!("../schema.sql");
 
 /// Creates the schema on an empty database and loads every record in one transaction.
@@ -302,6 +304,59 @@ mod tests {
             some("unknown", "bench_setting_error")
         );
         assert_eq!(grade(&conn, "pico_3v3.max_volts"), (None, None));
+    }
+
+    #[test]
+    fn the_catalogue_is_current() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let committed = fs::read_to_string(root.join(catalogue::PATH)).unwrap_or_default();
+        assert!(
+            committed == catalogue::generate(&root).unwrap(),
+            "{} is stale: run `cargo run -p tentzhen-warehouse -- catalogue`",
+            catalogue::PATH
+        );
+    }
+
+    fn relations() -> Vec<catalogue::Relation> {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA).unwrap();
+        catalogue::relations(&conn, &catalogue::sources(&root).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn every_table_and_view_says_what_it_is() {
+        let rels = relations();
+        assert!(
+            rels.len() > 20,
+            "the catalogue found {} relations",
+            rels.len()
+        );
+        for r in rels {
+            assert!(
+                r.comment.as_deref().is_some_and(|c| !c.is_empty()),
+                "{} has no COMMENT ON in schema.sql",
+                r.name
+            );
+        }
+    }
+
+    /// The site's pages come from gold alone: a page never reaches past the marts.
+    #[test]
+    fn the_site_reads_only_gold() {
+        let rels = relations();
+        let read: Vec<&str> = rels
+            .iter()
+            .filter(|r| r.read_by.iter().any(|c| c == "crates/site"))
+            .map(|r| r.name.as_str())
+            .collect();
+        assert!(
+            !read.is_empty(),
+            "the site reads nothing from the warehouse"
+        );
+        for name in read {
+            assert!(name.starts_with("gold."), "the site reads {name}");
+        }
     }
 
     #[test]
