@@ -26,6 +26,7 @@ NEON_RED, NEON_MAGENTA, NEON_ORANGE = '#ff4a3a', '#ff3fa4', '#ff8a3a'
 LAMPLIGHT = '#ffb35a'                                                # light from inside a tent
 HOMELIGHT = '#f0dfb8'                                                # a lamp in a home window
 GREY_D, GREY_DD, FACADE, SHUTTER = '#3a3e44', '#23262a', '#141517', '#2a2d31'  # street buildings, poles
+METAL, METAL_FAR, ALUMINIUM = '#7a8088', '#555b63', '#8a9098'         # towers, window and shop frames
 LEFT_W, CURB_L, CURB_R, RIGHT_W = -11.0, -5.5, 5.5, 10.0
 
 def P(x, y, z): return (VPX + F * (x - CAM_X) / z, VPY - F * (y - EYE) / z)
@@ -105,7 +106,7 @@ def draw_towers(Q):
     rnd = random.Random(3)
     for x, z, w, h, top in towers:
         near = z < 650
-        col = TEAL_EDGE if near else TEAL_LINE
+        col = METAL if near else METAL_FAR
         x0, x1 = x - w / 2, x + w / 2
         bl, br = Q(x0, 0, z), Q(x1, 0, z)
         if top == 'pyramid':
@@ -157,25 +158,26 @@ def facade(xw, z0, z1, h, lit_shop=False):
         while zz + 1.4 < z1 - 0.6:
             wq = [P(xw, fl, zz), P(xw, fl + 2.0, zz), P(xw, fl + 2.0, zz + 1.4), P(xw, fl, zz + 1.4)]
             # every window is on, lamplight or screen-teal, except behind the headline
-            fill, edge, glow, alpha = [('#403a2c', '#cdbf98', HOMELIGHT, 0.12),
-                                       ('#10333a', '#2f7a80', COOL, 0.1),
-                                       ('#2c2922', '#7a7058', HOMELIGHT, 0.05)][min(2, int(random.random() * 2.6))]
+            # aluminium frames; the light is in the glass
+            fill, glow, alpha = [('#5a5040', HOMELIGHT, 0.12),
+                                 ('#1a4a52', COOL, 0.1),
+                                 ('#36322a', HOMELIGHT, 0.05)][min(2, int(random.random() * 2.6))]
             if behind_headline(wq):
                 poly(wq, fill='#16171a', stroke=GREY_DD, w=sw(zz, 0.04, 0.5, 1.4))
             else:
-                poly(wq, fill=fill, stroke=edge, w=sw(zz, 0.04, 0.5, 1.4))
+                poly(wq, fill=fill, stroke=ALUMINIUM, w=sw(zz, 0.04, 0.5, 1.4))
                 reflect([(xw, fl, zz), (xw, fl + 2.0, zz), (xw, fl + 2.0, zz + 1.4), (xw, fl, zz + 1.4)],
                         glow, alpha, stretch=1.25)
             zz += 3.0
         fl += 3.4
     if lit_shop:
         a, b = z0 + 1.0, z1 - 1.0
-        poly([P(xw, 0.15, a), P(xw, 3.3, a), P(xw, 3.3, b), P(xw, 0.15, b)], fill='#1d3c3e', stroke=COOL, w=sw(z0, 0.07, 0.8, 2.0))
+        poly([P(xw, 0.15, a), P(xw, 3.3, a), P(xw, 3.3, b), P(xw, 0.15, b)], fill='#1d3c3e', stroke=ALUMINIUM, w=sw(z0, 0.07, 0.8, 2.0))
         reflect([(xw, 0.15, a), (xw, 3.3, a), (xw, 3.3, b), (xw, 0.15, b)], COOL, 0.35, stretch=1.6)
         for k in range(1, 4):
             zz = a + (b - a) * k / 4
-            line(P(xw, 0.15, zz), P(xw, 3.3, zz), COOL, sw(zz, 0.03, 0.6, 1.2))
-        line(P(xw, 1.1, a), P(xw, 1.1, b), COOL, sw(z0, 0.03, 0.6, 1.2))
+            line(P(xw, 0.15, zz), P(xw, 3.3, zz), ALUMINIUM, sw(zz, 0.03, 0.6, 1.2))
+        line(P(xw, 1.1, a), P(xw, 1.1, b), ALUMINIUM, sw(z0, 0.03, 0.6, 1.2))
     else:
         for yy in (0.9, 1.5, 2.1, 2.7, 3.3):
             line(P(xw, yy, z0 + 0.8), P(xw, yy, z1 - 0.8), SHUTTER, sw(z0, 0.03, 0.5, 1.2))
