@@ -10,6 +10,9 @@
 # Every value says where it comes from. A value taken from the DPS5005's manual or datasheet, or
 # from OpenDPS's README, is `trusted` (docs/verification.md, "Trusted base") until the part is
 # measured on the bench; then its record id goes here. Sources read 2026-09-28.
+#
+# crates/lab reads this file and refuses it if a key is unknown, a value is not a finite number
+# above zero, or a value breaks a rule stated below; its tests show each refusal.
 
 [pico_3v3]
 # Any Pico or 3.3 V circuit. Source: CLAUDE.md, "Default ceilings: 3.6 V and 200 mA".
@@ -33,9 +36,10 @@ reenable = "agent"
 # "Attention!" note, and datasheet: "Input voltage range 6 - 55 V"). For a 3.6 V output that is
 # max(6.0, 1.1 x 3.6 = 3.96) = 6.0 V.
 volts = 6.5  # 6.0 V plus 0.5 V for the bench supply's setting error, unmeasured
-# This layer does NOT hold the 3.6 V ceiling. The DPS5005 is a buck converter (datasheet:
-# "compact 250 W buck converter"), so from 6.5 V in it can put out at most 6.5 / 1.1 = 5.9 V if
-# the layers above it fail. Only the enforcer and anything added below it hold 3.6 V.
+# This layer does NOT hold the 3.6 V ceiling. Its input must be at least 6.0 V, already above
+# the ceiling, and how high its output can go if the layers above it fail is `unknown`: the
+# 1.1 x rule says what input the DPS5005 needs, not how far it can drive its output. Only the
+# enforcer, and anything added below it, is to hold 3.6 V.
 #
 # Current limit: not set. It depends on the DPS5005's own draw, at no load and at max_amps out,
 # which is unknown until measured on arrival.
@@ -48,8 +52,9 @@ max_setpoint_volts = 3.6
 current_limit_amps = 0.200
 
 [supply.fuse]
-# In the DPS5005's output line. Fast-acting, one standard 5 x 20 mm rating above max_amps.
-# A fuse stops current, not voltage: it does nothing for the 5.9 V case above.
+# In the DPS5005's output line. Fast-acting, the next 5 x 20 mm rating above max_amps, from the
+# ratings crates/lab lists (one maker's IEC 60127-2 quick-acting series).
+# A fuse stops current, not voltage: it is no guard against the over-voltage case above.
 size = "5x20 mm"
 rating_amps = 0.250
 speed = "fast"
