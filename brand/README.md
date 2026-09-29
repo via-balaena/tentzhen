@@ -11,6 +11,7 @@ at 0°, 45° and 90°, with through-hole pads at the free ends.
 | `mark-{green,black,light}.svg` | the falcon alone |
 | `favicon.svg`, `favicon-32.png` | the falcon without barring, which turns to noise below ~64 px |
 | `mural-street-night.svg` | the homepage mural: a Chinatown street at night, seen from the sidewalk (desktop, 16:10) |
+| `skyline-daybreak.svg` | the foot of the homepage: the same skyline at first light, where the rail reaches the tallest tower's door |
 
 ## Colours
 
@@ -33,23 +34,65 @@ at 0°, 45° and 90°, with through-hole pads at the free ends.
 
 ## The mural
 
-First person, standing on a sidewalk at night, every window on except those behind the site's
-headline, which stay dark for contrast. Everyone on the street is on one network. The ridge tents
-along the wall are on copper: each door's trace jogs 45° and joins a path that starts at your feet
-and runs down the street, under a gate, to the door of the tallest tower. The buildings talk by
-radio: an antenna on every roof, faint gold links along the street, across it and up through the
-towers. Red paper lanterns hang across the street on wires, lit from inside, the ones behind the
-headline unlit. The street is wet: every light, window, lantern and tent door reflects as a streak,
-stretched toward you, blurred more up and down than across and broken by ripples. A puddle at your
-feet mirrors the towers.
+First person, standing on a Chinatown sidewalk at night, looking down the street to a skyline.
+
+- **The street.** Brick commercial buildings, each laid in its own brick as if from neighbouring
+  quarries (red, brown, buff, clinker, orange, grey), in running bond with paler mortar, falling
+  dark above the lanterns. Every window is lit. A shop fills each 5 m bay (one building has a single
+  wide glass front): a glass door and display window under a lettered sign band. Along the tents the
+  shops are shut, dark glass with a roller shutter every third bay; everywhere else they are open,
+  lit in lamplight, cool white or cream. Red paper lanterns hang across the street on wires, red
+  sign boards with pale-gold characters hang from the walls as on Yaowarat Road, a red lacquer gate
+  spans the street, and a blue parking sign stands at the kerb.
+- **The tents.** Dome tents along the wall as they stand on Portland sidewalks (two-tone rainflies,
+  some under blue tarps), each lit from inside so its nylon glows in its own colour; the
+  streetlights catch their upper right and each sits in a contact shadow. The nearest, its door
+  rolled wide open, is kept as a home: a rug, a made bed, books, a crate desk with a laptop and a
+  lantern, fairy lights along the back wall.
+- **The network.** Everyone on the street is on it. The tents are on copper, soldered in: each trace
+  runs out from under the door, jogs 45° and tees into a path that runs from your feet, under the
+  gate, to the door of the tallest tower. The copper is inlaid flush in the concrete in thin dark
+  joints and lit by what it mirrors: dim at your feet, bright far off, with a glint of the lantern
+  above it on every wire. The buildings talk by radio: an antenna on every roof along the street, a
+  pad on each tower in front, faint links along the street, across it and up through the towers.
+- **Light.** One set of lights shades everything but the network in the sky: the LED streetlights
+  across the road, the lanterns and signs, each tent's lamp, the windows and shops. Surfaces are
+  solid and dimmed toward grey as night dims colour, the sky glows toward the horizon, and nearer
+  things cover farther ones. The road is wet asphalt: lights, windows, lanterns and signs reflect in
+  it as streaks, stretched toward you, blurred more up and down than across and broken by ripples.
+  The sidewalks are opaque grey concrete, cut into slabs, and reflect nothing.
+- **The skyline.** Like Shenzhen's or Chongqing's: glass towers in layers, paler in the haze, each a
+  solid with the side it turns toward you, offices lit in runs along its floors and cut into panes
+  by fins, LED on a few crowns. The tallest, where your path ends, tapers to a stepped crown and
+  spire; there is a ribbed tower with a rounded top, one with a cupped crown, and twin towers joined
+  two thirds of the way up by a skybridge.
+- **Behind the headline** windows and lanterns stay dark and the mortar quiet, so the words keep
+  their contrast.
+- **Colour.** Copper belongs to the network alone. Everything else takes its colour from a Chinatown
+  street at night; the poles, shutters and building trim stay grey, and nothing inside a window or
+  shop is red.
 
 - **Perspective breaks the 0°/45°/90° rule**, because it has to. Traces on the ground keep it in
-  plan: the tent's trace runs 45° then 0° into a path at 90°.
-- **Signs** are SVG text, so they render in the viewer's own Chinese font. Only rendered so far
-  with `rsvg-convert` on macOS.
+  plan: each tent's trace leaves its door at 90°, jogs 45° and runs at 0° into a path at 90°.
+- **Signs and shop names** are SVG text, so they render in the viewer's own Chinese font. Checked
+  with `rsvg-convert` and in a desktop browser on macOS; other platforms are unchecked.
 - **Source:** `brand/mural.py` draws it — camera, street, towers and signs are all in there.
-  Change the script, then run `python3 brand/mural.py` to rewrite the SVG. The Quality Gate runs
-  it and fails if the committed SVG differs.
+  Change the script, then run `python3 brand/mural.py` to rewrite the SVGs. The Quality Gate runs
+  it and fails if a committed SVG differs.
+
+## The daybreak skyline
+
+The foot of the homepage, where the copper rail that runs down the page reaches the tallest tower's
+door: the mural's towers, drawn by the same code from a new camera, far off and level with their
+feet, as the sky pales from night to first light behind them. The sun is still below the horizon
+behind the tallest tower. Every tower is on the network, the far layer too: a pad on each roof,
+links along each layer, and from each tower in front back to the nearest far roof it can see,
+passing behind nearer towers. Its base is a lobby built as towers are: a 16 m curtain wall of tall
+glass on a 3.2 m module under a metal spandrel, lit from inside, and at its centre a revolving door
+and two pairs of swing doors under a canopy with downlights; a pool of that light lies on the plaza.
+The page draws the rail across the plaza in front of the scene, turning up into the revolving door
+at (1180, 520), soldered in with no via and stopping at the threshold, below the doors. The scene
+has no background of its own and fades out at its sides, so it sits on the page at any width.
 
 ## Source
 
