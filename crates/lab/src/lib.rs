@@ -268,6 +268,8 @@ impl FuseSpeed {
 }
 
 impl Rule {
+    pub const ALL: [Rule; 2] = [Rule::DpsInput, Rule::NextFuseRating];
+
     pub fn as_str(self) -> &'static str {
         match self {
             Rule::DpsInput => "dps-input",
@@ -477,6 +479,19 @@ impl Limits {
                 s.dps.current_limit_amps, s.max_amps
             ));
         }
+        let f = &self.fact.dps_input;
+        if f.ratio.get() <= 1.0 {
+            return Err(format!(
+                "[fact.dps_input] ratio is {}, not above 1",
+                f.ratio
+            ));
+        }
+        if f.min_volts >= f.max_volts {
+            return Err(format!(
+                "[fact.dps_input] min_volts {} is not below max_volts {}",
+                f.min_volts, f.max_volts
+            ));
+        }
         // Rule::DpsInput
         let (f, err) = (
             &self.fact.dps_input,
@@ -576,6 +591,20 @@ impl Limits {
                 }
             }
         }
+        // check_values holds every rule's value to it, so its basis must say so, or its grade
+        // would leave out the facts the rule reads.
+        for r in Rule::ALL {
+            if !entries
+                .iter()
+                .any(|e| e.path == r.target() && e.basis.rule == Some(r))
+            {
+                return Err(format!(
+                    "{}: is held to rule {}, so its basis must name it",
+                    r.target(),
+                    r.as_str()
+                ));
+            }
+        }
         // No value may come from itself through any chain of same_as and rule inputs.
         let inputs: BTreeMap<&str, Vec<&str>> = entries
             .iter()
@@ -655,24 +684,75 @@ mod tests {
         assert_eq!(in_file, entries);
     }
 
-    #[test]
-    fn every_trusted_fact_names_an_entry_in_the_trusted_base() {
+    /// The entries of docs/verification.md's trusted base, each bullet joined onto one line.
+    fn trusted_base() -> Vec<String> {
         let doc = fs::read_to_string(root().join("docs/verification.md")).unwrap();
         let base = doc
             .split("\n## Trusted base\n")
             .nth(1)
             .expect("docs/verification.md has a Trusted base section");
         let base = base.split("\n## ").next().unwrap_or(base);
+        let mut entries: Vec<String> = Vec::new();
+        for line in base.lines() {
+            if let Some(entry) = line.strip_prefix("- ") {
+                entries.push(entry.into());
+            } else if let (Some(last), Some(more)) = (entries.last_mut(), line.strip_prefix("  ")) {
+                last.push(' ');
+                last.push_str(more);
+            }
+        }
+        entries
+    }
+
+    fn trusted_entry(t: &str) -> Option<String> {
+        trusted_base().into_iter().find(|e| e.starts_with(t))
+    }
+
+    #[test]
+    fn every_trusted_fact_names_an_entry_in_the_trusted_base() {
         let l = Limits::parse(&repo()).unwrap();
         for f in l.facts() {
             if let Some(t) = f.trusted {
                 assert!(
-                    base.lines().any(|line| line.starts_with(&format!("- {t}"))),
+                    trusted_entry(t).is_some(),
                     "fact {} is trusted as {t:?}, which begins no entry in the trusted base",
                     f.id.as_str()
                 );
             }
         }
+    }
+
+    /// The trusted base states the DPS5005's numbers in words; the file must carry the same ones.
+    #[test]
+    fn the_dps_input_numbers_are_the_trusted_base_s() {
+        let f = Limits::parse(&repo()).unwrap().fact.dps_input;
+        let entry = trusted_entry(f.trusted.as_deref().unwrap()).unwrap();
+        for said in [
+            format!("{}–{} V", f.min_volts.get(), f.max_volts.get()),
+            format!("{} ×", f.ratio.get()),
+        ] {
+            assert!(
+                entry.contains(&said),
+                "the trusted base does not say {said:?}"
+            );
+        }
+    }
+
+    /// `facts` lists the facts by hand; this holds it to the file's [fact.*] tables.
+    #[test]
+    fn every_fact_in_the_file_is_listed() {
+        let table: toml::Table = repo().parse().unwrap();
+        let mut in_file: Vec<&str> = table["fact"]
+            .as_table()
+            .unwrap()
+            .keys()
+            .map(|k| k.as_str())
+            .collect();
+        let l = Limits::parse(&repo()).unwrap();
+        let mut listed: Vec<&str> = l.facts().iter().map(|f| f.id.as_str()).collect();
+        in_file.sort();
+        listed.sort();
+        assert_eq!(in_file, listed);
     }
 
     // What the file's comments say about its own values.
@@ -893,6 +973,33 @@ mod tests {
                 "rests_on = [\"dps_input\", \"bench_setting_error\", \"dps_input\"]",
             ),
             "rests on dps_input twice",
+        );
+    }
+
+    #[test]
+    fn a_rule_s_value_names_it() {
+        refused(
+            &with(
+                "basis.volts = { rule = \"dps-input\", rests_on = [\"dps_input\", \"bench_setting_error\"] }",
+                "basis.volts = { policy = \"someone\" }",
+            ),
+            "is held to rule dps-input, so its basis must name it",
+        );
+        refused(
+            &with(
+                "basis.rating_amps = { rule = \"next-fuse-rating\" }",
+                "basis.rating_amps = { policy = \"someone\" }",
+            ),
+            "is held to rule next-fuse-rating",
+        );
+    }
+
+    #[test]
+    fn the_dps_input_fact_is_self_consistent() {
+        refused(&with("ratio = 1.1", "ratio = 0.11"), "not above 1");
+        refused(
+            &with("max_volts = 55.0", "max_volts = 5.0"),
+            "is not below max_volts",
         );
     }
 
