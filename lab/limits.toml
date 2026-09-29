@@ -1,11 +1,13 @@
 # What the hardware below any agent will allow.
 #
-# The Pico enforcer compiles these values in; nothing at run time can raise them. Raising a limit
-# is a change to this file, and a person approves it (CLAUDE.md, "Safety and permission rules").
-# Nothing drives a supply or a load until the values it needs are set.
+# The Pico enforcer is to compile these values in, so nothing at run time can raise them. It is
+# not built yet, so none of these limits is enforced by anything: `unknown`. Raising a limit is a
+# change to this file, and a person approves it (CLAUDE.md, "Safety and permission rules").
+# Nothing drives a supply or a load until the values it needs are set; the load has none yet.
 #
-# Every value says where it comes from. A value taken from a datasheet is `trusted` until the part
-# is measured on the bench; then its record id goes here.
+# Every value says where it comes from. A value taken from the DPS5005's manual or datasheet, or
+# from OpenDPS's README, is `trusted` (docs/verification.md, "Trusted base") until the part is
+# measured on the bench; then its record id goes here. Sources read 2026-09-28.
 
 [pico_3v3]
 # Any Pico or 3.3 V circuit. Source: CLAUDE.md, "Default ceilings: 3.6 V and 200 mA".
@@ -18,7 +20,9 @@ max_amps = 0.200
 max_volts = 3.6
 max_amps = 0.200
 # After a trip, who may turn the output back on: "person" (a physical button on the enforcer) or
-# "agent" (after the trip is logged). Jon decided "agent" on 2026-09-28.
+# "agent" (after the trip is logged). Jon decided "agent" on 2026-09-28. The append-only lab log
+# does not exist yet (docs/roadmap.md, Phase 0), so until it does no trip can be logged and the
+# agent cannot re-enable the output.
 reenable = "agent"
 
 [supply.upstream]
