@@ -24,6 +24,7 @@ TEAL_LINE, TEAL_EDGE = '#24424a', '#3f7a80'                          # outlines,
 COOL = '#9fe0d8'                                                     # street and shop light
 NEON_RED, NEON_MAGENTA, NEON_ORANGE = '#ff4a3a', '#ff3fa4', '#ff8a3a'
 LAMPLIGHT = '#ffb35a'                                                # light from inside a tent
+HOMELIGHT = '#f0dfb8'                                                # a lamp in a home window
 GREY_D, GREY_DD, FACADE, SHUTTER = '#3a3e44', '#23262a', '#141517', '#2a2d31'  # street buildings, poles
 LEFT_W, CURB_L, CURB_R, RIGHT_W = -11.0, -5.5, 5.5, 10.0
 
@@ -125,7 +126,7 @@ def draw_towers(Q):
             yy = 7.0
             while yy < top_y - 3:
                 bright = rnd.random() < 0.25
-                circle(Q(xx, yy, z), 1.3, NEON_ORANGE if bright else '#5aa8a2')
+                circle(Q(xx, yy, z), 1.3, HOMELIGHT if bright else '#5aa8a2')
                 yy += 8.0
     # Every rooftop linked to its neighbours by an arc through the sky.
     by_x = sorted(towers, key=lambda t: t[0])
@@ -155,10 +156,10 @@ def facade(xw, z0, z1, h, lit_shop=False):
         zz = z0 + 1.2
         while zz + 1.4 < z1 - 0.6:
             wq = [P(xw, fl, zz), P(xw, fl + 2.0, zz), P(xw, fl + 2.0, zz + 1.4), P(xw, fl, zz + 1.4)]
-            # every window is on, warm or teal, except behind the headline
-            fill, edge, glow, alpha = [('#3a1f10', '#8a4a2a', NEON_ORANGE, 0.14),
+            # every window is on, lamplight or screen-teal, except behind the headline
+            fill, edge, glow, alpha = [('#403a2c', '#cdbf98', HOMELIGHT, 0.12),
                                        ('#10333a', '#2f7a80', COOL, 0.1),
-                                       ('#2a160c', '#5a3420', NEON_ORANGE, 0.06)][min(2, int(random.random() * 2.6))]
+                                       ('#2c2922', '#7a7058', HOMELIGHT, 0.05)][min(2, int(random.random() * 2.6))]
             if behind_headline(wq):
                 poly(wq, fill='#16171a', stroke=GREY_DD, w=sw(zz, 0.04, 0.5, 1.4))
             else:
