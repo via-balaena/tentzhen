@@ -18,9 +18,8 @@ max_amps = 0.200
 max_volts = 3.6
 max_amps = 0.200
 # After a trip, who may turn the output back on: "person" (a physical button on the enforcer) or
-# "agent" (after the trip is logged). A person's decision, not derivable; nothing drives the
-# supply while it reads "unset".
-reenable = "unset"
+# "agent" (after the trip is logged). Jon decided "agent" on 2026-09-28.
+reenable = "agent"
 
 [supply.upstream]
 # The bench supply feeding the DPS5005's input.
