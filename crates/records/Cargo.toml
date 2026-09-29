@@ -1,0 +1,12 @@
+[package]
+name = "tentzhen-records"
+version = "0.0.0"
+description = "Parts and versioned build records for the Tentzhen catalogue, and the checks they must pass"
+publish = false
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+toml = "=1.1.6"

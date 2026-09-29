@@ -1,0 +1,12 @@
+[package]
+name = "tentzhen-warehouse"
+version = "0.0.0"
+description = "Loads the Tentzhen catalogue's records into a DuckDB warehouse: bronze, silver, gold"
+publish = false
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+tentzhen-records = { path = "../records" }
+duckdb = { version = "=1.10505.0", features = ["bundled"] }
