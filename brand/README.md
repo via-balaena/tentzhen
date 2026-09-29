@@ -34,7 +34,10 @@ at 0°, 45° and 90°, with through-hole pads at the free ends.
 ## The mural
 
 First person, standing on a sidewalk at night, every window on except those behind the site's
-headline, which stay dark for contrast. Everyone on the street is on one network. The dome tents
+headline, which stay dark for contrast. The street's commercial buildings are brick, each laid in
+its own as if from neighbouring quarries (red, brown, buff, clinker, orange, grey), in running bond
+with paler mortar, falling dark above the lanterns, with roller shutters down over the closed shops;
+behind the headline the mortar stays quiet. Everyone on the street is on one network. The dome tents
 along the wall, as they stand on Portland sidewalks (two-tone rainflies, some under blue tarps, each
 lit from inside), are on copper: each door's trace jogs 45° and joins a path that starts at your
 feet and runs down the street, under a gate, to the door of the tallest tower. That copper is inlaid
@@ -50,7 +53,7 @@ Surfaces are solid and dimmed toward grey as night dims colour, the sky glows to
 behind solid towers, and nearer things cover farther ones. Its colours come from a Chinatown street
 at night: red lanterns, red sign boards with pale-gold characters as on Yaowarat Road, a red lacquer
 gate, magenta neon on the repair shop, teal in the window glass, cool white shop light and modern
-LED streetlights; the street's buildings and poles stay grey. Copper and yellow belong to the
+LED streetlights; the poles, shutters and building trim stay grey. Copper and yellow belong to the
 network alone: inlaid in the ground, and drawn flat over the sky as antennas, rooftop pads and
 radio.
 

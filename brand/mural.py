@@ -25,7 +25,7 @@ COOL = '#9fe0d8'                                                     # street an
 NEON_RED, NEON_MAGENTA, NEON_ORANGE = '#ff4a3a', '#ff3fa4', '#ff8a3a'
 LAMPLIGHT = '#ffb35a'                                                # light from inside a tent
 HOMELIGHT = '#f0dfb8'                                                # a lamp in a home window
-GREY_D, GREY_DD, FACADE, SHUTTER = '#3a3e44', '#23262a', '#141517', '#2a2d31'  # street buildings, poles
+GREY_D, GREY_DD, SHUTTER = '#3a3e44', '#23262a', '#2a2d31'  # building trim, shutters, poles
 METAL, METAL_FAR, ALUMINIUM = '#7a8088', '#555b63', '#8a9098'         # towers, window and shop frames
 # One night, one set of lights, for everything but the network: LED streetlights along the far kerb
 # (cool, from above and across the street), the lanterns and signs overhead (warm red), each tent's
@@ -41,7 +41,8 @@ def pts(ps): return ' '.join(f'{x:.1f},{y:.1f}' for x, y in ps)
 
 defs, out = [], []
 def poly(ps, fill='none', stroke='none', w=1.0, extra=''):
-    out.append(f'<polygon points="{pts(ps)}" fill="{fill}" stroke="{stroke}" stroke-width="{w:.2f}" stroke-linejoin="round" {extra}/>')
+    edge = f' stroke="{stroke}" stroke-width="{w:.2f}" stroke-linejoin="round"' if stroke != 'none' else ''
+    out.append(f'<polygon points="{pts(ps)}" fill="{fill}"{edge} {extra}/>')
 def line(a, b, stroke, w, extra=''):
     out.append(f'<line x1="{a[0]:.1f}" y1="{a[1]:.1f}" x2="{b[0]:.1f}" y2="{b[1]:.1f}" stroke="{stroke}" stroke-width="{w:.2f}" stroke-linecap="round" {extra}/>')
 def pline(ps, stroke, w, extra=''):
@@ -155,12 +156,58 @@ draw_towers()
 # The site sets its headline over the top left. At the narrowest desktop width (1280 px) it covers
 # about this box of the mural; windows touching it stay dark so the words keep their contrast.
 HEADLINE = (60, 20, 780, 480)
+defs.append('<filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="30"/></filter>')
+defs.append(f'<mask id="quiet" maskUnits="userSpaceOnUse" x="0" y="0" width="{W}" height="{H}">'
+            f'<rect width="{W}" height="{H}" fill="white"/>'
+            f'<rect x="{HEADLINE[0]}" y="{HEADLINE[1]}" width="{HEADLINE[2] - HEADLINE[0]}" '
+            f'height="{HEADLINE[3] - HEADLINE[1]}" fill="black" opacity="0.7" filter="url(#soft)"/></mask>')
 def behind_headline(quad):
     xs, ys = [p[0] for p in quad], [p[1] for p in quad]
     return max(xs) > HEADLINE[0] and min(xs) < HEADLINE[2] and max(ys) > HEADLINE[1] and min(ys) < HEADLINE[3]
-def facade(xw, z0, z1, h, lit_shop=False):
+# The street's commercial buildings are brick, each laid in its own, as if from neighbouring
+# quarries: red, brown, buff, clinker, orange and grey, dimmed for night, with paler mortar.
+# (brick, mortar)
+BRICKS = {'red': ('#2c1512', '#3e2a25'), 'brown': ('#271b15', '#3a2e26'), 'buff': ('#2e2820', '#433d31'),
+          'clinker': ('#211518', '#342729'), 'orange': ('#331c14', '#472f25'), 'grey': ('#22201e', '#35322e')}
+BRICK, COURSE, JOINT_W = 0.225, 0.075, 0.01  # a brick and a course with their mortar; a joint, m
+def brickwork(xw, z0, z1, h, mortar):
+    # Running bond. Bed joints are thin wedges toward the vanishing point. Along any vertical line on
+    # the wall the courses are evenly spaced, so each head-joint position is one dashed line, the
+    # dashes on every other course. Joints finer than the eye can pick out are left to the colour.
+    dx = abs(xw - CAM_X)
+    z_bed = min(z1, F * COURSE / 1.5)  # courses closer than 1.5 px merge
+    if z_bed > z0:
+        d = []
+        for c in range(1, int(h / COURSE)):
+            y = c * COURSE
+            q = [P(xw, y, z0), P(xw, y, z_bed), P(xw, y + JOINT_W, z_bed), P(xw, y + JOINT_W, z0)]
+            d.append('M' + 'L'.join(f'{x:.1f} {yy:.1f}' for x, yy in q) + 'Z')
+        out.append(f'<path d="{"".join(d)}" fill="{mortar}" mask="url(#quiet)"/>')
+    k = 0
+    while True:
+        z = z0 + k * BRICK / 2
+        if z >= z1 or F * dx * BRICK / z ** 2 < 3:  # head joints closer than 3 px merge
+            break
+        a, b = P(xw, 0, z), P(xw, h, z)
+        course = F * COURSE / z
+        out.append(f'<line x1="{a[0]:.1f}" y1="{a[1]:.1f}" x2="{b[0]:.1f}" y2="{b[1]:.1f}" stroke="{mortar}" mask="url(#quiet)" '
+                   f'stroke-width="{max(0.3, F * dx * JOINT_W / z ** 2):.2f}" stroke-dasharray="{course:.2f}" '
+                   f'stroke-dashoffset="{course if k % 2 else 0:.2f}"/>')
+        k += 1
+def wall_light(xw, z0, z1, h):
+    # the lanterns and streetlights light a wall up to about 8.5 m; above that it falls dark
+    y = 8.5
+    while y < h:
+        k = min(1.0, (y + 0.25 - 8.5) / 7)
+        poly([P(xw, y, z0), P(xw, min(h, y + 0.5), z0), P(xw, min(h, y + 0.5), z1), P(xw, y, z1)],
+             fill='#000000', extra=f'opacity="{0.55 * k:.2f}"')
+        y += 0.5
+def facade(xw, z0, z1, h, brick, lit_shop=False):
     q = [P(xw, 0, z0), P(xw, h, z0), P(xw, h, z1), P(xw, 0, z1)]
-    poly(q, fill=FACADE, stroke=GREY_D, w=sw(z0, 0.07, 0.8, 2.2))
+    poly(q, fill=BRICKS[brick][0])
+    brickwork(xw, z0, z1, h, BRICKS[brick][1])
+    wall_light(xw, z0, z1, h)
+    poly(q, stroke=GREY_D, w=sw(z0, 0.07, 0.8, 2.2))
     line(P(xw, h - 0.8, z0), P(xw, h - 0.8, z1), GREY_D, sw(z0, 0.05, 0.6, 1.6))
     line(P(xw, 3.8, z0), P(xw, 3.8, z1), GREY_D, sw(z0, 0.05, 0.6, 1.6))
     fl = 4.6
@@ -189,14 +236,26 @@ def facade(xw, z0, z1, h, lit_shop=False):
             zz = a + (b - a) * k / 4
             line(P(xw, 0.15, zz), P(xw, 3.3, zz), ALUMINIUM, sw(zz, 0.03, 0.6, 1.2))
         line(P(xw, 1.1, a), P(xw, 1.1, b), ALUMINIUM, sw(z0, 0.03, 0.6, 1.2))
-    else:
-        for yy in (0.9, 1.5, 2.1, 2.7, 3.3):
-            line(P(xw, yy, z0 + 0.8), P(xw, yy, z1 - 0.8), SHUTTER, sw(z0, 0.03, 0.5, 1.2))
+    else:  # shops shut for the night: a corrugated roller shutter in each bay, brick piers between
+        n = max(1, round((z1 - z0) / 5.0))
+        for i in range(n):
+            a, b = z0 + (z1 - z0) * i / n + 0.8, z0 + (z1 - z0) * (i + 1) / n - 0.8
+            poly([P(xw, 0.0, a), P(xw, 3.1, a), P(xw, 3.1, b), P(xw, 0.0, b)], fill='#1a1c1f', stroke=GREY_D,
+                 w=sw(a, 0.04, 0.5, 1.4))
+            d, yy = [], 0.2
+            while yy < 3.1 and F * 0.2 / a >= 1.5:  # slats closer than 1.5 px merge
+                u, v = P(xw, yy, a), P(xw, yy, b)
+                d.append(f'M{u[0]:.1f} {u[1]:.1f}L{v[0]:.1f} {v[1]:.1f}')
+                yy += 0.2
+            out.append(f'<path d="{"".join(d)}" stroke="{SHUTTER}" stroke-width="{sw(a, 0.02, 0.4, 1.0):.2f}" fill="none"/>')
+            poly([P(xw, 3.1, a), P(xw, 3.35, a), P(xw, 3.35, b), P(xw, 3.1, b)], fill=GREY_DD)  # the shutter box
 
 right = [(140, 240, 16), (100, 140, 13), (74, 100, 15), (52, 74, 12), (32, 52, 17), (12, 32, 14)]
 left = [(135, 240, 14), (95, 135, 15), (66, 95, 12), (44, 66, 18), (24, 44, 13), (1.5, 24, 16)]
-for z0, z1, h in right: facade(RIGHT_W, z0, z1, h, lit_shop=(z0 == 32))
-for z0, z1, h in left: facade(LEFT_W, z0, z1, h)
+right_brick = ['brown', 'clinker', 'buff', 'red', 'grey', 'orange']  # far to near, no two neighbours alike
+left_brick = ['grey', 'brown', 'orange', 'clinker', 'buff', 'red']
+for (z0, z1, h), brick in zip(right, right_brick): facade(RIGHT_W, z0, z1, h, brick, lit_shop=(z0 == 32))
+for (z0, z1, h), brick in zip(left, left_brick): facade(LEFT_W, z0, z1, h, brick)
 
 # Every building is on the network by radio: an antenna on its roof, linked to its neighbours
 # along the street, across it, and up to the towers.
