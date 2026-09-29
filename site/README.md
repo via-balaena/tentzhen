@@ -1,10 +1,15 @@
 # tentzhen.com
 
-Plain HTML and CSS, no build step. To look at it:
+Plain HTML and CSS, no build step. To look at it, serve it on this machine only:
 
 ```fish
-open site/index.html
+python3 -m http.server 8000 --bind 127.0.0.1 -d site
+open http://127.0.0.1:8000/
 ```
+
+Opening the files directly (`open site/index.html`) left the build pages unstyled in Safari:
+they load `style.css` from three folders up, and over `file://` it did not load. Over http it
+does. Keep `--bind 127.0.0.1`; without it the server listens on every network interface.
 
 - **Desktop first.** The rail down the left and the skyline at the bottom are laid out for a
   column of about 1440 px. Narrow screens are not designed yet.
