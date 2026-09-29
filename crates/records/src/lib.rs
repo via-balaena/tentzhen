@@ -187,6 +187,8 @@ fn check_claims(at: &str, claims: &[Claim]) -> Result<(), String> {
         for (key, v) in &c.values {
             let unit = key.rsplit('_').next().unwrap_or_default();
             let named = key.contains('_')
+                && key.starts_with(|ch: char| ch.is_ascii_lowercase())
+                && key.split('_').all(|word| !word.is_empty())
                 && key
                     .chars()
                     .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_');
@@ -557,6 +559,14 @@ mod tests {
             &claim("id = \"a\"\nsays = \"x\"\nvalues = { min_volts = inf }"),
             "is inf",
         );
+        for key in ["_volts", "min__volts", "1_volts", "Min_volts"] {
+            refused(
+                &claim(&format!(
+                    "id = \"a\"\nsays = \"x\"\nvalues = {{ {key} = 1 }}"
+                )),
+                "must end in its unit",
+            );
+        }
         let part = format!("{PART}{}", claim("id = \"A\"\nsays = \"x\""));
         let err = Catalogue::from_sources(&[src("parts/rp2350.toml", &part)], &[])
             .err()

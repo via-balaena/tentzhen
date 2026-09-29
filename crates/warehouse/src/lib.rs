@@ -608,6 +608,7 @@ mod tests {
                 "'k4', 'RP9999', NULL, NULL",
                 "a part claim's part has a record",
             ),
+            ("'k6', NULL, 'probe', 9", "a build claim's version exists"),
         ] {
             let sql = format!("INSERT INTO silver.claim VALUES ({values}, 1, 'a', 'x')");
             refused(conn.execute(&sql, []).map(|_| ()), why);
