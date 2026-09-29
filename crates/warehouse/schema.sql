@@ -128,28 +128,40 @@ CREATE TABLE silver.step (
 COMMENT ON TABLE silver.step IS 'A build version''s steps, in order.';
 COMMENT ON COLUMN silver.step.instruction IS 'The record''s `do`.';
 
+-- DuckDB skips a foreign key when any of its columns is NULL, so the checks below also require
+-- build and version together.
 CREATE TABLE silver.claim (
-    build    TEXT NOT NULL,
-    version  INTEGER NOT NULL,
+    claim    TEXT PRIMARY KEY,
+    part     TEXT REFERENCES silver.part (part),
+    build    TEXT,
+    version  INTEGER,
     claim_no INTEGER NOT NULL,
+    id       TEXT NOT NULL,
     says     TEXT NOT NULL,
-    PRIMARY KEY (build, version, claim_no),
-    FOREIGN KEY (build, version) REFERENCES silver.build_version (build, version)
+    FOREIGN KEY (build, version) REFERENCES silver.build_version (build, version),
+    CHECK ((part IS NULL) <> (build IS NULL)),
+    CHECK ((build IS NULL) = (version IS NULL))
 );
-COMMENT ON TABLE silver.claim IS 'What a build version claims. Its grades come from its referents.';
+COMMENT ON TABLE silver.claim IS 'What a part or a build version claims. Its grades come from its referents, never typed.';
+COMMENT ON COLUMN silver.claim.claim IS 'How it is cited: <part>#<id>, or <build>/v<n>#<id>.';
+COMMENT ON COLUMN silver.claim.claim_no IS 'Its place in its record, from 1.';
 
 CREATE TABLE silver.referent (
-    build    TEXT NOT NULL,
-    version  INTEGER NOT NULL,
-    claim_no INTEGER NOT NULL,
-    kind     TEXT NOT NULL CHECK (kind IN ('sim', 'irl')),
-    grade    TEXT NOT NULL CHECK (grade IN ('tested', 'checked', 'proven', 'measured')),
+    claim    TEXT NOT NULL REFERENCES silver.claim (claim),
+    kind     TEXT NOT NULL CHECK (kind IN ('proof', 'check', 'test', 'record', 'trusted')),
     evidence TEXT NOT NULL,
-    PRIMARY KEY (build, version, claim_no, kind),
-    FOREIGN KEY (build, version, claim_no) REFERENCES silver.claim (build, version, claim_no),
-    CHECK ((kind = 'irl') = (grade = 'measured'))
+    PRIMARY KEY (claim, kind)
 );
-COMMENT ON TABLE silver.referent IS 'What shows a claim. A simulation grades tested, checked or proven; the bench grades measured.';
+COMMENT ON TABLE silver.referent IS 'What shows a claim: a proof, a bounded check or a test in simulation; a bench measurement record; or an entry in the trusted base.';
+
+CREATE TABLE silver.claim_value (
+    claim  TEXT NOT NULL REFERENCES silver.claim (claim),
+    name   TEXT NOT NULL,
+    amount DOUBLE NOT NULL,
+    PRIMARY KEY (claim, name)
+);
+COMMENT ON TABLE silver.claim_value IS 'The numbers a claim states.';
+COMMENT ON COLUMN silver.claim_value.name IS 'Ends in its unit: min_volts, input_ratio.';
 
 -- ---------------------------------------------------------------- silver: the lab's limits
 -- From lab/limits.toml, which crates/lab has checked.
@@ -205,25 +217,39 @@ SELECT build, max(version) AS version FROM silver.build_version GROUP BY build;
 COMMENT ON VIEW gold.latest IS 'The newest version of each build.';
 
 CREATE VIEW gold.claim_grades AS
-SELECT c.build, c.version, c.claim_no, c.says,
-       coalesce(s.grade, 'unknown') AS sim_grade, s.evidence AS sim_evidence,
-       coalesce(i.grade, 'unknown') AS irl_grade, i.evidence AS irl_evidence
+WITH r AS (
+    SELECT claim,
+           max(evidence) FILTER (WHERE kind = 'proof')   AS proof,
+           max(evidence) FILTER (WHERE kind = 'check')   AS "check",
+           max(evidence) FILTER (WHERE kind = 'test')    AS test,
+           max(evidence) FILTER (WHERE kind = 'record')  AS record,
+           max(evidence) FILTER (WHERE kind = 'trusted') AS trusted
+    FROM silver.referent GROUP BY claim
+)
+SELECT c.claim, c.part, c.build, c.version, c.claim_no, c.id, c.says,
+       CASE WHEN r.proof IS NOT NULL THEN 'proven'
+            WHEN r."check" IS NOT NULL THEN 'checked'
+            WHEN r.test IS NOT NULL THEN 'tested'
+            ELSE 'unknown' END                   AS sim_grade,
+       coalesce(r.proof, r."check", r.test)     AS sim_evidence,
+       CASE WHEN r.record IS NOT NULL THEN 'measured'
+            WHEN r.trusted IS NOT NULL THEN 'trusted'
+            ELSE 'unknown' END                   AS bench_grade,
+       coalesce(r.record, r.trusted)            AS bench_evidence
 FROM silver.claim c
-LEFT JOIN silver.referent s
-       ON s.build = c.build AND s.version = c.version AND s.claim_no = c.claim_no AND s.kind = 'sim'
-LEFT JOIN silver.referent i
-       ON i.build = c.build AND i.version = c.version AND i.claim_no = c.claim_no AND i.kind = 'irl';
-COMMENT ON VIEW gold.claim_grades IS 'Every claim with both grades, derived from its referents. No referent reads ''unknown''.';
+LEFT JOIN r USING (claim);
+COMMENT ON VIEW gold.claim_grades IS 'Every claim on a part or a build version, with its grade on each axis: in simulation (proven, checked, tested) and on the bench (measured, trusted), each the strongest its referents give. No referent reads ''unknown''.';
 
 CREATE VIEW gold.grade_coverage AS
-SELECT build, version,
-       count(*)                                                          AS claims,
-       count(*) FILTER (WHERE sim_grade <> 'unknown')                    AS shown_in_sim,
-       count(*) FILTER (WHERE irl_grade = 'measured')                    AS measured,
-       count(*) FILTER (WHERE sim_grade = 'unknown' AND irl_grade = 'unknown') AS unknown
+SELECT coalesce(part, build || '/v' || version)                            AS subject,
+       count(*)                                                            AS claims,
+       count(*) FILTER (WHERE sim_grade <> 'unknown')                      AS shown_in_sim,
+       count(*) FILTER (WHERE bench_grade = 'measured')                    AS measured,
+       count(*) FILTER (WHERE bench_grade = 'trusted')                     AS trusted,
+       count(*) FILTER (WHERE sim_grade = 'unknown' AND bench_grade = 'unknown') AS unknown
 FROM gold.claim_grades
-GROUP BY build, version;
-COMMENT ON VIEW gold.grade_coverage IS 'How much of each build version is shown, and how.';
+GROUP BY ALL;
+COMMENT ON VIEW gold.grade_coverage IS 'How much of each part and build version is shown, and how.';
 
 CREATE VIEW gold.bom_exploded AS
 WITH RECURSIVE tree (root_build, root_version, build, version, mult) AS (

@@ -26,6 +26,7 @@ flowchart LR
     silver_step["silver.step"]
     silver_claim["silver.claim"]
     silver_referent["silver.referent"]
+    silver_claim_value["silver.claim_value"]
     silver_lab_fact["silver.lab_fact"]
     silver_lab_limit["silver.lab_limit"]
     silver_lab_limit_input["silver.lab_limit_input"]
@@ -276,44 +277,60 @@ Read by: `gold.page_step`.
 
 ### `silver.claim` (table)
 
-What a build version claims. Its grades come from its referents.
+What a part or a build version claims. Its grades come from its referents, never typed.
 
 | column | type | null | about |
 |---|---|---|---|
-| `build` | VARCHAR | no |  |
-| `version` | INTEGER | no |  |
-| `claim_no` | INTEGER | no |  |
+| `claim` | VARCHAR | no | How it is cited: <part>#<id>, or <build>/v<n>#<id>. |
+| `part` | VARCHAR | yes |  |
+| `build` | VARCHAR | yes |  |
+| `version` | INTEGER | yes |  |
+| `claim_no` | INTEGER | no | Its place in its record, from 1. |
+| `id` | VARCHAR | no |  |
 | `says` | VARCHAR | no |  |
 
 Constraints:
 
-- `PRIMARY KEY(build, "version", claim_no)`
+- `PRIMARY KEY(claim)`
+- `FOREIGN KEY (part) REFERENCES silver.part(part)`
 - `FOREIGN KEY (build, "version") REFERENCES silver.build_version(build, "version")`
+- `CHECK(((part IS NULL) != (build IS NULL)))`
+- `CHECK(((build IS NULL) = ("version" IS NULL)))`
 
 Read by: `gold.claim_grades`.
 
 ### `silver.referent` (table)
 
-What shows a claim. A simulation grades tested, checked or proven; the bench grades measured.
+What shows a claim: a proof, a bounded check or a test in simulation; a bench measurement record; or an entry in the trusted base.
 
 | column | type | null | about |
 |---|---|---|---|
-| `build` | VARCHAR | no |  |
-| `version` | INTEGER | no |  |
-| `claim_no` | INTEGER | no |  |
+| `claim` | VARCHAR | no |  |
 | `kind` | VARCHAR | no |  |
-| `grade` | VARCHAR | no |  |
 | `evidence` | VARCHAR | no |  |
 
 Constraints:
 
-- `CHECK((kind IN ('sim', 'irl')))`
-- `CHECK((grade IN ('tested', 'checked', 'proven', 'measured')))`
-- `PRIMARY KEY(build, "version", claim_no, kind)`
-- `FOREIGN KEY (build, "version", claim_no) REFERENCES silver.claim(build, "version", claim_no)`
-- `CHECK(((kind = 'irl') = (grade = 'measured')))`
+- `FOREIGN KEY (claim) REFERENCES silver.claim(claim)`
+- `CHECK((kind IN ('proof', 'check', 'test', 'record', 'trusted')))`
+- `PRIMARY KEY(claim, kind)`
 
 Read by: `gold.claim_grades`.
+
+### `silver.claim_value` (table)
+
+The numbers a claim states.
+
+| column | type | null | about |
+|---|---|---|---|
+| `claim` | VARCHAR | no |  |
+| `name` | VARCHAR | no | Ends in its unit: min_volts, input_ratio. |
+| `amount` | DOUBLE | no |  |
+
+Constraints:
+
+- `FOREIGN KEY (claim) REFERENCES silver.claim(claim)`
+- `PRIMARY KEY(claim, "name")`
 
 ### `silver.lab_fact` (table)
 
@@ -411,18 +428,21 @@ Read by: `gold.page`.
 
 ### `gold.claim_grades` (view)
 
-Every claim with both grades, derived from its referents. No referent reads 'unknown'.
+Every claim on a part or a build version, with its grade on each axis: in simulation (proven, checked, tested) and on the bench (measured, trusted), each the strongest its referents give. No referent reads 'unknown'.
 
 | column | type |
 |---|---|
+| `claim` | VARCHAR |
+| `part` | VARCHAR |
 | `build` | VARCHAR |
 | `version` | INTEGER |
 | `claim_no` | INTEGER |
+| `id` | VARCHAR |
 | `says` | VARCHAR |
 | `sim_grade` | VARCHAR |
 | `sim_evidence` | VARCHAR |
-| `irl_grade` | VARCHAR |
-| `irl_evidence` | VARCHAR |
+| `bench_grade` | VARCHAR |
+| `bench_evidence` | VARCHAR |
 
 Reads: `silver.claim`, `silver.referent`.
 
@@ -430,15 +450,15 @@ Read by: `gold.grade_coverage`, `crates/site`.
 
 ### `gold.grade_coverage` (view)
 
-How much of each build version is shown, and how.
+How much of each part and build version is shown, and how.
 
 | column | type |
 |---|---|
-| `build` | VARCHAR |
-| `version` | INTEGER |
+| `subject` | VARCHAR |
 | `claims` | BIGINT |
 | `shown_in_sim` | BIGINT |
 | `measured` | BIGINT |
+| `trusted` | BIGINT |
 | `unknown` | BIGINT |
 
 Reads: `gold.claim_grades`.

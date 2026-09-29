@@ -118,6 +118,8 @@ mod tests {
                     source.contains(&format!("fn {token}()")),
                     "docs/architecture.md names the test {token}, which does not exist"
                 );
+            } else if token.contains('<') {
+                // A pattern such as `<build>/v<n>#<id>`, not a file.
             } else if token.contains('/') || token.ends_with(".toml") || token.ends_with(".md") {
                 paths += 1;
                 let path = root().join(token);

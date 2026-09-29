@@ -4,7 +4,7 @@
 
 use duckdb::{Connection, params};
 use tentzhen_lab::{LIMITS, Limits, Value};
-use tentzhen_records::Catalogue;
+use tentzhen_records::{Catalogue, Claim};
 
 pub mod catalogue;
 
@@ -33,6 +33,16 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
                 p.record
             ],
         )?;
+    }
+    for p in cat.parts.values() {
+        for (i, c) in (1u32..).zip(&p.claim) {
+            let claim = format!("{}#{}", p.part, c.id);
+            tx.execute(
+                "INSERT INTO silver.claim VALUES (?, ?, NULL, NULL, ?, ?, ?)",
+                params![claim, p.part, i, c.id, c.says],
+            )?;
+            load_referents(&tx, &claim, c)?;
+        }
     }
     // Every version first: lines, uses and claims point at them.
     for b in cat.builds.values().flatten() {
@@ -85,28 +95,35 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
             )?;
         }
         for (i, c) in (1u32..).zip(&b.claim) {
+            let claim = format!("{}/v{}#{}", key.0, key.1, c.id);
             tx.execute(
-                "INSERT INTO silver.claim VALUES (?, ?, ?, ?)",
-                params![key.0, key.1, i, c.says],
+                "INSERT INTO silver.claim VALUES (?, NULL, ?, ?, ?, ?, ?)",
+                params![claim, key.0, key.1, i, c.id, c.says],
             )?;
-            if let Some(sim) = &c.sim {
-                tx.execute(
-                    "INSERT INTO silver.referent VALUES (?, ?, ?, 'sim', ?, ?)",
-                    params![key.0, key.1, i, sim.grade.as_str(), sim.by],
-                )?;
-            }
-            if let Some(irl) = &c.irl {
-                tx.execute(
-                    "INSERT INTO silver.referent VALUES (?, ?, ?, 'irl', 'measured', ?)",
-                    params![key.0, key.1, i, irl.record],
-                )?;
-            }
+            load_referents(&tx, &claim, c)?;
         }
     }
     if let Some(limits) = &cat.limits {
         load_limits(&tx, limits)?;
     }
     tx.commit()
+}
+
+/// A claim's referents and values, under its citation.
+fn load_referents(tx: &duckdb::Transaction, claim: &str, c: &Claim) -> duckdb::Result<()> {
+    for (kind, evidence) in c.referents() {
+        tx.execute(
+            "INSERT INTO silver.referent VALUES (?, ?, ?)",
+            params![claim, kind, evidence],
+        )?;
+    }
+    for (name, amount) in &c.values {
+        tx.execute(
+            "INSERT INTO silver.claim_value VALUES (?, ?, ?)",
+            params![claim, name, amount],
+        )?;
+    }
+    Ok(())
 }
 
 fn load_limits(tx: &duckdb::Transaction, limits: &Limits) -> duckdb::Result<()> {
@@ -158,6 +175,7 @@ fn load_limits(tx: &duckdb::Transaction, limits: &Limits) -> duckdb::Result<()> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
     use std::fs;
     use std::path::Path;
     use tentzhen_records::Source;
@@ -204,7 +222,7 @@ mod tests {
         );
         let unknown = one(
             &conn,
-            "SELECT unknown FROM gold.grade_coverage WHERE build = 'debug-probe' AND version = 1",
+            "SELECT unknown FROM gold.grade_coverage WHERE subject = 'debug-probe/v1'",
         );
         assert_eq!(claims, unknown, "nothing about debug-probe is shown yet");
     }
@@ -438,20 +456,114 @@ mod tests {
         );
     }
 
+    /// Each claim's (sim grade, sim evidence, bench grade, bench evidence), by its id.
+    fn grades(conn: &Connection) -> BTreeMap<String, [Option<String>; 4]> {
+        let mut stmt = conn
+            .prepare("SELECT id, sim_grade, sim_evidence, bench_grade, bench_evidence FROM gold.claim_grades")
+            .unwrap();
+        stmt.query_map([], |r| {
+            Ok((r.get(0)?, [r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?]))
+        })
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect()
+    }
+
+    fn g(
+        sim: &str,
+        sim_by: Option<&str>,
+        bench: &str,
+        bench_by: Option<&str>,
+    ) -> [Option<String>; 4] {
+        [
+            Some(sim.into()),
+            sim_by.map(Into::into),
+            Some(bench.into()),
+            bench_by.map(Into::into),
+        ]
+    }
+
     #[test]
     fn grades_derive_from_referents() {
-        let claims = "[[claim]]\nsays = \"a\"\nsim = { grade = \"tested\", by = \"t\" }\nirl = { record = \"lab-1\" }\n\n[[claim]]\nsays = \"b\"\n";
+        let claims = "[[claim]]\nid = \"a\"\nsays = \"x\"\ntest = \"t\"\nrecord = \"lab-1\"\n\n\
+                      [[claim]]\nid = \"b\"\nsays = \"x\"\nproof = \"p\"\ncheck = \"c\"\ntest = \"t\"\n\n\
+                      [[claim]]\nid = \"c\"\nsays = \"x\"\ntrusted = \"entry\"\nrecord = \"lab-2\"\n\n\
+                      [[claim]]\nid = \"d\"\nsays = \"x\"\ntrusted = \"entry\"\n\n\
+                      [[claim]]\nid = \"e\"\nsays = \"x\"\n\n\
+                      [[claim]]\nid = \"f\"\nsays = \"x\"\ncheck = \"c\"\ntest = \"t\"\n";
         let conn = warehouse(&Catalogue::from_sources(&[], &[build("probe", claims)]).unwrap());
-        let (sim, irl): (String, String) = conn
+        let got = grades(&conn);
+        assert_eq!(got["a"], g("tested", Some("t"), "measured", Some("lab-1")));
+        assert_eq!(
+            got["b"],
+            g("proven", Some("p"), "unknown", None),
+            "the strongest shows"
+        );
+        assert_eq!(
+            got["c"],
+            g("unknown", None, "measured", Some("lab-2")),
+            "measured beats trusted"
+        );
+        assert_eq!(got["d"], g("unknown", None, "trusted", Some("entry")));
+        assert_eq!(got["e"], g("unknown", None, "unknown", None));
+        assert_eq!(
+            got["f"],
+            g("checked", Some("c"), "unknown", None),
+            "a check beats a test"
+        );
+        let cover = |col: &str| {
+            one(
+                &conn,
+                &format!("SELECT {col} FROM gold.grade_coverage WHERE subject = 'probe/v1'"),
+            )
+        };
+        assert_eq!(
+            [
+                cover("claims"),
+                cover("shown_in_sim"),
+                cover("measured"),
+                cover("trusted"),
+                cover("unknown")
+            ],
+            [6, 3, 2, 1, 1]
+        );
+    }
+
+    #[test]
+    fn a_part_s_claims_are_graded_like_a_build_s() {
+        let part = format!(
+            "{PART}[[claim]]\nid = \"io-supply\"\nsays = \"x\"\ntrusted = \"entry\"\nvalues = {{ max_volts = 3.63 }}\n"
+        );
+        let conn = warehouse(
+            &Catalogue::from_sources(&[src("parts/rp2350.toml", &part)], &[build("probe", PROBE)])
+                .unwrap(),
+        );
+        let (claim, sim, bench): (String, String, String) = conn
             .query_row(
-                "SELECT sim_grade, irl_grade FROM gold.claim_grades WHERE says = 'a'",
+                "SELECT claim, sim_grade, bench_grade FROM gold.claim_grades WHERE part = 'RP2350'",
                 [],
-                |r| Ok((r.get(0)?, r.get(1)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             )
             .unwrap();
-        assert_eq!((sim.as_str(), irl.as_str()), ("tested", "measured"));
-        assert_eq!(one(&conn, "SELECT measured FROM gold.grade_coverage"), 1);
-        assert_eq!(one(&conn, "SELECT unknown FROM gold.grade_coverage"), 1);
+        assert_eq!(
+            (claim.as_str(), sim.as_str(), bench.as_str()),
+            ("RP2350#io-supply", "unknown", "trusted")
+        );
+        let v: f64 = conn
+            .query_row(
+                "SELECT amount FROM silver.claim_value WHERE claim = 'RP2350#io-supply' AND name = 'max_volts'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(v, 3.63);
+        assert_eq!(
+            one(
+                &conn,
+                "SELECT trusted FROM gold.grade_coverage WHERE subject = 'RP2350'"
+            ),
+            1
+        );
     }
 
     /// Fails unless the database refused the write with a constraint error, not some other error.
@@ -482,9 +594,31 @@ mod tests {
             conn.execute(unrecorded, []).map(|_| ()),
             "a part must have a record",
         );
-        let irl_tested = "INSERT INTO silver.claim VALUES ('probe', 1, 1, 'x'); \
-                          INSERT INTO silver.referent VALUES ('probe', 1, 1, 'irl', 'tested', 'x')";
-        refused(conn.execute_batch(irl_tested), "the bench can only measure");
+        for (values, why) in [
+            (
+                "'k1', 'RP2350', 'probe', 1",
+                "a claim is on a part or a build version, not both",
+            ),
+            ("'k2', NULL, NULL, NULL", "a claim is on something"),
+            (
+                "'k3', NULL, 'probe', NULL",
+                "a build claim names its version",
+            ),
+            (
+                "'k4', 'RP9999', NULL, NULL",
+                "a part claim's part has a record",
+            ),
+            ("'k6', NULL, 'probe', 9", "a build claim's version exists"),
+        ] {
+            let sql = format!("INSERT INTO silver.claim VALUES ({values}, 1, 'a', 'x')");
+            refused(conn.execute(&sql, []).map(|_| ()), why);
+        }
+        let graded = "INSERT INTO silver.claim VALUES ('k5', 'RP2350', NULL, NULL, 1, 'a', 'x'); \
+                      INSERT INTO silver.referent VALUES ('k5', 'tested', 't')";
+        refused(
+            conn.execute_batch(graded),
+            "a referent is a kind of evidence, not a grade",
+        );
         let both =
             "INSERT INTO silver.lab_limit VALUES ('x', 1.0, 'V', 'y', 'policy', 'p', NULL, 'r')";
         refused(

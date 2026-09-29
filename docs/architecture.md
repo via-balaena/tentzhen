@@ -33,8 +33,8 @@ flowchart LR
 | Schema first: every file in `parts/`, `builds/` and `lab/` is loaded into the warehouse, or CI fails. A record is parsed by its schema on the way in; a drawing is kept as it is. A folder's README is not a record. | `every_file_in_the_records_folders_is_loaded` |
 | Every schema refuses a key it doesn't know. | `every_table_refuses_a_key_it_does_not_know`, in `crates/records` and in `crates/lab` |
 | A rule a record states in a comment is a check or a test. | the tests in `crates/lab`, for `lab/limits.toml`. Nothing holds this for new files: `unknown`. |
-| Every file the warehouse loads is in bronze with its sha256, and every silver row traces to one. | `every_row_traces_to_the_bytes_it_came_from`, for the four silver tables with a `record` column; the rest reference one of those by foreign key. |
-| A grade comes from its referents, never typed. | `grades_derive_from_referents`, `every_limit_gets_the_weakest_grade_of_its_facts`. One exception: a build claim's `sim` grade is typed beside its referent, and nothing checks that the referent earns it. |
+| Every file the warehouse loads is in bronze with its sha256, and every silver row traces to one. | `every_row_traces_to_the_bytes_it_came_from`, for the four silver tables with a `record` column; the rest reference one of those by foreign key, directly or through another table. |
+| A grade comes from its referents, never typed. | `no_record_can_type_a_grade`, `grades_derive_from_referents`, `every_limit_gets_the_weakest_grade_of_its_facts` |
 | Readers of the warehouse read gold only. | `the_site_reads_only_gold`; the site is the only one so far. |
 | Every table and view says what it is, and the catalogue is generated. | `every_table_and_view_says_what_it_is`, `the_catalogue_is_current` |
 | The lab crate needs only serde and toml. | `the_lab_crate_needs_only_serde_and_toml` |
@@ -49,15 +49,14 @@ test and path it names up to the proposal below must exist.
 
 ## What the introspection shows
 
-- **Two claim models, and parts have neither.** A build's `[[claim]]` has a typed `sim` grade with
-  its referent and an `irl` record; it lands in `silver.claim` and `silver.referent`, graded by
-  `gold.claim_grades`. The lab's `[fact.*]` has `trusted` or `record`; it lands in `silver.lab_fact`,
-  graded by `gold.lab_fact_grades`.
-- **Nothing can point at a claim.** Build claims are numbered by position (`claim_no`), and lab
-  facts are named only inside `lab/limits.toml`.
-- **The trusted base is prose.** A `trusted` referent is matched against the start of a bullet in
-  `verification.md` by the test `every_trusted_fact_names_an_entry_in_the_trusted_base`, and build
-  claims have no way to cite it.
+- **Two claim models remain.** Parts and builds share one: `[[claim]]`, landing in `silver.claim`
+  and `silver.referent`, graded by `gold.claim_grades`. The lab's `[fact.*]` is still its own,
+  landing in `silver.lab_fact` and graded by `gold.lab_fact_grades`.
+- **Nothing cites a claim yet.** Claims have ids and a citation (`<part>#<id>`, `<build>/v<n>#<id>`),
+  and lab facts are still named only inside `lab/limits.toml`.
+- **The trusted base is prose.** A lab fact's `trusted` is matched against the start of a bullet in
+  `verification.md` by the test `every_trusted_fact_names_an_entry_in_the_trusted_base`. A claim's
+  `trusted` is not checked at all: `unknown`.
 - **`record` referents resolve to nothing.** Build claims and lab facts can name a measurement
   record, but no format or store for records exists yet. That's the lab log in `roadmap.md`,
   Phase 0.
@@ -71,7 +70,8 @@ test and path it names up to the proposal below must exist.
 
 ## Proposal: one claim model
 
-Every graded statement becomes a claim on its subject, in one shape:
+Every graded statement becomes a claim on its subject, in one shape. Step 1 built it for parts and
+builds (`crates/records`, `Claim`); the lab's facts join in step 3.
 
 ```toml
 [[claim]]
@@ -79,6 +79,7 @@ id = "input-range"
 says = "Needs an input of 6-55 V, and at least 1.1 x its output"
 trusted = "dps5005"        # an entry in the trusted base
 # or any of: test = "...", check = "...", proof = "...", record = "..."
+values = { min_input_volts = 6.0, max_input_volts = 55.0, input_ratio = 1.1 }
 ```
 
 - **Claims live on their subject:** `parts/<part>.toml`, or `builds/<build>/v<n>.toml` as now. Each
@@ -93,21 +94,21 @@ trusted = "dps5005"        # an entry in the trusted base
 - **The lab cites claims.** `lab/limits.toml`'s `rests_on` names claims
   (`rests_on = ["DPS5005#input-range"]`), and its `[fact.*]` tables go away.
 
-Open questions, each with my recommendation:
-1. **Numbers a rule reads, like the DPS5005's 6, 55 and 1.1.** Recommend a claim-level `values`
-   table whose keys carry their unit (`min_volts`), checked by the rule that reads them.
-2. **The bench supply.** Recommend a part record (`kind = "product"`), described by requirement
-   like the site's other upstream components.
-3. **Two axes or one.** Recommend keeping the sim axis (tested, checked, proven) and the bench axis
-   (trusted, measured) apart, as `gold.claim_grades` does now. A limit's weakest grade is taken on
-   the bench axis.
+Decided with Jon, 2026-09-29:
+1. **Numbers a rule reads,** like the DPS5005's 6, 55 and 1.1: a claim's `values` table, whose keys
+   end in their unit (`VALUE_UNITS` in `crates/records`), checked by the rule that reads them.
+2. **The bench supply** gets a part record (`kind = "product"`), described by requirement like the
+   site's other upstream components.
+3. **Two axes:** simulation (tested, checked, proven) and the bench (trusted, measured) stay apart,
+   as `gold.claim_grades` gives them. A limit's weakest grade is taken on the bench axis.
 
 ## Plan
 
 Each step is one PR, done when its check passes:
 
 1. **One claim model** in `crates/records` and the warehouse, with `debug-probe`'s claims migrated.
-   Done when `gold.claim_grades` covers parts and builds, and no record can type a grade.
+   Done when `gold.claim_grades` covers parts and builds, and no record can type a grade. Done:
+   `a_part_s_claims_are_graded_like_a_build_s`, `no_record_can_type_a_grade`.
 2. **The trusted base as data.** Done when every `trusted` referent is a foreign key.
 3. **Lab facts become claims on parts:** `parts/dps5005.toml`, and a bench supply record. Done
    when `lab/limits.toml` has no `[fact.*]` and `gold.limit_grades` gives the same grades as

@@ -82,7 +82,7 @@ type LineRow = (
 );
 /// A walkthrough step: instruction, run, expect, agent (`gold.page_step`).
 type StepRow = (String, Option<String>, Option<String>, Option<String>);
-/// A claim: says, sim grade, sim evidence, irl grade, irl evidence (`gold.claim_grades`).
+/// A claim: says, sim grade, sim evidence, bench grade, bench evidence (`gold.claim_grades`).
 type ClaimRow = (String, String, Option<String>, String, Option<String>);
 
 /// One build version, as `gold.page` gives it.
@@ -372,7 +372,7 @@ pub fn render_version(conn: &Connection, b: &PageRow) -> duckdb::Result<String> 
     }
 
     let mut stmt = conn.prepare(
-        "SELECT says, sim_grade, sim_evidence, irl_grade, irl_evidence FROM gold.claim_grades \
+        "SELECT says, sim_grade, sim_evidence, bench_grade, bench_evidence FROM gold.claim_grades \
          WHERE build = ? AND version = ? ORDER BY claim_no",
     )?;
     let claims: Vec<ClaimRow> = stmt
@@ -382,7 +382,7 @@ pub fn render_version(conn: &Connection, b: &PageRow) -> duckdb::Result<String> 
         .collect::<duckdb::Result<_>>()?;
     if !claims.is_empty() {
         h.push_str("<h2>Claims</h2>\n<table class=\"spec-table claims\">\n<thead><tr><th>CLAIM</th><th>SIMULATION</th><th>ON THE BENCH</th></tr></thead>\n<tbody>\n");
-        for (says, sim_grade, sim_evidence, irl_grade, irl_evidence) in &claims {
+        for (says, sim_grade, sim_evidence, bench_grade, bench_evidence) in &claims {
             let evidence = |e: &Option<String>| {
                 e.as_ref()
                     .map(|e| format!(" <span class=\"muted\">{}</span>", esc(e)))
@@ -394,8 +394,8 @@ pub fn render_version(conn: &Connection, b: &PageRow) -> duckdb::Result<String> 
                 esc(says),
                 chip(sim_grade),
                 evidence(sim_evidence),
-                chip(irl_grade),
-                evidence(irl_evidence)
+                chip(bench_grade),
+                evidence(bench_evidence)
             );
         }
         h.push_str("</tbody>\n</table>\n");
