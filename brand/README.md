@@ -11,6 +11,7 @@ at 0°, 45° and 90°, with through-hole pads at the free ends.
 | `mark-{green,black,light}.svg` | the falcon alone |
 | `favicon.svg`, `favicon-32.png` | the falcon without barring, which turns to noise below ~64 px |
 | `mural-street-night.svg` | the homepage mural: a Chinatown street at night, seen from the sidewalk (desktop, 16:10) |
+| `skyline-daybreak.svg` | the foot of the homepage: the same skyline at first light, where the rail reaches the tallest tower's door |
 
 ## Colours
 
@@ -76,8 +77,17 @@ First person, standing on a Chinatown sidewalk at night, looking down the street
 - **Signs** are SVG text, so they render in the viewer's own Chinese font. Only rendered so far
   with `rsvg-convert` on macOS.
 - **Source:** `brand/mural.py` draws it — camera, street, towers and signs are all in there.
-  Change the script, then run `python3 brand/mural.py` to rewrite the SVG. The Quality Gate runs
-  it and fails if the committed SVG differs.
+  Change the script, then run `python3 brand/mural.py` to rewrite the SVGs. The Quality Gate runs
+  it and fails if a committed SVG differs.
+
+## The daybreak skyline
+
+The foot of the homepage, where the copper rail that runs down the page reaches the tallest
+tower's door: the mural's towers, drawn by the same code from a new camera, far off and level with
+their feet, as the sky pales from night to first light behind them. The sun is still below the
+horizon behind the tallest tower, and its glass lobby is lit, a pool of that light on the plaza.
+The page draws the rail and its via over the scene; they meet the door at (1180, 520). The scene
+has no background of its own and fades out at its sides, so it sits on the page at any width.
 
 ## Source
 

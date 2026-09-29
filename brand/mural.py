@@ -114,10 +114,11 @@ def streak(x, y, z, width, color, alpha):
 # tallest, where your path ends), a tapered cylinder with a rounded top and ribs, a slab with a
 # cupped crown, twin towers joined high up by a lit skybridge, and stepped setbacks.
 LED_CYAN, LED_WHITE, OFFICE_COOL = '#7fdfe6', '#e6eef0', '#cfe6e8'
-for gid, top, bottom in (('glass', '#101216', '#1c1b21'), ('glassside', '#16181d', '#24232a'),
-                         ('glassfar', '#17171b', '#221f24')):
-    defs.append(f'<linearGradient id="{gid}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="{VPY}">'
-                f'<stop offset="0" stop-color="{top}"/><stop offset="1" stop-color="{bottom}"/></linearGradient>')
+def glass_gradients(shades):  # (id, top, bottom): the glass darkest high up, catching the sky low down
+    for gid, top, bottom in shades:
+        defs.append(f'<linearGradient id="{gid}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="{VPY}">'
+                    f'<stop offset="0" stop-color="{top}"/><stop offset="1" stop-color="{bottom}"/></linearGradient>')
+glass_gradients((('glass', '#101216', '#1c1b21'), ('glassside', '#16181d', '#24232a'), ('glassfar', '#17171b', '#221f24')))
 FLOOR = 4.2  # floor to floor, m
 towers = [  # (x, z, width, roof height, shape): the layer in front
     (-120, 780, 52, 230, 'setback'), (-88, 660, 36, 262, 'slab'), (-72, 612, 22, 300, 'twin'),
@@ -230,11 +231,11 @@ def haze(gid, depth, alpha):  # the air between layers, thicker toward the horiz
                 f'<stop offset="0" stop-color="{SKY_GLOW}" stop-opacity="0"/>'
                 f'<stop offset="1" stop-color="{SKY_GLOW}" stop-opacity="{alpha}"/></linearGradient>')
     out.append(f'<rect x="0" y="{VPY - depth}" width="{W}" height="{depth}" fill="url(#{gid})"/>')
-def draw_towers():
-    # the far layer: plain slabs in the haze, a few floors lit
+def draw_towers(far_x=230, far_n=20):
+    # the far layer: plain slabs in the haze, a few floors lit, spread across far_x either side
     far = random.Random(21)
-    back = sorted([(far.uniform(-230, 230), far.uniform(950, 1500), far.uniform(22, 50), far.uniform(140, 330))
-                   for _ in range(20)], key=lambda t: -t[1])
+    back = sorted([(far.uniform(-far_x, far_x), far.uniform(950, 1500), far.uniform(22, 50), far.uniform(140, 330))
+                   for _ in range(far_n)], key=lambda t: -t[1])
     for x, z, w, h in back:
         face = [P(x - w / 2, 0, z), P(x - w / 2, h, z), P(x + w / 2, h, z), P(x + w / 2, 0, z)]
         poly(face, fill='url(#glassfar)', stroke=METAL_FAR, w=0.8, extra='stroke-opacity="0.5"')
@@ -886,6 +887,63 @@ defs.append(f'<clipPath id="road"><polygon points="{pts(road)}"/></clipPath>')
 out.insert(REFL_AT, '<g clip-path="url(#road)"><g filter="url(#wet)" mask="url(#ripples)">'
            + ''.join(REFL) + '</g></g>')
 
-svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">'
-       f'<defs>{"".join(defs)}</defs>' + ''.join(out) + '</svg>')
-Path(__file__).with_name('mural-street-night.svg').write_text(svg, encoding='utf-8')
+def write(name):
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">'
+           f'<defs>{"".join(defs)}</defs>' + ''.join(out) + '</svg>')
+    Path(__file__).with_name(name).write_text(svg, encoding='utf-8')
+write('mural-street-night.svg')
+
+# ================ The arrival: the same skyline at daybreak ================
+# The foot of the homepage, where the copper rail that runs down the page reaches the tallest
+# tower's door. The same towers, drawn by the same code from a new camera on a fresh canvas: far
+# off and level with their feet, as the sky pales from night to first light behind them, the sun
+# still below the horizon behind the tallest. Its glass lobby is lit, a pool of that light on the
+# plaza. The page draws the rail and its via over this; they meet the door at (1180, 520). The
+# scene has no background of its own: the page's shows through above the sky and at the sides.
+defs, out = [], []
+W, H = 1440, 560
+CAM_X, EYE, F, VPX, VPY = 0.0, 1.6, 700.0, 720.0, 518.0
+DOOR = 1180
+def at(sx, z): return (sx - VPX) * z / F + CAM_X  # the world x that lands at screen x sx, depth z
+defs.append(f'<linearGradient id="dawn" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="{VPY + 2}">'
+            f'<stop offset="0" stop-color="{BG}" stop-opacity="0"/><stop offset="0.45" stop-color="#151827"/>'
+            '<stop offset="0.75" stop-color="#2a2431"/><stop offset="0.92" stop-color="#5a3b35"/>'
+            '<stop offset="1" stop-color="#9a5c3c"/></linearGradient>')
+out.append(f'<rect width="{W}" height="{VPY + 2}" fill="url(#dawn)"/>')
+defs.append(f'<radialGradient id="sunrise" gradientUnits="userSpaceOnUse" cx="{DOOR}" cy="{VPY + 2}" r="460">'
+            '<stop offset="0" stop-color="#ffb070" stop-opacity="0.45"/><stop offset="0.4" stop-color="#ff9a5a" stop-opacity="0.12"/>'
+            '<stop offset="1" stop-color="#ff9a5a" stop-opacity="0"/></radialGradient>')
+out.append(f'<rect width="{W}" height="{VPY + 2}" fill="url(#sunrise)"/>')
+SKY_GLOW = '#6a4438'  # the haze between layers, warm with first light
+glass_gradients((('glass', '#101216', '#2a2228'), ('glassside', '#16181d', '#3a2a2c'), ('glassfar', '#1c1b24', '#3e2e30')))
+towers = [(at(sx, z), z, w, h, shape) for sx, z, w, h, shape in (
+    (270, 700, 50, 230, 'setback'), (390, 640, 36, 280, 'slab'), (515, 620, 26, 320, 'twin'),
+    (585, 620, 26, 320, 'twin'), (700, 600, 32, 340, 'bamboo'), (805, 740, 46, 300, 'slab'),
+    (935, 680, 44, 360, 'cup'), (DOOR, 600, 44, 385, 'crown'), (1330, 640, 36, 260, 'setback'),
+    (1425, 720, 40, 220, 'slab'))]
+towers.sort(key=lambda t: -t[1])
+draw_towers(far_x=1150, far_n=34)
+# the tallest tower's lobby: double-height glass, lit, its doors where the rail comes in
+xc = at(DOOR, 600)
+defs.append('<linearGradient id="lobby" x1="0" y1="0" x2="0" y2="1">'
+            '<stop offset="0" stop-color="#f6d49a"/><stop offset="0.6" stop-color="#d89a58"/>'
+            '<stop offset="1" stop-color="#8a5a34"/></linearGradient>')
+defs.append(f'<radialGradient id="plaza" gradientUnits="userSpaceOnUse" cx="{DOOR}" cy="{VPY + 3}" r="90">'
+            '<stop offset="0" stop-color="#ffc98a" stop-opacity="0.45"/>'
+            '<stop offset="1" stop-color="#ffc98a" stop-opacity="0"/></radialGradient>')
+ellipse((DOOR, VPY + 4), 90, 14, 'url(#plaza)')
+poly([P(xc - 16, 0, 600), P(xc - 16, 34, 600), P(xc + 16, 34, 600), P(xc + 16, 0, 600)], fill='url(#lobby)',
+     stroke=ALUMINIUM, w=1.2)
+for k in range(1, 8):
+    xx = xc - 16 + 32 * k / 8
+    line(P(xx, 0, 600), P(xx, 34, 600), ALUMINIUM, 0.8, extra='opacity="0.7"')
+line(P(xc - 16, 17, 600), P(xc + 16, 17, 600), ALUMINIUM, 0.8, extra='opacity="0.7"')
+poly([P(xc - 19, 34, 600), P(xc - 19, 37, 600), P(xc + 19, 37, 600), P(xc + 19, 34, 600)], fill=GREY_DD,
+     stroke=METAL, w=0.8)  # the canopy
+# The page is wider than this scene on a wide screen: its sides fade into the page, not stop.
+defs.append('<linearGradient id="sides"><stop offset="0" stop-color="black"/><stop offset="0.1" stop-color="white"/>'
+            '<stop offset="0.9" stop-color="white"/><stop offset="1" stop-color="black"/></linearGradient>')
+defs.append(f'<mask id="edges" maskUnits="userSpaceOnUse" x="0" y="0" width="{W}" height="{H}">'
+            f'<rect width="{W}" height="{H}" fill="url(#sides)"/></mask>')
+out = ['<g mask="url(#edges)">'] + out + ['</g>']
+write('skyline-daybreak.svg')

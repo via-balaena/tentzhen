@@ -69,8 +69,8 @@ LCSC's API terms forbid bulk capture and forbid hosting or providing retrieved m
 | Build reproducibility | Nix |
 
 Python only for gateware, cocotb tests, and throwaway exploration. Anything long-lived gets
-rewritten in Rust. One exception: `brand/mural.py`, the mural's source, which the Quality Gate
-checks against the committed SVG.
+rewritten in Rust. One exception: `brand/mural.py`, the source of the mural and the daybreak
+skyline, which the Quality Gate checks against the committed SVGs.
 
 ## Conventions
 
