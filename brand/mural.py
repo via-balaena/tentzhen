@@ -91,8 +91,8 @@ def draw_towers(Q):
             xx = x0 + (i + 0.5) * w / cols
             yy = 7.0
             while yy < top_y - 3:
-                lit = rnd.random() < (0.8 if near else 0.62)
-                circle(Q(xx, yy, z), 1.3, col if lit else GREY_DD)
+                bright = rnd.random() < 0.25
+                circle(Q(xx, yy, z), 1.3, YELLOW if bright else col)
                 yy += 8.0
     # Every rooftop linked to its neighbours by an arc through the sky.
     by_x = sorted(towers, key=lambda t: t[0])
@@ -116,8 +116,8 @@ def facade(xw, z0, z1, h, lit_shop=False):
         zz = z0 + 1.2
         while zz + 1.4 < z1 - 0.6:
             wq = [P(xw, fl, zz), P(xw, fl + 2.0, zz), P(xw, fl + 2.0, zz + 1.4), P(xw, fl, zz + 1.4)]
-            lit = zz > 9 and random.random() < 0.2
-            poly(wq, fill='#2e2413' if lit else '#16171a', stroke=DIMCOPPER if lit else GREY_DD, w=sw(zz, 0.04, 0.5, 1.4))
+            warm = random.random() < 0.3  # every window is on; some burn warmer
+            poly(wq, fill='#4a3715' if warm else '#2e2413', stroke=DIMCOPPER, w=sw(zz, 0.04, 0.5, 1.4))
             zz += 3.0
         fl += 3.4
     if lit_shop:
@@ -284,21 +284,27 @@ pad(P(CAM_X, 0.0, 640.0), 3.6, COPPER)
 def tent(z0, wd, ht, antenna):
     xa, xb = -10.9, -10.9 + wd
     xm = (xa + xb) / 2
-    prof = [(xa, 0), (xa, 0.37 * ht), (xa + 0.35, 0.82 * ht), (xm, ht), (xb - 0.35, 0.82 * ht), (xb, 0.37 * ht), (xb, 0)]
+    hw = 0.2 * ht   # the skirt wall under the roof
     ln = 2.2
-    stroke = COPPER
     w = sw(z0, 0.045, 0.9, 3.0)
-    right_half = prof[3:]
-    side = [P(x, y, z0) for x, y in right_half] + [P(x, y, z0 + ln) for x, y in reversed(right_half)]
-    poly(side, fill='#1a1611', stroke=stroke, w=w)
-    poly([P(x, y, z0) for x, y in prof], fill='#3a2c12', stroke=stroke, w=w)
-    pole = '#8a6a2e'
-    line(P(xa, 0, z0), P(xb - 0.35, 0.82 * ht, z0), pole, w * 0.6); line(P(xb, 0, z0), P(xa + 0.35, 0.82 * ht, z0), pole, w * 0.6)
-    d = 0.4
-    poly([P(xm - d, 0, z0), P(xm - d, 0.55, z0), P(xm, 0.8, z0), P(xm + d, 0.55, z0), P(xm + d, 0, z0)],
-         fill=YELLOW, stroke=stroke, w=w * 0.8)
+    rope = '#8a6a2e'
+    # guy lines first, so the tent stands in front of them: eave corners out to stakes
+    for (x, z), (sx, sz) in [((xa, z0), (xa - 0.55, z0 - 0.45)), ((xb, z0), (xb + 0.55, z0 - 0.45)),
+                             ((xb, z0 + ln), (xb + 0.55, z0 + ln + 0.45))]:
+        line(P(x, hw, z), P(sx, 0, sz), rope, max(0.6, w * 0.35))
+        line(P(sx, 0, sz), P(sx, 0.12, sz), rope, max(0.8, w * 0.5))
+    # the side you can see: roof panel from ridge to eave, then the skirt wall
+    poly([P(xm, ht, z0), P(xm, ht, z0 + ln), P(xb, hw, z0 + ln), P(xb, hw, z0)], fill='#1a1611', stroke=COPPER, w=w)
+    poly([P(xb, hw, z0), P(xb, hw, z0 + ln), P(xb, 0, z0 + ln), P(xb, 0, z0)], fill='#15120d', stroke=COPPER, w=w)
+    # the front: an A over the skirt
+    poly([P(xa, 0, z0), P(xa, hw, z0), P(xm, ht, z0), P(xb, hw, z0), P(xb, 0, z0)], fill='#3a2c12', stroke=COPPER, w=w)
+    line(P(xa, hw, z0), P(xb, hw, z0), rope, w * 0.5)   # the seam where roof meets skirt
+    # the door: the front's own triangle, smaller, lit from inside, with its flap tied back
+    hd, dw = 0.86 * ht, 0.24 * wd
+    poly([P(xm - dw, 0, z0), P(xm, hd, z0), P(xm + dw, 0, z0)], fill=YELLOW, stroke=COPPER, w=w * 0.8)
+    poly([P(xm, hd, z0), P(xm - dw, 0, z0), P(xm - dw - 0.28 * wd, 0.18 * ht, z0)], fill='#4a3a18', stroke=COPPER, w=w * 0.6)
     if antenna:
-        a, b = P(xm - 0.5, 0.92 * ht, z0), P(xm - 0.5, 1.84 * ht, z0)
+        a, b = P(xm + 0.15, ht, z0 + 0.3), P(xm + 0.15, 1.9 * ht, z0 + 0.3)
         line(a, b, COPPER, w); pad(b, F * 0.12 / z0, COPPER)
     ground_pad(xm, z0, 0.2, COPPER)
 for z0, wd, ht, antenna in reversed(TENTS):
