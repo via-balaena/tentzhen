@@ -1,6 +1,8 @@
 # tentzhen-warehouse
 
-The catalogue's records, loaded into DuckDB. `schema.sql` is the contract; read it first.
+The catalogue's records, loaded into DuckDB. `schema.sql` is the contract; read it first, or
+[`docs/data-catalogue.md`](../../docs/data-catalogue.md), which is generated from it: every table
+and view, its columns and constraints, what it reads and what reads it.
 
 ```
 bronze   the record files exactly as read, and their sha256 (lineage)

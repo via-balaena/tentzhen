@@ -1,5 +1,7 @@
 //! `cargo run -p tentzhen-warehouse` from the repo root rebuilds target/warehouse/tentzhen.duckdb
 //! from the records and prints what it holds. Query it with any DuckDB client.
+//!
+//! `cargo run -p tentzhen-warehouse -- catalogue` rewrites docs/data-catalogue.md from the schema.
 
 use duckdb::Connection;
 use std::fs;
@@ -42,8 +44,23 @@ fn build() -> Result<String, String> {
     Ok(report)
 }
 
+fn catalogue() -> Result<String, String> {
+    let root = Path::new(".");
+    let md = tentzhen_warehouse::catalogue::generate(root)?;
+    let out = root.join(tentzhen_warehouse::catalogue::PATH);
+    fs::write(&out, md).map_err(|e| format!("{}: {e}", out.display()))?;
+    Ok(format!("wrote {}\n", out.display()))
+}
+
 fn main() -> ExitCode {
-    match build() {
+    let run = match std::env::args().nth(1).as_deref() {
+        None => build(),
+        Some("catalogue") => catalogue(),
+        Some(other) => Err(format!(
+            "unknown command {other:?}; the one command is `catalogue`"
+        )),
+    };
+    match run {
         Ok(report) => {
             print!("{report}");
             ExitCode::SUCCESS
