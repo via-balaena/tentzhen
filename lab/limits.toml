@@ -1,0 +1,55 @@
+# What the hardware below any agent will allow.
+#
+# The Pico enforcer is to compile these values in, so nothing at run time can raise them. It is
+# not built yet, so none of these limits is enforced by anything: `unknown`. Raising a limit is a
+# change to this file, which a person is to approve (CLAUDE.md, "Safety and permission rules").
+# That is a convention, not enforced: the branch rules require no approval, and agents work
+# through the same GitHub account as the person, so a required review could not tell them apart.
+# Nothing drives a supply or a load until the values it needs are set; the load has none yet.
+#
+# Every value says where it comes from. A value taken from the DPS5005's manual or datasheet, or
+# from OpenDPS's README, is `trusted` (docs/verification.md, "Trusted base") until the part is
+# measured on the bench; then its record id goes here. Sources read 2026-09-28.
+
+[pico_3v3]
+# Any Pico or 3.3 V circuit. Source: CLAUDE.md, "Default ceilings: 3.6 V and 200 mA".
+max_volts = 3.6
+max_amps = 0.200
+
+[supply]
+# The programmable supply: bench supply -> DPS5005 running OpenDPS -> Pico enforcer -> output.
+# It serves Pico circuits until a build needs more, so it takes their ceiling.
+max_volts = 3.6
+max_amps = 0.200
+# After a trip, who may turn the output back on: "person" (a physical button on the enforcer) or
+# "agent" (after the trip is logged). Jon decided "agent" on 2026-09-28. The append-only lab log
+# does not exist yet (docs/roadmap.md, Phase 0), so until it does no trip can be logged and the
+# agent cannot re-enable the output.
+reenable = "agent"
+
+[supply.upstream]
+# The bench supply feeding the DPS5005's input.
+# The DPS5005 needs an input of 6-55 V, and at least 1.1 x its output (Joy-IT JT-DPS5005 manual,
+# "Attention!" note, and datasheet: "Input voltage range 6 - 55 V"). For a 3.6 V output that is
+# max(6.0, 1.1 x 3.6 = 3.96) = 6.0 V.
+volts = 6.5  # 6.0 V plus 0.5 V for the bench supply's setting error, unmeasured
+# This layer does NOT hold the 3.6 V ceiling. The DPS5005 is a buck converter (datasheet:
+# "compact 250 W buck converter"), so from 6.5 V in it can put out at most 6.5 / 1.1 = 5.9 V if
+# the layers above it fail. Only the enforcer and anything added below it hold 3.6 V.
+#
+# Current limit: not set. It depends on the DPS5005's own draw, at no load and at max_amps out,
+# which is unknown until measured on arrival.
+
+[supply.dps]
+# OpenDPS in constant-voltage mode: the voltage setpoint, and the current limit it regulates to.
+# OpenDPS lists no separate over-voltage protection (README, "Control"); the stock firmware's
+# S-OVP and S-OCP menus (Joy-IT manual) are gone once OpenDPS is flashed.
+max_setpoint_volts = 3.6
+current_limit_amps = 0.200
+
+[supply.fuse]
+# In the DPS5005's output line. Fast-acting, one standard 5 x 20 mm rating above max_amps.
+# A fuse stops current, not voltage: it does nothing for the 5.9 V case above.
+size = "5x20 mm"
+rating_amps = 0.250
+speed = "fast"

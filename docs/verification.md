@@ -93,5 +93,8 @@ Everything here is assumed, not shown. Shrinking this list is the long-term work
 - The VexRiscv soft core.
 - Tock's kernel isolation on the Pico.
 - Every AliExpress module, until its incoming-QA record exists.
+- The DPS5005 and OpenDPS, until measured on the bench: the 6–55 V input range and the rule
+  that the input be at least 1.1 × the output (Joy-IT manual and datasheet), and that OpenDPS
+  regulates to its current limit (OpenDPS README). `lab/limits.toml` rests on these.
 - The measuring references themselves (LM4040, crystal) — from authorized distributors, and
   cross-checked against each other.
