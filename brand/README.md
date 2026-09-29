@@ -38,7 +38,9 @@ headline, which stay dark for contrast. Everyone on the street is on one network
 along the wall are on copper: each door's trace jogs 45° and joins a path that starts at your
 feet and runs down the street, under a gate, to the door of the tallest tower. The buildings talk
 by radio: an antenna on every roof, faint gold links along the street, across it and up through the
-towers. The street is wet: every light, window, lantern and tent door reflects as a streak,
+towers. Red paper lanterns hang across the street on wires, lit from inside, the ones behind
+the headline unlit. The street is wet: every light, window, lantern and tent door reflects as a
+streak,
 stretched toward you, blurred more up and down than across and broken by ripples. A puddle at
 your feet mirrors the towers.
 

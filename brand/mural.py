@@ -251,17 +251,41 @@ sign(8.7, 9.9, 4.2, 8.4, 60, '腾振', COPPER, refl=0.3)
 sign(8.8, 9.9, 4.4, 8.2, 92, '药材', DIMCOPPER)
 
 # ---------------- Lanterns ----------------
-for zl in (18, 27, 38, 52, 72, 104):
+# Red paper lanterns on wires across the street, hung as in Chinatown: round, lit from inside,
+# ribbed, capped top and bottom, a soft bloom around each, and a red streak below on the wet
+# street. The ones behind the headline hang unlit, for contrast.
+LANTERN_RED, LANTERN_GLOW, LANTERN_DARK = '#e0452b', '#ff9a3c', '#3a1a12'
+defs.append('<radialGradient id="lantern" cx="0.5" cy="0.45" r="0.6">'
+            '<stop offset="0" stop-color="#ffd27a"/><stop offset="0.35" stop-color="#ff8a3a"/>'
+            '<stop offset="0.8" stop-color="#e0452b"/><stop offset="1" stop-color="#9c2a1a"/></radialGradient>')
+defs.append('<radialGradient id="bloom"><stop offset="0" stop-color="#ff7a3a" stop-opacity="0.35"/>'
+            '<stop offset="1" stop-color="#ff7a3a" stop-opacity="0"/></radialGradient>')
+def lantern(x, y, z):
+    c = P(x, y, z)
+    rx, ry = F * 0.26 / z, F * 0.21 / z
+    cap_w, cap_h = rx * 0.55, max(0.8, ry * 0.18)
+    if HEADLINE[0] < c[0] < HEADLINE[2] and HEADLINE[1] < c[1] < HEADLINE[3]:
+        ellipse(c, rx, ry, LANTERN_DARK, extra=f'stroke="#5a2a1c" stroke-width="{max(0.6, rx * 0.08):.2f}"')
+        return
+    circle(c, rx * 2.6, 'url(#bloom)')
+    ellipse(c, rx, ry, 'url(#lantern)')
+    if rx > 6:  # near enough to see the paper's ribs
+        for k in (0.62, 0.22):
+            out.append(f'<ellipse cx="{c[0]:.1f}" cy="{c[1]:.1f}" rx="{rx * k:.2f}" ry="{ry:.2f}" fill="none" '
+                       f'stroke="#b8341f" stroke-width="{max(0.5, rx * 0.05):.2f}" opacity="0.7"/>')
+    for dy in (-ry - cap_h / 2, ry + cap_h / 2):
+        out.append(f'<rect x="{c[0] - cap_w / 2:.1f}" y="{c[1] + dy - cap_h / 2:.1f}" width="{cap_w:.2f}" '
+                   f'height="{cap_h:.2f}" fill="#b58a3c"/>')
+    streak(x, y, z, 0.4, LANTERN_RED, 0.2)
+for zl in (16, 21, 27, 34, 43, 55, 70, 90, 118):
     xsamp = [LEFT_W + i * (RIGHT_W - LEFT_W) / 30 for i in range(31)]
     mid, half = (LEFT_W + RIGHT_W) / 2, (RIGHT_W - LEFT_W) / 2
     ys = [8.4 - 1.0 * (1 - ((xx - mid) / half) ** 2) for xx in xsamp]
     pline([P(xx, yy, zl) for xx, yy in zip(xsamp, ys)], '#8a6a2e', sw(zl, 0.025, 0.5, 1.0))
-    for i in range(3, 30, 3):
+    for i in range(1, 30, 2):
         xx, yy = xsamp[i], ys[i]
-        a, b = P(xx, yy, zl), P(xx, yy - 0.4, zl)
-        line(a, b, GREY_D, sw(zl, 0.02, 0.4, 0.9))
-        pad(b, max(1.3, F * 0.2 / zl), COPPER)
-        streak(xx, yy - 0.4, zl, 0.3, COPPER, 0.22)
+        line(P(xx, yy, zl), P(xx, yy - 0.25, zl), '#5a3a1c', sw(zl, 0.02, 0.4, 0.9))
+        lantern(xx, yy - 0.25 - 0.21, zl)
 
 # ---------------- A puddle at your feet that holds the towers ----------------
 PX, PZ, PRX, PRZ = -7.35, 3.75, 0.95, 0.85
