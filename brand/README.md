@@ -85,12 +85,14 @@ First person, standing on a Chinatown sidewalk at night, looking down the street
 The foot of the homepage, where the copper rail that runs down the page reaches the tallest tower's
 door: the mural's towers, drawn by the same code from a new camera, far off and level with their
 feet, as the sky pales from night to first light behind them. The sun is still below the horizon
-behind the tallest tower. Its base is a lobby built as towers are: a 16 m curtain wall of tall glass
-on a 3.2 m module under a metal spandrel, lit from inside, and at its centre a revolving door and
-two pairs of swing doors under a canopy with downlights; a pool of that light lies on the plaza. The
-page draws the rail across the plaza in front of the scene, turning up into the revolving door at
-(1180, 520), soldered in with no via and stopping at the threshold, below the doors. The scene has
-no background of its own and fades out at its sides, so it sits on the page at any width.
+behind the tallest tower. Every tower is on the network, the far layer too: a pad on each roof,
+links along each layer, and from each tower in front back to the nearest far roof it can see,
+passing behind nearer towers. Its base is a lobby built as towers are: a 16 m curtain wall of tall
+glass on a 3.2 m module under a metal spandrel, lit from inside, and at its centre a revolving door
+and two pairs of swing doors under a canopy with downlights; a pool of that light lies on the plaza.
+The page draws the rail across the plaza in front of the scene, turning up into the revolving door
+at (1180, 520), soldered in with no via and stopping at the threshold, below the doors. The scene
+has no background of its own and fades out at its sides, so it sits on the page at any width.
 
 ## Source
 

@@ -231,7 +231,13 @@ def haze(gid, depth, alpha):  # the air between layers, thicker toward the horiz
                 f'<stop offset="0" stop-color="{SKY_GLOW}" stop-opacity="0"/>'
                 f'<stop offset="1" stop-color="{SKY_GLOW}" stop-opacity="{alpha}"/></linearGradient>')
     out.append(f'<rect x="0" y="{VPY - depth}" width="{W}" height="{depth}" fill="url(#{gid})"/>')
-def draw_towers(far_x=230, far_n=20):
+def hidden(pt):  # is this point behind one of the towers in front?
+    for x, z, w, h, _ in towers:
+        (xa, ya), (xb, _) = P(x - w / 2, h, z), P(x + w / 2, 0, z)
+        if xa < pt[0] < xb and pt[1] > ya:
+            return True
+    return False
+def draw_towers(far_x=230, far_n=20, far_links=False):
     # the far layer: plain slabs in the haze, a few floors lit, spread across far_x either side
     far = random.Random(21)
     back = sorted([(far.uniform(-far_x, far_x), far.uniform(950, 1500), far.uniform(22, 50), far.uniform(140, 330))
@@ -247,6 +253,23 @@ def draw_towers(far_x=230, far_n=20):
         defs.append(f'<clipPath id="{cid}"><polygon points="{pts(face)}"/></clipPath>')
         draw_runs(runs, z, 0.5 * FLOOR * F / z, 0.45, cid)
     haze('haze_far', 300, 0.5)
+    if far_links:
+        # The far layer is on the network too: a pad on each roof, links along the layer, and one from
+        # each tower in front back to the nearest far roof it can see. They are drawn before the towers
+        # in front, so an arc that passes behind a nearer tower is hidden by it, and a little fainter
+        # than the links in front.
+        out.append('<g opacity="0.8">')
+        by_sx = sorted(back, key=lambda t: P(t[0], 0, t[1])[0])
+        for (xa, za, _, ha), (xb, zb, _, hb) in zip(by_sx, by_sx[1:]):
+            radio_link(P(xa, ha, za), P(xb, hb, zb), P((xa + xb) / 2, max(ha, hb) + 30, (za + zb) / 2), w=1.3)
+        seen = [t for t in back if not hidden(P(t[0], t[3], t[1]))]
+        for x, z, w, h, shape in towers:
+            xr, yr = roof(x, w, h, shape)
+            xb, zb, _, hb = min(seen, key=lambda t: abs(P(t[0], 0, t[1])[0] - P(xr, 0, z)[0]))
+            radio_link(P(xr, yr, z), P(xb, hb, zb), P((xr + xb) / 2, max(yr, hb) + 40, (z + zb) / 2), w=1.3)
+        for x, z, w, h in back:
+            pad(P(x, h, z), 1.9, COPPER)
+        out.append('</g>')
     rnd, twins = random.Random(3), []
     for x, z, w, h, shape in towers:
         draw_tower(rnd, x, z, w, h, shape, METAL if z < 650 else METAL_FAR)
@@ -923,7 +946,7 @@ towers = [(at(sx, z), z, w, h, shape) for sx, z, w, h, shape in (
     (935, 680, 44, 360, 'cup'), (DOOR, 600, 44, 385, 'crown'), (1330, 640, 36, 260, 'setback'),
     (1425, 720, 40, 220, 'slab'))]
 towers.sort(key=lambda t: -t[1])
-draw_towers(far_x=1150, far_n=34)
+draw_towers(far_x=1150, far_n=34, far_links=True)
 # The tallest tower's lobby, as a tower base is built: a 16 m wall of tall glass on a 3.2 m module,
 # captured aluminium mullions with two transoms, under a metal spandrel where the tower begins. The
 # lobby is lit behind it: pendants under the ceiling, the stone lift core at the back, a reception
