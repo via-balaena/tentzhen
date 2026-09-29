@@ -1,9 +1,11 @@
-# Draws brand/mural-street-night.svg: a Chinatown street at night, seen from the sidewalk.
+# Draws two SVGs next to this file:
+#   mural-street-night.svg  the homepage mural: a Chinatown street at night, seen from the sidewalk
+#   skyline-daybreak.svg    the foot of the homepage: the same skyline at first light
 #
 #   python3 brand/mural.py
 #
-# rewrites the SVG next to this file. The Quality Gate runs it and fails if the committed SVG
-# differs, so change the drawing here, never in the SVG.
+# The Quality Gate runs it and fails if anything it leaves in brand/ differs from what is
+# committed, so change the drawings here, never in the SVGs.
 #
 # World units are metres: x across the street (road centre 0), y up, z away from the viewer.
 import math

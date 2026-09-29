@@ -111,7 +111,7 @@ h1, h2, h3, p { margin: 0; }
 }
 .grade::before { content: ''; width: 10px; height: 10px; border: 2px solid var(--caution); border-radius: 50%; box-sizing: border-box; }
 
-/* the rail's last run: onto the street and in at the tallest tower's door */
+/* the rail's last run: across the plaza and up into the tallest tower's door (brand/skyline-daybreak.svg) */
 .skyline { max-width: var(--column); margin: 0 auto; overflow: hidden; }
 .skyline svg { display: block; }
 

@@ -73,9 +73,9 @@ First person, standing on a Chinatown sidewalk at night, looking down the street
   shop is red.
 
 - **Perspective breaks the 0°/45°/90° rule**, because it has to. Traces on the ground keep it in
-  plan: the tent's trace runs 45° then 0° into a path at 90°.
-- **Signs** are SVG text, so they render in the viewer's own Chinese font. Only rendered so far
-  with `rsvg-convert` on macOS.
+  plan: each tent's trace leaves its door at 90°, jogs 45° and runs at 0° into a path at 90°.
+- **Signs and shop names** are SVG text, so they render in the viewer's own Chinese font. Checked
+  with `rsvg-convert` and in a desktop browser on macOS; other platforms are unchecked.
 - **Source:** `brand/mural.py` draws it — camera, street, towers and signs are all in there.
   Change the script, then run `python3 brand/mural.py` to rewrite the SVGs. The Quality Gate runs
   it and fails if a committed SVG differs.
