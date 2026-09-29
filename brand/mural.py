@@ -132,6 +132,12 @@ def draw_towers(Q):
 draw_towers(P)
 
 # ---------------- Street facades ----------------
+# The site sets its headline over the top left. At the narrowest desktop width (1280 px) it covers
+# about this box of the mural; windows touching it stay dark so the words keep their contrast.
+HEADLINE = (60, 20, 780, 480)
+def behind_headline(quad):
+    xs, ys = [p[0] for p in quad], [p[1] for p in quad]
+    return max(xs) > HEADLINE[0] and min(xs) < HEADLINE[2] and max(ys) > HEADLINE[1] and min(ys) < HEADLINE[3]
 def facade(xw, z0, z1, h, lit_shop=False):
     q = [P(xw, 0, z0), P(xw, h, z0), P(xw, h, z1), P(xw, 0, z1)]
     poly(q, fill=FACADE, stroke=GREY_D, w=sw(z0, 0.07, 0.8, 2.2))
@@ -142,10 +148,13 @@ def facade(xw, z0, z1, h, lit_shop=False):
         zz = z0 + 1.2
         while zz + 1.4 < z1 - 0.6:
             wq = [P(xw, fl, zz), P(xw, fl + 2.0, zz), P(xw, fl + 2.0, zz + 1.4), P(xw, fl, zz + 1.4)]
-            warm = random.random() < 0.3  # every window is on; some burn warmer
-            poly(wq, fill='#4a3715' if warm else '#2e2413', stroke=DIMCOPPER, w=sw(zz, 0.04, 0.5, 1.4))
-            reflect([(xw, fl, zz), (xw, fl + 2.0, zz), (xw, fl + 2.0, zz + 1.4), (xw, fl, zz + 1.4)],
-                    COPPER, 0.16 if warm else 0.1, stretch=1.25)
+            warm = random.random() < 0.3  # every window is on, some warmer, except behind the headline
+            if behind_headline(wq):
+                poly(wq, fill='#16171a', stroke=GREY_DD, w=sw(zz, 0.04, 0.5, 1.4))
+            else:
+                poly(wq, fill='#4a3715' if warm else '#2e2413', stroke=DIMCOPPER, w=sw(zz, 0.04, 0.5, 1.4))
+                reflect([(xw, fl, zz), (xw, fl + 2.0, zz), (xw, fl + 2.0, zz + 1.4), (xw, fl, zz + 1.4)],
+                        COPPER, 0.16 if warm else 0.1, stretch=1.25)
             zz += 3.0
         fl += 3.4
     if lit_shop:
