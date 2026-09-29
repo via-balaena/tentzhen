@@ -243,7 +243,7 @@ REFL_AT = len(out)  # the reflection layer goes here, on the ground
 
 # ---------------- A parking sign at the kerb ----------------
 # Portland's magenta "P" on a pole, standing between the tents and the road.
-PZ_SIGN, PX_SIGN = 8.0, CURB_L - 0.45
+PZ_SIGN, PX_SIGN = 8.0, CURB_L - 1.1
 line(P(PX_SIGN, 0, PZ_SIGN), P(PX_SIGN, 2.9, PZ_SIGN), GREY_D, sw(PZ_SIGN, 0.06, 0.8, 2.4))
 sq = [(PX_SIGN - 0.24, 2.35, PZ_SIGN), (PX_SIGN - 0.24, 2.85, PZ_SIGN), (PX_SIGN + 0.24, 2.85, PZ_SIGN), (PX_SIGN + 0.24, 2.35, PZ_SIGN)]
 poly([P(*q) for q in sq], fill='#b0306a', stroke='#d8d8dc', w=sw(PZ_SIGN, 0.02, 0.5, 1.0))
