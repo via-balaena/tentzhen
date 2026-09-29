@@ -108,48 +108,169 @@ def streak(x, y, z, width, color, alpha):
             color, alpha, stretch=1.2)
 
 # ---------------- Downtown towers ----------------
-towers = [
-    (-120, 780, 52, 230, 'flat'), (-88, 660, 40, 250, 'chamfer'), (-58, 600, 34, 300, 'pyramid'),
-    (-30, 740, 46, 330, 'chamfer'), (-40, 560, 30, 240, 'flat'), (-7.6, 640, 38, 380, 'spire'),
-    (28, 580, 34, 290, 'chamfer'), (52, 700, 50, 340, 'flat'), (80, 620, 36, 260, 'chamfer'),
-    (110, 760, 54, 300, 'flat'), (142, 680, 40, 220, 'flat'),
+# A skyline like Shenzhen's or Chongqing's at night: glass towers packed in layers, the farther ones
+# paler in the haze. Each tower is a solid in dark glass that catches the city's glow: its front,
+# and the side it turns toward you a shade lighter; slab lines across it; offices lit in runs along
+# some floors, cut into panes by vertical fins; LED lines on the crowns of a few. Shapes after the
+# two cities' landmarks: a tapered tower with corner columns, a stepped crown and a spire (the
+# tallest, where your path ends), a tapered cylinder with a rounded top and ribs, a slab with a
+# cupped crown, twin towers joined high up by a lit skybridge, and stepped setbacks.
+LED_CYAN, LED_WHITE, OFFICE_COOL = '#7fdfe6', '#e6eef0', '#cfe6e8'
+for gid, top, bottom in (('glass', '#101216', '#1c1b21'), ('glassside', '#16181d', '#24232a'),
+                         ('glassfar', '#17171b', '#221f24')):
+    defs.append(f'<linearGradient id="{gid}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="{VPY}">'
+                f'<stop offset="0" stop-color="{top}"/><stop offset="1" stop-color="{bottom}"/></linearGradient>')
+FLOOR = 4.2  # floor to floor, m
+towers = [  # (x, z, width, roof height, shape): the layer in front
+    (-120, 780, 52, 230, 'setback'), (-88, 660, 36, 262, 'slab'), (-66, 612, 22, 300, 'twin'),
+    (-34, 612, 22, 300, 'twin'), (-30, 760, 46, 336, 'slab'), (-7.6, 640, 40, 385, 'crown'),
+    (26, 580, 30, 318, 'bamboo'), (100, 740, 44, 370, 'cup'), (82, 620, 34, 262, 'setback'),
+    (112, 760, 54, 300, 'slab'), (144, 680, 40, 228, 'slab'),
 ]
 towers.sort(key=lambda t: -t[1])
+LED = {'crown': LED_WHITE, 'bamboo': LED_CYAN, 'cup': LED_CYAN}
+def half_width(w, h, shape, y):  # half the tower's width at height y
+    if shape == 'crown':
+        return w / 2 + (0.31 * w - w / 2) * min(1.0, y / (0.88 * h)) if y < 0.88 * h else (0.26 * w if y < 0.94 * h else 0.18 * w)
+    if shape == 'bamboo':
+        if y < 0.84 * h:
+            return w / 2 + (0.4 * w - w / 2) * y / (0.84 * h)
+        return 0.4 * w * math.sqrt(max(0.0, 1 - ((y - 0.84 * h) / (0.16 * h)) ** 2))
+    if shape == 'setback':
+        return w / 2 if y < 0.55 * h else (0.37 * w if y < 0.8 * h else 0.25 * w)
+    return w / 2
+def outline(x, w, h, shape):  # the front face, bottom left round to bottom right
+    if shape == 'crown':
+        left = [(x - w / 2, 0), (x - 0.31 * w, 0.88 * h), (x - 0.26 * w, 0.88 * h), (x - 0.26 * w, 0.94 * h),
+                (x - 0.18 * w, 0.94 * h), (x - 0.18 * w, h)]
+    elif shape == 'bamboo':
+        left = [(x - w / 2, 0), (x - 0.4 * w, 0.84 * h)]
+        left += [(x - 0.4 * w * math.cos(math.radians(a)), 0.84 * h + 0.16 * h * math.sin(math.radians(a)))
+                 for a in range(10, 91, 10)]
+    elif shape == 'setback':
+        left = [(x - w / 2, 0), (x - w / 2, 0.55 * h), (x - 0.37 * w, 0.55 * h), (x - 0.37 * w, 0.8 * h),
+                (x - 0.25 * w, 0.8 * h), (x - 0.25 * w, h)]
+    elif shape == 'cup':  # the crown dips between its two top corners
+        left = [(x - w / 2, 0), (x - w / 2, h)]
+        left += [(x - w / 2 * math.cos(math.radians(a)), h - 0.1 * h * math.sin(math.radians(a)))
+                 for a in range(10, 91, 10)]
+    else:
+        left = [(x - w / 2, 0), (x - w / 2, h)]
+    return left + [(2 * x - px, py) for px, py in reversed(left)]
+def roof(x, w, h, shape):  # where the antenna pad sits
+    return (x + w / 2 - 1.5, h) if shape == 'cup' else (x, h)
+def floor_top(h, shape):
+    return {'crown': 0.86, 'bamboo': 0.82, 'cup': 0.88}.get(shape, 0.97) * h - 2
+def lit_runs(rnd, runs, z, xa, xb, y, p_lit):
+    # one floor's offices, lit in runs; each run pattern is its own path so floors differ
+    if xb - xa < 2 or rnd.random() > p_lit:
+        return
+    key = (rnd.random() < 0.5, rnd.randrange(3))
+    period = sum(RUN_PATTERNS[key[1]])
+    a, b = P(xa - rnd.random() * period, y, z), P(xb, y, z)
+    runs.setdefault(key, []).append(f'M{a[0]:.1f} {a[1]:.1f}H{b[0]:.1f}')
+RUN_PATTERNS = [(9, 3), (5, 2, 12, 4), (3, 1.5, 3, 6)]  # lit and dark stretches along a floor, m
+def draw_runs(runs, z, band, opacity, clip):
+    for (warm, k), d in sorted(runs.items()):
+        dash = ' '.join(f'{v * F / z:.2f}' for v in RUN_PATTERNS[k])
+        out.append(f'<path d="{"".join(d)}" stroke="{HOMELIGHT if warm else OFFICE_COOL}" stroke-width="{band:.2f}" '
+                   f'stroke-dasharray="{dash}" opacity="{opacity}" fill="none" clip-path="url(#{clip})"/>')
+def draw_tower(rnd, x, z, w, h, shape, col):
+    shp = outline(x, w, h, shape)
+    face = [P(px, py, z) for px, py in shp]
+    cid = f'tw{int(x * 10)}_{int(z)}'
+    defs.append(f'<clipPath id="{cid}"><polygon points="{pts(face)}"/></clipPath>')
+    # the side it turns toward you, for the box-shaped ones
+    if shape in ('slab', 'twin', 'setback') and (x - w / 2 > CAM_X or x + w / 2 < CAM_X):
+        d, left_side = 0.8 * w, x - w / 2 > CAM_X
+        tiers = [(0, 0.55 * h, 0.5), (0.55 * h, 0.8 * h, 0.37), (0.8 * h, h, 0.25)] if shape == 'setback' else [(0, h, 0.5)]
+        for y0, y1, k in tiers:
+            xs = x - k * w if left_side else x + k * w
+            side = [P(xs, y0, z), P(xs, y1, z), P(xs, y1, z + d), P(xs, y0, z + d)]
+            poly(side, fill='url(#glassside)', stroke=col, w=0.8)
+            runs, y = {}, y0 + 3
+            while y < min(y1, floor_top(h, shape)) - 1:
+                if rnd.random() < 0.5:
+                    a, b = P(xs, y, z + 1), P(xs, y, z + d - 1)
+                    runs.setdefault((rnd.random() < 0.5, 0), []).append(f'M{a[0]:.1f} {a[1]:.1f}L{b[0]:.1f} {b[1]:.1f}')
+                y += FLOOR
+            for (warm, _), dd in runs.items():
+                out.append(f'<path d="{"".join(dd)}" stroke="{HOMELIGHT if warm else OFFICE_COOL}" '
+                           f'stroke-width="{0.45 * FLOOR * F / (z + d / 2):.2f}" opacity="0.55" fill="none"/>')
+    poly(face, fill='url(#glass)')
+    # slab lines, then the lit offices, then the fins that cut them into panes
+    slabs, runs, y = [], {}, 3.0
+    while y < floor_top(h, shape):
+        hw = half_width(w, h, shape, y)
+        a, b = P(x - hw, y, z), P(x + hw, y, z)
+        slabs.append(f'M{a[0]:.1f} {a[1]:.1f}H{b[0]:.1f}')
+        lit_runs(rnd, runs, z, x - hw + 0.8, x + hw - 0.8, y + 0.55 * FLOOR, 0.6)
+        y += FLOOR
+    out.append(f'<path d="{"".join(slabs)}" stroke="#262a30" stroke-width="{max(0.4, 0.35 * F / z):.2f}" fill="none"/>')
+    draw_runs(runs, z, 0.5 * FLOOR * F / z, 0.85, cid)
+    top = floor_top(h, shape)
+    fins, n = [], max(3, int(w / (1.6 if shape == 'bamboo' else 3.0)))
+    for i in range(1, n):
+        u = -1 + 2 * i / n
+        ys = [0, top] + ([0.84 * h, 0.93 * h, 0.985 * h] if shape == 'bamboo' else [])
+        fins.append('M' + 'L'.join('{:.1f} {:.1f}'.format(*P(x + u * half_width(w, h, shape, yy), yy, z)) for yy in ys))
+    rib = shape == 'bamboo'
+    out.append(f'<path d="{"".join(fins)}" stroke="{METAL_FAR if rib else "#0e1013"}" '
+               f'stroke-width="{0.9 if rib else 0.8}" opacity="{0.6 if rib else 0.75}" fill="none"/>')
+    if shape == 'crown':  # its corner columns, running the length of the shaft
+        for sgn in (-1, 1):
+            line(P(x + sgn * 0.42 * w, 0, z), P(x + sgn * 0.27 * w, 0.88 * h, z), col, 1.2)
+        a, b = P(x, h, z), P(x, h + 34, z)
+        line(a, b, col, 1.6); pad(b, 3.6, col)
+    poly(face, stroke=col, w=1.6 if z < 650 else 1.2)
+    if shape in LED:  # LED lines along the crown
+        crown = [P(px, py, z) for px, py in shp if py >= 0.8 * h]
+        for width, alpha in ((4.0, 0.18), (1.1, 0.9)):
+            pline(crown, LED[shape], width, extra=f'opacity="{alpha}"')
+def haze(gid, depth, alpha):  # the air between layers, thicker toward the horizon
+    defs.append(f'<linearGradient id="{gid}" gradientUnits="userSpaceOnUse" x1="0" y1="{VPY - depth}" x2="0" y2="{VPY}">'
+                f'<stop offset="0" stop-color="{SKY_GLOW}" stop-opacity="0"/>'
+                f'<stop offset="1" stop-color="{SKY_GLOW}" stop-opacity="{alpha}"/></linearGradient>')
+    out.append(f'<rect x="0" y="{VPY - depth}" width="{W}" height="{depth}" fill="url(#{gid})"/>')
 def draw_towers():
-    rnd = random.Random(3)
-    for x, z, w, h, top in towers:
-        near = z < 650
-        col = METAL if near else METAL_FAR
-        x0, x1 = x - w / 2, x + w / 2
-        bl, br = P(x0, 0, z), P(x1, 0, z)
-        if top == 'pyramid':
-            shape = [bl, P(x0 + 1, h * 0.74, z), P(x, h, z), P(x1 - 1, h * 0.74, z), br]
-        elif top == 'chamfer':
-            c = w * 0.22
-            shape = [bl, P(x0, h - c, z), P(x0 + c, h, z), P(x1 - c, h, z), P(x1, h - c, z), br]
-        else:
-            shape = [bl, P(x0, h, z), P(x1, h, z), br]
-        poly(shape, fill='#131417' if near else '#16161a', stroke=col, w=1.6 if near else 1.2)
-        if top == 'spire':
-            a, b = P(x, h, z), P(x, h + 40, z)
-            line(a, b, col, 1.6); pad(b, 3.6, col)
-        top_y = h * (0.72 if top == 'pyramid' else 0.93)
-        cols = max(2, int(w / 6.5))
-        for i in range(cols):
-            xx = x0 + (i + 0.5) * w / cols
-            yy = 7.0
-            while yy < top_y - 3:
-                bright = rnd.random() < 0.25
-                circle(P(xx, yy, z), 1.3, HOMELIGHT if bright else '#5aa8a2')
-                yy += 8.0
+    # the far layer: plain slabs in the haze, a few floors lit
+    far = random.Random(21)
+    back = sorted([(far.uniform(-230, 230), far.uniform(950, 1500), far.uniform(22, 50), far.uniform(140, 330))
+                   for _ in range(20)], key=lambda t: -t[1])
+    for x, z, w, h in back:
+        face = [P(x - w / 2, 0, z), P(x - w / 2, h, z), P(x + w / 2, h, z), P(x + w / 2, 0, z)]
+        poly(face, fill='url(#glassfar)', stroke=METAL_FAR, w=0.8, extra='stroke-opacity="0.5"')
+        runs, y = {}, 3.0
+        while y < h - 3:
+            lit_runs(far, runs, z, x - w / 2 + 0.8, x + w / 2 - 0.8, y + 0.55 * FLOOR, 0.35)
+            y += FLOOR
+        cid = f'tf{int(x * 10)}_{int(z)}'
+        defs.append(f'<clipPath id="{cid}"><polygon points="{pts(face)}"/></clipPath>')
+        draw_runs(runs, z, 0.5 * FLOOR * F / z, 0.45, cid)
+    haze('haze_far', 300, 0.5)
+    rnd, twins = random.Random(3), []
+    for x, z, w, h, shape in towers:
+        draw_tower(rnd, x, z, w, h, shape, METAL if z < 650 else METAL_FAR)
+        if shape == 'twin':
+            twins.append((x, z, w, h))
+            if len(twins) == 2:  # the skybridge between them, lit along its length
+                (xa, za, wa, ha), (xb, _, wb, hb) = sorted(twins)
+                y0, y1 = min(ha, hb) - 52, min(ha, hb) - 40
+                bridge = [P(xa - wa / 2 - 6, y0, za), P(xa - wa / 2 - 6, y1, za), P(xb + wb / 2 + 6, y1, za),
+                          P(xb + wb / 2 + 6, y0, za)]
+                poly(bridge, fill='#2a4a4e', stroke=LED_CYAN, w=1.0)
+                line(P(xa - wa / 2 - 6, (y0 + y1) / 2, za), P(xb + wb / 2 + 6, (y0 + y1) / 2, za), OFFICE_COOL, 0.8,
+                     extra='opacity="0.7"')
+    haze('haze_near', 160, 0.25)
     # Every rooftop linked to its neighbours by an arc through the sky.
     by_x = sorted(towers, key=lambda t: t[0])
-    for (xa, za, _, ha, _), (xb, zb, _, hb, _) in zip(by_x, by_x[1:]):
-        a, b = P(xa, ha, za), P(xb, hb, zb)
-        c = P((xa + xb) / 2, max(ha, hb) + 45, (za + zb) / 2)
+    for ta, tb in zip(by_x, by_x[1:]):
+        (xa, ha), (xb, hb) = roof(ta[0], ta[2], ta[3], ta[4]), roof(tb[0], tb[2], tb[3], tb[4])
+        a, b = P(xa, ha, ta[1]), P(xb, hb, tb[1])
+        c = P((xa + xb) / 2, max(ha, hb) + 45, (ta[1] + tb[1]) / 2)
         radio_link(a, b, c)
-    for x, z, _, h, _ in towers:
-        pad(P(x, h, z), 2.4, COPPER)
+    for x, z, w, h, shape in towers:
+        pad(P(*roof(x, w, h, shape), z), 2.4, COPPER)
 
 draw_towers()
 
@@ -349,9 +470,9 @@ for side in masts.values():  # along the street
 for a, b in zip(masts['left'], masts['right']):  # across it
     arc(a, b, lift=4.0)
 for m in (masts['left'][0], masts['right'][0]):  # the far end of the street up to the towers
-    x, z, _, h, _ = min(towers, key=lambda t: abs(t[0] - m[1][0]) + t[1] / 100)
-    tip = P(x, h, z)
-    arc(m, (tip, (x, h, z)), lift=40.0)
+    x, z, w, h, shape = min(towers, key=lambda t: abs(t[0] - m[1][0]) + t[1] / 100)
+    xr, yr = roof(x, w, h, shape)
+    arc(m, (P(xr, yr, z), (xr, yr, z)), lift=40.0)
 
 # ---------------- Ground ----------------
 # Grey concrete sidewalks, opaque and lighter than the road, cut into slabs by dark joints; the road
@@ -392,12 +513,12 @@ for x, z, half, light in SPILL:
 REFL_AT = len(out)  # the reflection layer goes here, on the ground
 
 # ---------------- A parking sign at the kerb ----------------
-# Portland's magenta "P" on a pole, standing between the tents and the road.
+# A blue "P" on a pole, standing between the tents and the road.
 PZ_SIGN, PX_SIGN = 8.0, CURB_L - 0.4
 def parking_sign():
     line(P(PX_SIGN, 0, PZ_SIGN), P(PX_SIGN, 2.9, PZ_SIGN), GREY_D, sw(PZ_SIGN, 0.06, 0.8, 2.4))
     sq = [(PX_SIGN - 0.24, 2.35, PZ_SIGN), (PX_SIGN - 0.24, 2.85, PZ_SIGN), (PX_SIGN + 0.24, 2.85, PZ_SIGN), (PX_SIGN + 0.24, 2.35, PZ_SIGN)]
-    poly([P(*q) for q in sq], fill='#b0306a', stroke='#d8d8dc', w=sw(PZ_SIGN, 0.02, 0.5, 1.0))
+    poly([P(*q) for q in sq], fill='#2e64c2', stroke='#d8d8dc', w=sw(PZ_SIGN, 0.02, 0.5, 1.0))
     text(P(PX_SIGN, 2.6, PZ_SIGN), 'P', F * 0.36 / PZ_SIGN, '#f2f2f4')
 
 # ---------------- Gate ----------------
