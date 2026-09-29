@@ -202,9 +202,7 @@ pub struct Catalogue {
     pub parts: BTreeMap<String, Part>,
     /// Each build's versions, oldest first; `versions[i].version == i + 1`.
     pub builds: BTreeMap<String, Vec<Build>>,
-    /// Drawing SVGs by `<build>/v<N>`, inlined into pages so they draw in the site's fonts.
-    pub drawings: BTreeMap<String, String>,
-    /// Every record exactly as read, parts first: the warehouse's bronze layer.
+    /// Every file exactly as read, records then drawings: the warehouse's bronze layer.
     pub sources: Vec<Source>,
 }
 
@@ -228,16 +226,21 @@ impl Catalogue {
             }
         }
         let mut cat = Self::from_sources(&parts, &builds)?;
+        let mut drawings = Vec::new();
         for (name, versions) in &cat.builds {
             for b in versions {
                 if let Some(d) = &b.drawing {
                     let path = root.join("builds").join(name).join(d);
-                    let svg = fs::read_to_string(&path)
+                    let text = fs::read_to_string(&path)
                         .map_err(|e| format!("{}: {e}", path.display()))?;
-                    cat.drawings.insert(format!("{name}/v{}", b.version), svg);
+                    drawings.push(Source {
+                        path: format!("builds/{name}/{d}"),
+                        text,
+                    });
                 }
             }
         }
+        cat.sources.extend(drawings);
         Ok(cat)
     }
 
@@ -287,7 +290,6 @@ impl Catalogue {
         let cat = Catalogue {
             parts,
             builds,
-            drawings: BTreeMap::new(),
             sources: part_sources.iter().chain(build_sources).cloned().collect(),
         };
         for versions in cat.builds.values() {

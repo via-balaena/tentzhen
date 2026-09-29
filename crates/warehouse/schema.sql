@@ -64,6 +64,7 @@ CREATE TABLE silver.line (
 CREATE TABLE silver.uses (
     build        TEXT NOT NULL,
     version      INTEGER NOT NULL,
+    uses_no      INTEGER NOT NULL,
     uses_build   TEXT NOT NULL,
     uses_version INTEGER NOT NULL,
     qty          INTEGER NOT NULL CHECK (qty > 0),
@@ -178,3 +179,39 @@ GROUP BY ALL;
 -- Where each part ends up, directly or inside another build.
 CREATE VIEW gold.where_used AS
 SELECT part, build, version, qty FROM gold.bom_exploded WHERE part IS NOT NULL;
+
+-- ---------------------------------------------------------------- gold: the site's pages
+-- Everything a build page shows comes from these views. The site reads nothing else.
+
+-- One row per build version, with its newest sibling, its drawing and the hash of its record.
+CREATE VIEW gold.page AS
+SELECT bv.build, bv.version, bv.status, bv.does, bv.changes,
+       l.version   AS latest,
+       lv.changes  AS latest_changes,
+       d.body      AS drawing_svg,
+       bv.record,
+       h.sha256    AS record_sha256
+FROM silver.build_version bv
+JOIN gold.latest l          ON l.build = bv.build
+JOIN silver.build_version lv ON lv.build = l.build AND lv.version = l.version
+JOIN bronze.record_hash h   ON h.path = bv.record
+LEFT JOIN bronze.record d   ON d.path = 'builds/' || bv.build || '/' || bv.drawing;
+
+CREATE VIEW gold.page_line AS
+SELECT l.build, l.version, l.line_no, l.qty, l.part, l.commodity, l.form,
+       p.datasheet, coalesce(p.authorized_only, false) AS authorized_only
+FROM silver.line l
+LEFT JOIN silver.part p ON p.part = l.part;
+
+CREATE VIEW gold.page_uses AS
+SELECT build, version, uses_no, uses_build, uses_version, qty FROM silver.uses;
+
+-- The same edges read the other way: where each build version is used.
+CREATE VIEW gold.page_used_in AS
+SELECT uses_build AS build, uses_version AS version,
+       build AS in_build, version AS in_version, qty
+FROM silver.uses;
+
+CREATE VIEW gold.page_firmware AS SELECT * FROM silver.firmware;
+CREATE VIEW gold.page_pin      AS SELECT * FROM silver.pin;
+CREATE VIEW gold.page_step     AS SELECT * FROM silver.step;

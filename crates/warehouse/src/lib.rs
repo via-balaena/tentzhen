@@ -53,10 +53,10 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
                 params![key.0, key.1, i, l.part, l.commodity, l.form, l.qty],
             )?;
         }
-        for u in &b.uses {
+        for (i, u) in (1u32..).zip(&b.uses) {
             tx.execute(
-                "INSERT INTO silver.uses VALUES (?, ?, ?, ?, ?)",
-                params![key.0, key.1, u.build, u.version, u.qty],
+                "INSERT INTO silver.uses VALUES (?, ?, ?, ?, ?, ?)",
+                params![key.0, key.1, i, u.build, u.version, u.qty],
             )?;
         }
         if let Some(f) = &b.firmware {
@@ -170,6 +170,22 @@ mod tests {
             "SELECT count(*) FROM bronze.record_hash WHERE regexp_full_match(sha256, '[0-9a-f]{64}')",
         );
         assert_eq!(hashed, one(&conn, "SELECT count(*) FROM bronze.record"));
+    }
+
+    #[test]
+    fn every_version_has_one_page_and_its_drawing() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let conn = warehouse(&Catalogue::load(&root).unwrap());
+        assert_eq!(
+            one(&conn, "SELECT count(*) FROM gold.page"),
+            one(&conn, "SELECT count(*) FROM silver.build_version"),
+        );
+        let missing = one(
+            &conn,
+            "SELECT count(*) FROM silver.build_version bv JOIN gold.page p USING (build, version) \
+             WHERE bv.drawing IS NOT NULL AND p.drawing_svg IS NULL",
+        );
+        assert_eq!(missing, 0, "a declared drawing reaches its page");
     }
 
     #[test]

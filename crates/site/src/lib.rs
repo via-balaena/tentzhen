@@ -1,13 +1,14 @@
-//! Generates tentzhen.com's build pages from the records in `parts/` and `builds/`.
+//! Generates tentzhen.com's build pages from the warehouse's gold views, and nothing else.
 //!
-//! A build version is `builds/<name>/v<N>.toml`. Every version gets a permanent page at
+//! The records in `parts/` and `builds/` are loaded into DuckDB (crates/warehouse); every value on
+//! a page is read back out of a `gold.page*` view. Every build version gets a permanent page at
 //! `site/builds/<name>/v<N>/`; `site/builds/<name>/` sends you to the newest. Pages are output,
 //! never edited: the Quality Gate reruns this and fails if `site/` differs.
 
+use duckdb::{Connection, params};
 use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
-use tentzhen_records::{Build, Catalogue};
 
 fn esc(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
@@ -70,21 +71,72 @@ fn page(up: &str, title: &str, body: &str) -> String {
     )
 }
 
-pub fn render_index(cat: &Catalogue) -> String {
+/// A parts line: qty, part, commodity, form, datasheet, authorized_only (`gold.page_line`).
+type LineRow = (
+    i64,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    bool,
+);
+/// A walkthrough step: instruction, run, expect, agent (`gold.page_step`).
+type StepRow = (String, Option<String>, Option<String>, Option<String>);
+/// A claim: says, sim grade, sim evidence, irl grade, irl evidence (`gold.claim_grades`).
+type ClaimRow = (String, String, Option<String>, String, Option<String>);
+
+/// One build version, as `gold.page` gives it.
+pub struct PageRow {
+    pub build: String,
+    pub version: u32,
+    pub status: String,
+    pub does: String,
+    pub changes: Option<String>,
+    pub latest: u32,
+    pub latest_changes: Option<String>,
+    pub drawing_svg: Option<String>,
+}
+
+fn u32_at(row: &duckdb::Row, i: usize) -> duckdb::Result<u32> {
+    let v: i64 = row.get(i)?;
+    u32::try_from(v).map_err(|e| {
+        duckdb::Error::FromSqlConversionFailure(i, duckdb::types::Type::BigInt, Box::new(e))
+    })
+}
+
+pub fn pages(conn: &Connection) -> duckdb::Result<Vec<PageRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT build, version, status, does, changes, latest, latest_changes, drawing_svg \
+         FROM gold.page ORDER BY build, version",
+    )?;
+    stmt.query_map([], |r| {
+        Ok(PageRow {
+            build: r.get(0)?,
+            version: u32_at(r, 1)?,
+            status: r.get(2)?,
+            does: r.get(3)?,
+            changes: r.get(4)?,
+            latest: u32_at(r, 5)?,
+            latest_changes: r.get(6)?,
+            drawing_svg: r.get(7)?,
+        })
+    })?
+    .collect()
+}
+
+pub fn render_index(pages: &[PageRow]) -> String {
     let mut body = String::from(
         "<h1 class=\"spec-title\">Builds</h1>\n<table class=\"spec-table\">\n<thead><tr><th>BUILD</th><th>LATEST</th><th>DOES</th></tr></thead>\n<tbody>\n",
     );
-    for (name, versions) in &cat.builds {
-        if let Some(b) = versions.last() {
-            let _ = writeln!(
-                body,
-                "<tr><td><a href=\"{n}/v{v}/index.html\">{n}</a></td><td>v{v} · {s}</td><td>{d}</td></tr>",
-                n = esc(name),
-                v = b.version,
-                s = b.status.as_str(),
-                d = esc(&b.does)
-            );
-        }
+    for b in pages.iter().filter(|p| p.version == p.latest) {
+        let _ = writeln!(
+            body,
+            "<tr><td><a href=\"{n}/v{v}/index.html\">{n}</a></td><td>v{v} · {s}</td><td>{d}</td></tr>",
+            n = esc(&b.build),
+            v = b.version,
+            s = b.status,
+            d = esc(&b.does)
+        );
     }
     body.push_str("</tbody>\n</table>\n");
     page("../", "Builds · Tentzhen", &body)
@@ -105,10 +157,9 @@ fn chip(grade: &str) -> String {
     format!("<span class=\"grade {grade}\">{grade}</span>")
 }
 
-pub fn render_version(cat: &Catalogue, b: &Build) -> String {
+pub fn render_version(conn: &Connection, b: &PageRow) -> duckdb::Result<String> {
     let up = "../../../";
-    let versions = &cat.builds[&b.build];
-    let latest = versions.len();
+    let key = params![b.build, b.version];
     let name = esc(&b.build);
     let mut h = String::new();
 
@@ -120,26 +171,25 @@ pub fn render_version(cat: &Catalogue, b: &Build) -> String {
     );
     let _ = writeln!(h, "<h1 class=\"spec-title\">{name}</h1>");
     let mut links = String::new();
-    for v in versions {
-        if v.version == b.version {
-            let _ = write!(links, " <span class=\"here\">v{}</span>", v.version);
+    for v in 1..=b.latest {
+        if v == b.version {
+            let _ = write!(links, " <span class=\"here\">v{v}</span>");
         } else {
-            let _ = write!(links, " <a href=\"../v{0}/index.html\">v{0}</a>", v.version);
+            let _ = write!(links, " <a href=\"../v{v}/index.html\">v{v}</a>");
         }
     }
     let _ = writeln!(
         h,
         "<p class=\"spec-meta\"><span class=\"state {s}\">v{} · {s}</span><span class=\"versions\">versions{links}</span></p>",
         b.version,
-        s = b.status.as_str()
+        s = b.status
     );
-    if usize::try_from(b.version).is_ok_and(|v| v < latest) {
-        let newest = &versions[latest - 1];
+    if b.version < b.latest {
         let _ = writeln!(
             h,
             "<p class=\"banner\">Superseded by <a href=\"../v{0}/index.html\">v{0}</a>. {1}</p>",
-            newest.version,
-            esc(newest.changes.as_deref().unwrap_or(""))
+            b.latest,
+            esc(b.latest_changes.as_deref().unwrap_or(""))
         );
     }
     if let Some(c) = &b.changes {
@@ -151,7 +201,7 @@ pub fn render_version(cat: &Catalogue, b: &Build) -> String {
         );
     }
     let _ = writeln!(h, "<p class=\"spec-does\">{}</p>", esc(&b.does));
-    if let Some(svg) = cat.drawings.get(&format!("{}/v{}", b.build, b.version)) {
+    if let Some(svg) = &b.drawing_svg {
         let _ = writeln!(
             h,
             "<figure class=\"drawing\" role=\"img\" aria-label=\"Drawing of {name} v{}\">\n{}\n</figure>",
@@ -160,19 +210,34 @@ pub fn render_version(cat: &Catalogue, b: &Build) -> String {
         );
     }
 
-    if !b.line.is_empty() {
+    let mut stmt = conn.prepare(
+        "SELECT qty, part, commodity, form, datasheet, authorized_only FROM gold.page_line \
+         WHERE build = ? AND version = ? ORDER BY line_no",
+    )?;
+    let lines: Vec<LineRow> = stmt
+        .query_map(key, |r| {
+            Ok((
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+            ))
+        })?
+        .collect::<duckdb::Result<_>>()?;
+    if !lines.is_empty() {
         h.push_str("<h2>Parts</h2>\n<table class=\"spec-table\">\n<thead><tr><th>QTY</th><th>PART</th><th>FORM</th><th></th></tr></thead>\n<tbody>\n");
-        for l in &b.line {
-            let (what, note) = match (&l.part, &l.commodity) {
+        for (qty, part, commodity, form, datasheet, authorized_only) in &lines {
+            let (what, note) = match (part, commodity) {
                 (Some(p), _) => {
-                    let part = &cat.parts[p];
-                    let what = match &part.datasheet {
+                    let what = match datasheet {
                         Some(url) => format!("<a href=\"{}\">{}</a>", esc(url), esc(p)),
                         None => esc(p),
                     };
                     (
                         what,
-                        if part.authorized_only {
+                        if *authorized_only {
                             "authorized sellers only"
                         } else {
                             ""
@@ -184,88 +249,121 @@ pub fn render_version(cat: &Catalogue, b: &Build) -> String {
             };
             let _ = writeln!(
                 h,
-                "<tr><td>{}</td><td>{what}</td><td>{}</td><td class=\"muted\">{note}</td></tr>",
-                l.qty,
-                esc(l.form.as_deref().unwrap_or(""))
+                "<tr><td>{qty}</td><td>{what}</td><td>{}</td><td class=\"muted\">{note}</td></tr>",
+                esc(form.as_deref().unwrap_or(""))
             );
         }
         h.push_str("</tbody>\n</table>\n");
     }
 
-    if !b.uses.is_empty() {
-        h.push_str("<h2>Uses</h2>\n<ul class=\"refs\">\n");
-        for u in &b.uses {
-            let _ = writeln!(
-                h,
-                "<li><a href=\"../../{0}/v{1}/index.html\">{0} v{1}</a></li>",
-                esc(&u.build),
-                u.version
-            );
+    let refs = |sql: &str| -> duckdb::Result<Vec<(String, u32)>> {
+        let mut stmt = conn.prepare(sql)?;
+        stmt.query_map(key, |r| Ok((r.get(0)?, u32_at(r, 1)?)))?
+            .collect()
+    };
+    let uses = refs(
+        "SELECT uses_build, uses_version FROM gold.page_uses \
+         WHERE build = ? AND version = ? ORDER BY uses_no",
+    )?;
+    let used = refs(
+        "SELECT in_build, in_version FROM gold.page_used_in \
+         WHERE build = ? AND version = ? ORDER BY in_build, in_version",
+    )?;
+    for (title, list) in [("Uses", &uses), ("Used in", &used)] {
+        if list.is_empty() {
+            continue;
         }
-        h.push_str("</ul>\n");
-    }
-    let used = cat.used_in(&b.build, b.version);
-    if !used.is_empty() {
-        h.push_str("<h2>Used in</h2>\n<ul class=\"refs\">\n");
-        for u in used {
+        let _ = writeln!(h, "<h2>{title}</h2>\n<ul class=\"refs\">");
+        for (n, v) in list {
             let _ = writeln!(
                 h,
                 "<li><a href=\"../../{0}/v{1}/index.html\">{0} v{1}</a></li>",
-                esc(&u.build),
-                u.version
+                esc(n),
+                v
             );
         }
         h.push_str("</ul>\n");
     }
 
-    if let Some(f) = &b.firmware {
+    let mut stmt = conn.prepare(
+        "SELECT name, license, source, release, file, sha256, pin_map FROM gold.page_firmware \
+         WHERE build = ? AND version = ?",
+    )?;
+    let firmware: Vec<[Option<String>; 7]> = stmt
+        .query_map(key, |r| {
+            Ok([
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+                r.get(6)?,
+            ])
+        })?
+        .collect::<duckdb::Result<_>>()?;
+    if let Some([name_, license, source, release, file, sha256, pin_map]) = firmware.first() {
+        let t = |s: &Option<String>| esc(s.as_deref().unwrap_or(""));
         h.push_str("<h2>Firmware</h2>\n<dl class=\"facts\">\n");
         let _ = writeln!(
             h,
             "<div><dt>NAME</dt><dd><a href=\"{}\">{}</a> · {}</dd></div>",
-            esc(&f.source),
-            esc(&f.name),
-            esc(&f.license)
+            t(source),
+            t(name_),
+            t(license)
         );
-        let _ = writeln!(h, "<div><dt>RELEASE</dt><dd>{}</dd></div>", esc(&f.release));
-        let _ = writeln!(h, "<div><dt>FILE</dt><dd>{}</dd></div>", esc(&f.file));
+        let _ = writeln!(h, "<div><dt>RELEASE</dt><dd>{}</dd></div>", t(release));
+        let _ = writeln!(h, "<div><dt>FILE</dt><dd>{}</dd></div>", t(file));
         let _ = writeln!(
             h,
             "<div><dt>SHA-256</dt><dd class=\"hash\">{}</dd></div>",
-            esc(&f.sha256)
+            t(sha256)
         );
-        if let Some(p) = &f.pin_map {
+        if let Some(p) = pin_map {
             let _ = writeln!(h, "<div><dt>PIN MAP</dt><dd>{}</dd></div>", esc(p));
         }
         h.push_str("</dl>\n");
     }
 
-    if !b.pin.is_empty() {
+    let mut stmt = conn.prepare(
+        "SELECT name, board_pin, net, required FROM gold.page_pin \
+         WHERE build = ? AND version = ? ORDER BY pin_no",
+    )?;
+    let pins: Vec<(String, i64, String, bool)> = stmt
+        .query_map(key, |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+        .collect::<duckdb::Result<_>>()?;
+    if !pins.is_empty() {
         h.push_str("<h2>Pins</h2>\n<table class=\"spec-table\">\n<thead><tr><th>PIN</th><th>BOARD PIN</th><th>NET</th><th></th></tr></thead>\n<tbody>\n");
-        for p in &b.pin {
+        for (pin, board_pin, net, required) in &pins {
             let _ = writeln!(
                 h,
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td class=\"muted\">{}</td></tr>",
-                esc(&p.name),
-                p.board_pin,
-                esc(&p.net),
-                if p.required { "required" } else { "optional" }
+                "<tr><td>{}</td><td>{board_pin}</td><td>{}</td><td class=\"muted\">{}</td></tr>",
+                esc(pin),
+                esc(net),
+                if *required { "required" } else { "optional" }
             );
         }
         h.push_str("</tbody>\n</table>\n");
     }
 
-    if !b.step.is_empty() {
+    let mut stmt = conn.prepare(
+        "SELECT instruction, run, expect, agent FROM gold.page_step \
+         WHERE build = ? AND version = ? ORDER BY step_no",
+    )?;
+    let steps: Vec<StepRow> = stmt
+        .query_map(key, |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+        .collect::<duckdb::Result<_>>()?;
+    if !steps.is_empty() {
         h.push_str("<h2>Walkthrough</h2>\n<ol class=\"steps\">\n");
-        for s in &b.step {
-            let _ = write!(h, "<li><p>{}</p>", esc(&s.r#do));
-            if let Some(r) = &s.run {
+        for (instruction, run, expect, agent) in &steps {
+            let _ = write!(h, "<li><p>{}</p>", esc(instruction));
+            if let Some(r) = run {
                 let _ = write!(h, "<pre><code>{}</code></pre>", esc(r));
             }
-            if let Some(e) = &s.expect {
+            if let Some(e) = expect {
                 let _ = write!(h, "<p class=\"expect\"><span>EXPECT</span>{}</p>", esc(e));
             }
-            if let Some(a) = &s.agent {
+            if let Some(a) = agent {
                 let _ = write!(h, "<p class=\"agent\"><span>AGENTS</span>{}</p>", esc(a));
             }
             h.push_str("</li>\n");
@@ -273,35 +371,41 @@ pub fn render_version(cat: &Catalogue, b: &Build) -> String {
         h.push_str("</ol>\n");
     }
 
-    if !b.claim.is_empty() {
+    let mut stmt = conn.prepare(
+        "SELECT says, sim_grade, sim_evidence, irl_grade, irl_evidence FROM gold.claim_grades \
+         WHERE build = ? AND version = ? ORDER BY claim_no",
+    )?;
+    let claims: Vec<ClaimRow> = stmt
+        .query_map(key, |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+        })?
+        .collect::<duckdb::Result<_>>()?;
+    if !claims.is_empty() {
         h.push_str("<h2>Claims</h2>\n<table class=\"spec-table claims\">\n<thead><tr><th>CLAIM</th><th>SIMULATION</th><th>ON THE BENCH</th></tr></thead>\n<tbody>\n");
-        for c in &b.claim {
-            let sim_ref = c
-                .sim
-                .as_ref()
-                .map(|s| format!(" <span class=\"muted\">{}</span>", esc(&s.by)))
-                .unwrap_or_default();
-            let irl_ref = c
-                .irl
-                .as_ref()
-                .map(|i| format!(" <span class=\"muted\">{}</span>", esc(&i.record)))
-                .unwrap_or_default();
+        for (says, sim_grade, sim_evidence, irl_grade, irl_evidence) in &claims {
+            let evidence = |e: &Option<String>| {
+                e.as_ref()
+                    .map(|e| format!(" <span class=\"muted\">{}</span>", esc(e)))
+                    .unwrap_or_default()
+            };
             let _ = writeln!(
                 h,
-                "<tr><td>{}</td><td>{}{sim_ref}</td><td>{}{irl_ref}</td></tr>",
-                esc(&c.says),
-                chip(c.sim_grade()),
-                chip(c.irl_grade())
+                "<tr><td>{}</td><td>{}{}</td><td>{}{}</td></tr>",
+                esc(says),
+                chip(sim_grade),
+                evidence(sim_evidence),
+                chip(irl_grade),
+                evidence(irl_evidence)
             );
         }
         h.push_str("</tbody>\n</table>\n");
     }
 
-    page(up, &format!("{name} v{} · Tentzhen", b.version), &h)
+    Ok(page(up, &format!("{name} v{} · Tentzhen", b.version), &h))
 }
 
 /// Writes every generated file under `root/site/builds/`. Returns how many it wrote.
-pub fn write_site(cat: &Catalogue, root: &Path) -> Result<usize, String> {
+pub fn write_site(conn: &Connection, root: &Path) -> Result<usize, String> {
     let out = root.join("site/builds");
     let write = |path: &Path, bytes: &[u8]| -> Result<(), String> {
         if let Some(dir) = path.parent() {
@@ -309,21 +413,22 @@ pub fn write_site(cat: &Catalogue, root: &Path) -> Result<usize, String> {
         }
         fs::write(path, bytes).map_err(|e| format!("{}: {e}", path.display()))
     };
+    let pages = pages(conn).map_err(|e| e.to_string())?;
     let mut n = 0;
-    write(&out.join("index.html"), render_index(cat).as_bytes())?;
+    write(&out.join("index.html"), render_index(&pages).as_bytes())?;
     n += 1;
-    for (name, versions) in &cat.builds {
-        for b in versions {
-            let dir = out.join(name).join(format!("v{}", b.version));
-            write(&dir.join("index.html"), render_version(cat, b).as_bytes())?;
+    for b in &pages {
+        let dir = out.join(&b.build).join(format!("v{}", b.version));
+        let html = render_version(conn, b).map_err(|e| e.to_string())?;
+        write(&dir.join("index.html"), html.as_bytes())?;
+        n += 1;
+        if b.version == b.latest {
+            write(
+                &out.join(&b.build).join("index.html"),
+                render_latest(&b.build, b.latest).as_bytes(),
+            )?;
             n += 1;
         }
-        let latest = u32::try_from(versions.len()).map_err(|e| e.to_string())?;
-        write(
-            &out.join(name).join("index.html"),
-            render_latest(name, latest).as_bytes(),
-        )?;
-        n += 1;
     }
     Ok(n)
 }
@@ -331,7 +436,7 @@ pub fn write_site(cat: &Catalogue, root: &Path) -> Result<usize, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tentzhen_records::Source;
+    use tentzhen_records::{Catalogue, Source};
 
     fn src(path: &str, text: &str) -> Source {
         Source {
@@ -354,12 +459,28 @@ mod tests {
         )
     }
 
+    /// The records, through the warehouse, as the site sees them.
+    fn site(builds: &[Source]) -> Connection {
+        let cat = Catalogue::from_sources(&[], builds).unwrap();
+        let mut conn = Connection::open_in_memory().unwrap();
+        tentzhen_warehouse::load(&mut conn, &cat).unwrap();
+        conn
+    }
+
+    fn render(conn: &Connection, name: &str, v: u32) -> String {
+        let all = pages(conn).unwrap();
+        let p = all
+            .iter()
+            .find(|p| p.build == name && p.version == v)
+            .unwrap();
+        render_version(conn, p).unwrap()
+    }
+
     #[test]
     fn an_old_version_points_to_the_newest() {
-        let cat =
-            Catalogue::from_sources(&[], &[build("probe", 1, ""), build("probe", 2, "")]).unwrap();
-        let v1 = render_version(&cat, cat.version("probe", 1).unwrap());
-        let v2 = render_version(&cat, cat.version("probe", 2).unwrap());
+        let conn = site(&[build("probe", 1, ""), build("probe", 2, "")]);
+        let v1 = render(&conn, "probe", 1);
+        let v2 = render(&conn, "probe", 2);
         assert!(
             v1.contains("Superseded by <a href=\"../v2/index.html\">v2</a>. swapped the wire"),
             "{v1}"
@@ -371,11 +492,12 @@ mod tests {
     #[test]
     fn a_build_knows_where_it_is_used() {
         let bench = build("bench", 1, "[[uses]]\nbuild = \"probe\"\nversion = 1\n");
-        let cat = Catalogue::from_sources(&[], &[build("probe", 1, ""), bench]).unwrap();
-        let page = render_version(&cat, cat.version("probe", 1).unwrap());
+        let conn = site(&[build("probe", 1, ""), bench]);
+        let page = render(&conn, "probe", 1);
         assert!(
             page.contains("<h2>Used in</h2>") && page.contains("bench v1"),
             "{page}"
         );
+        assert!(render(&conn, "bench", 1).contains("<h2>Uses</h2>"));
     }
 }
