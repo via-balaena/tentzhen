@@ -4,7 +4,7 @@
 
 use duckdb::{Connection, params};
 use tentzhen_lab::{LIMITS, Limits, Value};
-use tentzhen_records::{Catalogue, Claim, TRUSTED_BASE};
+use tentzhen_records::{Catalogue, Claim};
 
 pub mod catalogue;
 
@@ -25,7 +25,7 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
     for (i, e) in (1u32..).zip(&cat.trusted_base) {
         tx.execute(
             "INSERT INTO silver.trusted_entry VALUES (?, ?, ?, ?)",
-            params![e.id, i, e.assumes, TRUSTED_BASE],
+            params![e.id, i, e.assumes, e.record],
         )?;
     }
     for p in cat.parts.values() {
@@ -190,7 +190,7 @@ mod tests {
     use std::collections::BTreeMap;
     use std::fs;
     use std::path::Path;
-    use tentzhen_records::Source;
+    use tentzhen_records::{Source, TRUSTED_BASE};
 
     fn src(path: &str, text: &str) -> Source {
         Source {
@@ -266,6 +266,22 @@ mod tests {
             "SELECT count(*) FROM bronze.record_hash WHERE regexp_full_match(sha256, '[0-9a-f]{64}')",
         );
         assert_eq!(hashed, one(&conn, "SELECT count(*) FROM bronze.record"));
+    }
+
+    /// Lineage names the file the trusted base was read from, wherever it was.
+    #[test]
+    fn a_trusted_entry_traces_to_the_file_it_came_from() {
+        let base = src(
+            "elsewhere/trusted.toml",
+            "[[entry]]\nid = \"a\"\nassumes = \"x\"\n",
+        );
+        let conn = warehouse(&Catalogue::from_sources(&base, &[], &[]).unwrap());
+        let traced = one(
+            &conn,
+            "SELECT count(*) FROM silver.trusted_entry t JOIN bronze.record r ON r.path = t.record \
+             WHERE t.record = 'elsewhere/trusted.toml'",
+        );
+        assert_eq!(traced, 1);
     }
 
     /// Schema first: a file in the records' folders is loaded, or CI fails; a record is parsed by its

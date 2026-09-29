@@ -174,6 +174,9 @@ pub const TRUSTED_BASE: &str = "trusted-base.toml";
 pub struct Trusted {
     pub id: String,
     pub assumes: String,
+    /// The file this came from, relative to the repo root. Set on load, never written in a record.
+    #[serde(skip)]
+    pub record: String,
 }
 
 #[derive(Deserialize)]
@@ -335,8 +338,11 @@ impl Catalogue {
         build_sources: &[Source],
     ) -> Result<Self, String> {
         let TrustedBase {
-            entry: trusted_base,
+            entry: mut trusted_base,
         } = toml::from_str(&base.text).map_err(|e| format!("{}: {e}", base.path))?;
+        for e in &mut trusted_base {
+            e.record = base.path.clone();
+        }
         for (i, e) in trusted_base.iter().enumerate() {
             if !plain(&e.id) {
                 return Err(format!(
