@@ -256,19 +256,28 @@ for zl in LAMPS:
 
 # ---------------- Blade signs ----------------
 # 茶楼 tea house, 电器维修 appliance repair, 饭店 restaurant, 腾振, 药材 herbal medicine.
-def sign(xs0, xs1, y0, y1, z, chars, color, refl=0.15):
+# Most are backlit red boards with pale-gold characters and trim, as on Yaowarat Road; the
+# electronics repair shop is neon.
+BOARD_RED, BOARD_GOLD = '#b8261c', '#f5dca0'
+def sign(xs0, xs1, y0, y1, z, chars, color=None, refl=0.18):
     q = [(xs0, y0, z), (xs0, y1, z), (xs1, y1, z), (xs1, y0, z)]
-    reflect(q, color, refl, stretch=1.4)
-    poly([P(*p) for p in q], fill='#160e14', stroke=color, w=sw(z, 0.08, 0.8, 2.2))
+    if color is None:  # a board
+        reflect(q, BOARD_RED, refl, stretch=1.4)
+        poly([P(*p) for p in q], fill=BOARD_RED, stroke=BOARD_GOLD, w=sw(z, 0.08, 0.8, 2.2))
+        ink = BOARD_GOLD
+    else:              # neon
+        reflect(q, color, refl, stretch=1.4)
+        poly([P(*p) for p in q], fill='#160e14', stroke=color, w=sw(z, 0.08, 0.8, 2.2))
+        ink = color
     n = len(chars); step = (y1 - y0) / n
     size = F * min(xs1 - xs0, step) * 0.64 / z
     for i, ch in enumerate(chars):
-        text(P((xs0 + xs1) / 2, y1 - step * (i + 0.5), z), ch, size, color)
-sign(-10.9, -9.5, 4.6, 9.8, 26, '茶楼', NEON_RED)
+        text(P((xs0 + xs1) / 2, y1 - step * (i + 0.5), z), ch, size, ink)
+sign(-10.9, -9.5, 4.6, 9.8, 26, '茶楼')
 sign(8.6, 9.9, 4.2, 10.2, 36, '电器维修', NEON_MAGENTA, refl=0.35)
-sign(-10.9, -9.8, 4.6, 9.0, 54, '饭店', NEON_ORANGE)
-sign(8.7, 9.9, 4.2, 8.4, 60, '腾振', NEON_RED, refl=0.3)
-sign(8.8, 9.9, 4.4, 8.2, 92, '药材', NEON_MAGENTA)
+sign(-10.9, -9.8, 4.6, 9.0, 54, '饭店')
+sign(8.7, 9.9, 4.2, 8.4, 60, '腾振', refl=0.25)
+sign(8.8, 9.9, 4.4, 8.2, 92, '药材')
 
 # ---------------- Lanterns ----------------
 # Red paper lanterns on wires across the street, hung as in Chinatown: round, lit from inside,
@@ -325,8 +334,13 @@ rip.append('</g>'); out.append(''.join(rip))
 # Every tent is on copper: out of the door, a 45-degree jog, and across to your path, which runs
 # from your feet to the tallest tower's door. The buildings above talk by radio.
 TENT_LIT = 5.6
-TENTS = [(TENT_LIT, 2.2, 1.25, True), (10.4, 2.0, 1.1, False), (13.2, 2.4, 1.3, True), (19.6, 1.8, 1.0, False),
-         (22.1, 2.2, 1.2, True), (30.5, 2.0, 1.15, False), (38.0, 2.3, 1.3, True)]
+# Dome tents as they stand on Portland sidewalks: two-tone rainflies, some under a blue tarp.
+# (front z, width, height, antenna, body colour, fly colour, tarp). Colours are dimmed for night.
+NAVY, GREEN, RED_FLY, GREY_FLY, TARP = '#1c2438', '#465e26', '#7e2620', '#5c6168', '#23397a'
+TENTS = [(TENT_LIT, 2.3, 1.3, True, NAVY, NAVY, True), (10.4, 2.1, 1.15, False, GREEN, GREY_FLY, False),
+         (13.4, 2.3, 1.25, True, RED_FLY, GREY_FLY, False), (19.6, 1.9, 1.05, False, NAVY, GREY_FLY, False),
+         (22.2, 2.2, 1.2, True, NAVY, NAVY, True), (30.5, 2.0, 1.1, False, GREEN, GREY_FLY, False),
+         (38.0, 2.3, 1.25, True, RED_FLY, GREY_FLY, False)]
 MAIN = [(CAM_X, 2.4), (CAM_X, 640.0)]
 def ribbon(a, b, wd):
     (x0, z0), (x1, z1) = a, b
@@ -340,7 +354,7 @@ def trace(points, vias=()):
 
 poly(ribbon(MAIN[0], MAIN[1], 0.24), fill=COPPER, extra='opacity="0.12"')
 poly(ribbon(MAIN[0], MAIN[1], 0.075), fill=COPPER, stroke=COPPER, w=0.8)
-for z0, wd, _, _ in TENTS:  # every tent: out of the door, a 45-degree jog, across to your path
+for z0, wd, *_ in TENTS:  # every tent: out of the door, a 45-degree jog, across to your path
     xm = -10.9 + wd / 2
     trace([(xm, z0), (xm + 0.6, z0 - 0.6), (CAM_X, z0 - 0.6)], vias=[(CAM_X, z0 - 0.6)])
 pad(P(CAM_X, 0.0, 640.0), 3.6, COPPER)
@@ -363,41 +377,92 @@ defs.append('<radialGradient id="pool"><stop offset="0" stop-color="#ffb35a" sto
             '<stop offset="1" stop-color="#ff9a4a" stop-opacity="0"/></radialGradient>')
 defs.append('<linearGradient id="flaplit" x1="1" y1="0.6" x2="0" y2="0.9">'
             '<stop offset="0" stop-color="#c8743a"/><stop offset="1" stop-color="#4a2a18"/></linearGradient>')
-def tent(z0, wd, ht, antenna):
-    xa, xb = -10.9, -10.9 + wd
-    xm = (xa + xb) / 2
-    hw = 0.2 * ht   # the skirt wall under the roof
-    ln = 2.2
-    w = sw(z0, 0.045, 0.9, 3.0)
-    rope = TEAL_LINE
-    # the pool of light on the pavement in front of the door
+def hull(points):
+    pts_ = sorted(set((round(x, 2), round(y, 2)) for x, y in points))
+    def half(seq):
+        h = []
+        for p in seq:
+            while len(h) >= 2 and (h[-1][0] - h[-2][0]) * (p[1] - h[-2][1]) - (h[-1][1] - h[-2][1]) * (p[0] - h[-2][0]) <= 0:
+                h.pop()
+            h.append(p)
+        return h
+    lower, upper = half(pts_), half(reversed(pts_))
+    return lower[:-1] + upper[:-1]
+defs.append('<linearGradient id="flyshade" x1="0" y1="0" x2="0" y2="1">'
+            '<stop offset="0" stop-color="#ffffff" stop-opacity="0.10"/>'
+            '<stop offset="1" stop-color="#000000" stop-opacity="0.35"/></linearGradient>')
+def tent(z0, wd, ht, antenna, body, fly, tarp):
+    # a half-ellipsoid dome: base ellipse wd x ln, height ht; its front touches z0
+    xm, ln = -10.9 + wd / 2, 2.2
+    zc = z0 + ln / 2
+    def surf(u, v):  # u around the base, v from the ground (0) to the top (pi/2)
+        return (xm + wd / 2 * math.cos(v) * math.cos(u), ht * math.sin(v), zc + ln / 2 * math.cos(v) * math.sin(u))
+    def facing(pt):  # is this surface point turned toward the viewer?
+        x, y, z = pt
+        n = ((x - xm) / (wd / 2) ** 2, y / ht ** 2, (z - zc) / (ln / 2) ** 2)
+        v = (CAM_X - x, EYE - y, -z)
+        return n[0] * v[0] + n[1] * v[1] + n[2] * v[2] > 0
+    def visible_runs(world):  # the parts of a curve on the side you can see
+        run = []
+        for pt in world:
+            if facing(pt):
+                run.append(P(*pt))
+            elif len(run) > 1:
+                yield run
+                run = []
+            else:
+                run = []
+        if len(run) > 1:
+            yield run
+    def on_front(x, y):  # the front surface point at this x and height
+        r = 1 - ((x - xm) / (wd / 2)) ** 2 - (y / ht) ** 2
+        return (x, y, zc - ln / 2 * math.sqrt(max(0.0, r)))
+    w = sw(z0, 0.04, 0.8, 2.6)
     ellipse(P(xm, 0, z0 - 0.7), F * 1.25 / z0, F * EYE * 1.25 / (z0 - 0.7) ** 2, 'url(#pool)')
-    # guy lines first, so the tent stands in front of them: eave corners out to stakes
-    for (x, z), (sx, sz) in [((xa, z0), (xa - 0.55, z0 - 0.45)), ((xb, z0), (xb + 0.55, z0 - 0.45)),
-                             ((xb, z0 + ln), (xb + 0.55, z0 + ln + 0.45))]:
-        line(P(x, hw, z), P(sx, 0, sz), rope, max(0.6, w * 0.35))
-        line(P(sx, 0, sz), P(sx, 0.12, sz), rope, max(0.8, w * 0.5))
-    # the side you can see: roof panel from ridge to eave, then the skirt wall
-    side = [P(xm, ht, z0), P(xm, ht, z0 + ln), P(xb, hw, z0 + ln), P(xb, hw, z0)]
-    poly(side, fill=TEAL_FILL_2, stroke=TEAL_EDGE, w=w)
-    poly(side, fill='url(#sideglow)')
-    poly([P(xb, hw, z0), P(xb, hw, z0 + ln), P(xb, 0, z0 + ln), P(xb, 0, z0)], fill=TEAL_FILL, stroke=TEAL_EDGE, w=w)
-    # the front: an A over the skirt
-    front = [P(xa, 0, z0), P(xa, hw, z0), P(xm, ht, z0), P(xb, hw, z0), P(xb, 0, z0)]
-    poly(front, fill='#163038', stroke=TEAL_EDGE, w=w)
-    poly(front, fill='url(#fabricglow)')
-    line(P(xa, hw, z0), P(xb, hw, z0), rope, w * 0.5)   # the seam where roof meets skirt
-    # the door: the front's own triangle, smaller, lit from inside, with its flap tied back
-    hd, dw = 0.86 * ht, 0.24 * wd
-    poly([P(xm - dw, 0, z0), P(xm, hd, z0), P(xm + dw, 0, z0)], fill='url(#tentlight)')
-    reflect([(xm - dw, 0, z0), (xm, hd, z0), (xm + dw, 0, z0)], LAMPLIGHT, 0.2, stretch=1.0)
-    poly([P(xm, hd, z0), P(xm - dw, 0, z0), P(xm - dw - 0.28 * wd, 0.18 * ht, z0)], fill='url(#flaplit)', stroke=TEAL_EDGE, w=w * 0.5)
+    grid = [P(*surf(math.radians(a), math.radians(b))) for a in range(0, 360, 10) for b in range(0, 91, 10)]
+    outline = hull(grid)
+    poly(outline, fill=body, stroke='#0c0e12', w=w)
+    # the rainfly: the upper cap, in its own colour
+    cap = hull([P(*surf(math.radians(a), math.radians(b))) for a in range(0, 360, 10) for b in range(38, 91, 8)])
+    poly(cap, fill=fly, stroke='#0c0e12', w=w * 0.8)
+    poly(outline, fill='url(#flyshade)')
+    # two poles crossing over the top, where they face you
+    for a in (45, 135):
+        arc_ = [surf(math.radians(a + (180 if b < 0 else 0)), math.radians(abs(b))) for b in range(-90, 91, 4)]
+        for run in visible_runs(arc_):
+            pline(run, '#0c0e12', max(0.6, w * 0.6), extra='opacity="0.7"')
+    if tarp:  # a blue tarp thrown over the top and down one side, its hem uneven
+        rnd = random.Random(int(z0 * 10))
+        drape = [P(*surf(math.radians(a), math.radians(b))) for a in range(-60, 181, 10) for b in range(20, 91, 10)]
+        hem = [P(*surf(math.radians(a), math.radians(12 + 14 * rnd.random()))) for a in range(-60, 181, 15)]
+        poly(hull(drape + hem), fill=TARP, stroke='#101a3a', w=w * 0.8)
+        for a in (-20, 40, 100):
+            crease = [surf(math.radians(a + 6 * math.sin(b)), math.radians(b)) for b in range(18, 88, 6)]
+            for run in visible_runs(crease):
+                pline(run, '#3a5ab0', max(0.5, w * 0.4), extra='opacity="0.5"')
+    # the door: a D-shaped zip opening on the front, lit from inside, its panel rolled to one side
+    dw, hd = 0.22 * wd, 0.62 * ht
+    d_world = [on_front(xm - dw, 0.0)]
+    d_world += [on_front(xm - dw, hd * t) for t in (0.3, 0.6, 0.85)]
+    d_world += [on_front(xm + dw * math.cos(math.radians(a)) * -1, hd * 0.85 + hd * 0.15 * math.sin(math.radians(a)))
+                for a in range(0, 181, 20)]
+    d_world += [on_front(xm + dw, hd * t) for t in (0.85, 0.6, 0.3)] + [on_front(xm + dw, 0.0)]
+    door = [P(*p) for p in d_world]
+    cid = f'tent{int(z0 * 10)}'
+    defs.append(f'<clipPath id="{cid}"><polygon points="{pts(outline)}"/></clipPath>')
+    dc = P(*on_front(xm, hd * 0.4))
+    out.append(f'<g clip-path="url(#{cid})"><circle cx="{dc[0]:.1f}" cy="{dc[1]:.1f}" r="{F * 0.9 / z0:.1f}" '
+               f'fill="url(#bloom)"/></g>')
+    poly(door, fill='url(#tentlight)')
+    reflect(d_world, LAMPLIGHT, 0.2, stretch=1.0)
+    roll = [P(*on_front(xm - dw - 0.12, hd * t)) for t in (0.0, 0.9)]
+    line(roll[0], roll[1], '#6a4a2a', max(1.2, w * 1.6))
     if antenna:
-        a, b = P(xm + 0.15, ht, z0 + 0.3), P(xm + 0.15, 1.9 * ht, z0 + 0.3)
+        a, b = P(xm + 0.2, ht * 0.95, zc), P(xm + 0.2, ht * 1.85, zc)
         line(a, b, COPPER, w); pad(b, F * 0.12 / z0, COPPER)
     ground_pad(xm, z0, 0.2, COPPER)
-for z0, wd, ht, antenna in reversed(TENTS):
-    tent(z0, wd, ht, antenna)
+for spec in reversed(TENTS):
+    tent(*spec)
 
 defs.append('<filter id="wet" x="-5%" y="-5%" width="110%" height="115%">'
             '<feGaussianBlur stdDeviation="1.4 5"/></filter>')
