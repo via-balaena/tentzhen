@@ -45,19 +45,19 @@ def ground_pad(x, z, r, color, drill=True):
 
 out.append(f'<rect width="{W}" height="{H}" fill="{BG}"/>')
 
-RADIO = "#ffc81a"  # radio in the bright yellow; copper stays on the ground
+RADIO = "#c39b52"  # radio stays quiet in the sky; copper carries the ground
 # Buildings talk by radio: dotted arcs between rooftop antennas, and a few ripples at each mast.
-def radio_link(a, b, c, w=1.9):
+def radio_link(a, b, c, w=1.5):
     out.append(f'<path d="M{a[0]:.1f} {a[1]:.1f} Q{c[0]:.1f} {c[1]:.1f} {b[0]:.1f} {b[1]:.1f}" '
                f'fill="none" stroke="{RADIO}" stroke-width="{w:.2f}" stroke-linecap="round" '
-               f'stroke-dasharray="0.1 {3.4 * w:.1f}" opacity="0.9"/>')
+               f'stroke-dasharray="0.1 {3.4 * w:.1f}" opacity="0.5"/>')
 def ripples(c, r):
     for k in (1.8, 2.8):
         rr = r * k
         x0, y0 = c[0] - rr * 0.7, c[1] - rr * 0.7
         x1, y1 = c[0] + rr * 0.7, c[1] - rr * 0.7
         out.append(f'<path d="M{x0:.1f} {y0:.1f} A{rr:.1f} {rr:.1f} 0 0 1 {x1:.1f} {y1:.1f}" fill="none" '
-                   f'stroke="{RADIO}" stroke-width="1.1" stroke-linecap="round" opacity="0.8"/>')
+                   f'stroke="{RADIO}" stroke-width="1.1" stroke-linecap="round" opacity="0.45"/>')
 
 # ---------------- Downtown towers ----------------
 towers = [

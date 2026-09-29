@@ -36,7 +36,7 @@ at 0°, 45° and 90°, with through-hole pads at the free ends.
 First person, standing on a sidewalk at night. Everyone on the street is on one network. The
 tents along the wall are on copper: each door's trace jogs 45° and joins a path that starts at your
 feet and runs down the street, under a gate, to the door of the tallest tower. The buildings talk
-by radio: an antenna on every roof, yellow links along the street, across it and up through the
+by radio: an antenna on every roof, faint gold links along the street, across it and up through the
 towers. A puddle at your feet reflects the towers.
 
 - **Perspective breaks the 0°/45°/90° rule**, because it has to. Traces on the ground keep it in
