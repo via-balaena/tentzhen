@@ -45,6 +45,20 @@ def ground_pad(x, z, r, color, drill=True):
 
 out.append(f'<rect width="{W}" height="{H}" fill="{BG}"/>')
 
+RADIO = "#ffc81a"  # radio in the bright yellow; copper stays on the ground
+# Buildings talk by radio: dotted arcs between rooftop antennas, and a few ripples at each mast.
+def radio_link(a, b, c, w=1.9):
+    out.append(f'<path d="M{a[0]:.1f} {a[1]:.1f} Q{c[0]:.1f} {c[1]:.1f} {b[0]:.1f} {b[1]:.1f}" '
+               f'fill="none" stroke="{RADIO}" stroke-width="{w:.2f}" stroke-linecap="round" '
+               f'stroke-dasharray="0.1 {3.4 * w:.1f}" opacity="0.9"/>')
+def ripples(c, r):
+    for k in (1.8, 2.8):
+        rr = r * k
+        x0, y0 = c[0] - rr * 0.7, c[1] - rr * 0.7
+        x1, y1 = c[0] + rr * 0.7, c[1] - rr * 0.7
+        out.append(f'<path d="M{x0:.1f} {y0:.1f} A{rr:.1f} {rr:.1f} 0 0 1 {x1:.1f} {y1:.1f}" fill="none" '
+                   f'stroke="{RADIO}" stroke-width="1.1" stroke-linecap="round" opacity="0.8"/>')
+
 # ---------------- Downtown towers ----------------
 towers = [
     (-120, 780, 52, 230, 'flat'), (-88, 660, 40, 250, 'chamfer'), (-58, 600, 34, 300, 'pyramid'),
@@ -80,6 +94,14 @@ def draw_towers(Q):
                 lit = rnd.random() < (0.8 if near else 0.62)
                 circle(Q(xx, yy, z), 1.3, col if lit else GREY_DD)
                 yy += 8.0
+    # Every rooftop linked to its neighbours by an arc through the sky.
+    by_x = sorted(towers, key=lambda t: t[0])
+    for (xa, za, _, ha, _), (xb, zb, _, hb, _) in zip(by_x, by_x[1:]):
+        a, b = Q(xa, ha, za), Q(xb, hb, zb)
+        c = Q((xa + xb) / 2, max(ha, hb) + 45, (za + zb) / 2)
+        radio_link(a, b, c)
+    for x, z, _, h, _ in towers:
+        pad(Q(x, h, z), 2.4, COPPER)
 
 draw_towers(P)
 
@@ -113,6 +135,31 @@ right = [(140, 240, 16), (100, 140, 13), (74, 100, 15), (52, 74, 12), (32, 52, 1
 left = [(135, 240, 14), (95, 135, 15), (66, 95, 12), (44, 66, 18), (24, 44, 13), (1.5, 24, 16)]
 for z0, z1, h in right: facade(RIGHT_W, z0, z1, h, lit_shop=(z0 == 32))
 for z0, z1, h in left: facade(LEFT_W, z0, z1, h)
+
+# Every building is on the network by radio: an antenna on its roof, linked to its neighbours
+# along the street, across it, and up to the towers.
+def antenna(xw, z0, z1, h):
+    x, z = xw - 0.5 if xw > 0 else xw + 0.5, (z0 + z1) / 2
+    base, tip = P(x, h, z), P(x, h + 2.4, z)
+    line(base, tip, COPPER, sw(z, 0.08, 0.9, 2.4))
+    r = max(1.8, F * 0.22 / z)
+    pad(tip, r, COPPER)
+    ripples(tip, r)
+    return tip, (x, h + 2.4, z)
+masts = {'right': [antenna(RIGHT_W, *b) for b in right], 'left': [antenna(LEFT_W, *b) for b in left]}
+def arc(a, b, lift=6.0):
+    (pa, wa), (pb, wb) = a, b
+    c = P((wa[0] + wb[0]) / 2, max(wa[1], wb[1]) + lift, (wa[2] + wb[2]) / 2)
+    radio_link(pa, pb, c)
+for side in masts.values():  # along the street
+    for a, b in zip(side, side[1:]):
+        arc(a, b)
+for a, b in zip(masts['left'], masts['right']):  # across it
+    arc(a, b, lift=4.0)
+for m in (masts['left'][0], masts['right'][0]):  # the far end of the street up to the towers
+    x, z, _, h, _ = min(towers, key=lambda t: abs(t[0] - m[1][0]) + t[1] / 100)
+    tip = P(x, h, z)
+    arc(m, (tip, (x, h, z)), lift=40.0)
 
 # ---------------- Ground ----------------
 ZF = 240
@@ -186,7 +233,7 @@ for zl in (18, 27, 38, 52, 72, 104):
     xsamp = [LEFT_W + i * (RIGHT_W - LEFT_W) / 30 for i in range(31)]
     mid, half = (LEFT_W + RIGHT_W) / 2, (RIGHT_W - LEFT_W) / 2
     ys = [8.4 - 1.0 * (1 - ((xx - mid) / half) ** 2) for xx in xsamp]
-    pline([P(xx, yy, zl) for xx, yy in zip(xsamp, ys)], GREY_D, sw(zl, 0.025, 0.5, 1.0))
+    pline([P(xx, yy, zl) for xx, yy in zip(xsamp, ys)], '#8a6a2e', sw(zl, 0.025, 0.5, 1.0))
     for i in range(3, 30, 3):
         xx, yy = xsamp[i], ys[i]
         a, b = P(xx, yy, zl), P(xx, yy - 0.4, zl)
@@ -207,50 +254,55 @@ while y < max(ys_):
     rip.append(f'<line x1="0" y1="{y:.1f}" x2="{W}" y2="{y:.1f}" stroke="#0c0d0f" stroke-width="1.6"/>'); y += 4.5
 rip.append('</g>'); out.append(''.join(rip))
 
-# ---------------- The copper path ----------------
-# From your feet straight to the tallest tower's door; the lit tent's trace leaves its door,
-# jogs 45 degrees, and joins it at a via.
+# ---------------- The network on the ground ----------------
+# Every tent is on copper: out of the door, a 45-degree jog, and across to your path, which runs
+# from your feet to the tallest tower's door. The buildings above talk by radio.
 TENT_LIT = 5.6
+TENTS = [(TENT_LIT, 2.2, 1.25, True), (10.4, 2.0, 1.1, False), (13.2, 2.4, 1.3, True), (19.6, 1.8, 1.0, False),
+         (22.1, 2.2, 1.2, True), (30.5, 2.0, 1.15, False), (38.0, 2.3, 1.3, True)]
 MAIN = [(CAM_X, 2.4), (CAM_X, 640.0)]
-BRANCH = [(-9.8, TENT_LIT), (-9.2, TENT_LIT - 0.6), (CAM_X, TENT_LIT - 0.6)]
 def ribbon(a, b, wd):
     (x0, z0), (x1, z1) = a, b
     dx, dz = x1 - x0, z1 - z0; L = math.hypot(dx, dz); nx, nz = -dz / L * wd, dx / L * wd
     return [P(x0 + nx, 0, z0 + nz), P(x1 + nx, 0, z1 + nz), P(x1 - nx, 0, z1 - nz), P(x0 - nx, 0, z0 - nz)]
-SEGS = [MAIN] + list(zip(BRANCH, BRANCH[1:]))
+def trace(points, vias=()):
+    for a, b in zip(points, points[1:]):
+        poly(ribbon(a, b, 0.06), fill=COPPER, stroke=COPPER, w=0.6)
+    for x, z in vias:
+        ground_pad(x, z, 0.2, COPPER)
+
 spill = P(-9.8, 0, TENT_LIT - 0.9)
 ellipse(spill, F * 0.8 / (TENT_LIT - 0.9), F * EYE * 0.8 / (TENT_LIT - 0.9) ** 2, YELLOW, extra='opacity="0.08"')
-for seg in SEGS:
-    poly(ribbon(seg[0], seg[1], 0.24), fill=COPPER, extra='opacity="0.12"')
-for seg in SEGS:
-    poly(ribbon(seg[0], seg[1], 0.075), fill=COPPER, stroke=COPPER, w=0.8)
-ground_pad(BRANCH[2][0], BRANCH[2][1], 0.26, COPPER)
+poly(ribbon(MAIN[0], MAIN[1], 0.24), fill=COPPER, extra='opacity="0.12"')
+poly(ribbon(MAIN[0], MAIN[1], 0.075), fill=COPPER, stroke=COPPER, w=0.8)
+for z0, wd, _, _ in TENTS:  # every tent: out of the door, a 45-degree jog, across to your path
+    xm = -10.9 + wd / 2
+    trace([(xm, z0), (xm + 0.6, z0 - 0.6), (CAM_X, z0 - 0.6)], vias=[(CAM_X, z0 - 0.6)])
 pad(P(CAM_X, 0.0, 640.0), 3.6, COPPER)
 
 # ---------------- Tents along the left wall ----------------
-TENTS = [(TENT_LIT, 2.2, 1.25), (10.4, 2.0, 1.1), (13.2, 2.4, 1.3), (19.6, 1.8, 1.0), (22.1, 2.2, 1.2), (30.5, 2.0, 1.15), (38.0, 2.3, 1.3)]
-def tent(z0, wd, ht, lit):
+def tent(z0, wd, ht, antenna):
     xa, xb = -10.9, -10.9 + wd
     xm = (xa + xb) / 2
     prof = [(xa, 0), (xa, 0.37 * ht), (xa + 0.35, 0.82 * ht), (xm, ht), (xb - 0.35, 0.82 * ht), (xb, 0.37 * ht), (xb, 0)]
     ln = 2.2
-    stroke = COPPER if lit else GREY
+    stroke = COPPER
     w = sw(z0, 0.045, 0.9, 3.0)
     right_half = prof[3:]
     side = [P(x, y, z0) for x, y in right_half] + [P(x, y, z0 + ln) for x, y in reversed(right_half)]
-    poly(side, fill='#1a1611' if lit else '#15161a', stroke=stroke, w=w)
-    poly([P(x, y, z0) for x, y in prof], fill='#3a2c12' if lit else '#1b1c1f', stroke=stroke, w=w)
-    pole = '#8a6a2e' if lit else '#4a4f56'
+    poly(side, fill='#1a1611', stroke=stroke, w=w)
+    poly([P(x, y, z0) for x, y in prof], fill='#3a2c12', stroke=stroke, w=w)
+    pole = '#8a6a2e'
     line(P(xa, 0, z0), P(xb - 0.35, 0.82 * ht, z0), pole, w * 0.6); line(P(xb, 0, z0), P(xa + 0.35, 0.82 * ht, z0), pole, w * 0.6)
     d = 0.4
     poly([P(xm - d, 0, z0), P(xm - d, 0.55, z0), P(xm, 0.8, z0), P(xm + d, 0.55, z0), P(xm + d, 0, z0)],
-         fill=YELLOW if lit else '#0f1012', stroke=stroke, w=w * 0.8)
-    if lit:
-        a, b = P(xm - 0.5, 1.15, z0), P(xm - 0.5, 2.3, z0)
+         fill=YELLOW, stroke=stroke, w=w * 0.8)
+    if antenna:
+        a, b = P(xm - 0.5, 0.92 * ht, z0), P(xm - 0.5, 1.84 * ht, z0)
         line(a, b, COPPER, w); pad(b, F * 0.12 / z0, COPPER)
-        ground_pad(xm, z0, 0.2, COPPER)
-for z0, wd, ht in reversed(TENTS):
-    tent(z0, wd, ht, z0 == TENT_LIT)
+    ground_pad(xm, z0, 0.2, COPPER)
+for z0, wd, ht, antenna in reversed(TENTS):
+    tent(z0, wd, ht, antenna)
 
 svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">'
        f'<defs>{"".join(defs)}</defs>' + ''.join(out) + '</svg>')
