@@ -1,7 +1,9 @@
-//! Loads the catalogue's records into DuckDB: bronze (the files as read), silver (typed rows the
-//! database itself constrains) and gold (views). The schema is `schema.sql`; this only fills it.
+//! Loads the catalogue's records and the lab's limits into DuckDB: bronze (the files as read),
+//! silver (typed rows the database itself constrains) and gold (views). The schema is
+//! `schema.sql`; this only fills it.
 
 use duckdb::{Connection, params};
+use tentzhen_lab::{LIMITS, Limits, Value};
 use tentzhen_records::Catalogue;
 
 pub const SCHEMA: &str = include_str!("../schema.sql");
@@ -99,12 +101,62 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
             }
         }
     }
+    if let Some(limits) = &cat.limits {
+        load_limits(&tx, limits)?;
+    }
     tx.commit()
+}
+
+fn load_limits(tx: &duckdb::Transaction, limits: &Limits) -> duckdb::Result<()> {
+    for f in limits.facts() {
+        tx.execute(
+            "INSERT INTO silver.lab_fact VALUES (?, ?, ?, ?, ?)",
+            params![f.id.as_str(), f.says, f.trusted, f.record, LIMITS],
+        )?;
+    }
+    let entries = limits.entries();
+    for e in &entries {
+        let (amount, unit, choice) = match e.value {
+            Value::Volts(v) => (Some(v), Some("V"), None),
+            Value::Amps(a) => (Some(a), Some("A"), None),
+            Value::Choice(c) => (None, None, Some(c)),
+        };
+        tx.execute(
+            "INSERT INTO silver.lab_limit VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            params![
+                e.path,
+                amount,
+                unit,
+                choice,
+                e.basis.kind(),
+                e.basis.policy,
+                e.basis.rule.map(|r| r.as_str()),
+                LIMITS
+            ],
+        )?;
+    }
+    // Every limit first: inputs point at them.
+    for e in &entries {
+        for input in e.basis.inputs() {
+            tx.execute(
+                "INSERT INTO silver.lab_limit_input VALUES (?, ?)",
+                params![e.path, input],
+            )?;
+        }
+        for f in &e.basis.rests_on {
+            tx.execute(
+                "INSERT INTO silver.lab_limit_rests_on VALUES (?, ?)",
+                params![e.path, f.as_str()],
+            )?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     use std::path::Path;
     use tentzhen_records::Source;
 
@@ -161,7 +213,10 @@ mod tests {
         let conn = warehouse(&Catalogue::load(&root).unwrap());
         let orphans = one(
             &conn,
-            "SELECT count(*) FROM (SELECT record FROM silver.part UNION ALL SELECT record FROM silver.build_version) s \
+            "SELECT count(*) FROM (SELECT record FROM silver.part \
+             UNION ALL SELECT record FROM silver.build_version \
+             UNION ALL SELECT record FROM silver.lab_limit \
+             UNION ALL SELECT record FROM silver.lab_fact) s \
              LEFT JOIN bronze.record r ON r.path = s.record WHERE r.path IS NULL",
         );
         assert_eq!(orphans, 0);
@@ -183,6 +238,70 @@ mod tests {
             ),
             1
         );
+    }
+
+    /// Each limit's weakest grade and the facts behind it, as gold.limit_grades gives them.
+    fn grade(conn: &Connection, path: &str) -> (Option<String>, Option<String>) {
+        conn.query_row(
+            "SELECT weakest_grade, rests_on FROM gold.limit_grades WHERE path = ?",
+            [path],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap()
+    }
+
+    fn some(grade: &str, facts: &str) -> (Option<String>, Option<String>) {
+        (Some(grade.into()), Some(facts.into()))
+    }
+
+    #[test]
+    fn every_limit_gets_the_weakest_grade_of_its_facts() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let conn = warehouse(&Catalogue::load(&root).unwrap());
+        assert_eq!(
+            one(&conn, "SELECT count(*) FROM silver.lab_limit"),
+            one(&conn, "SELECT count(*) FROM gold.limit_grades"),
+        );
+        assert_eq!(
+            grade(&conn, "supply.upstream.volts"),
+            some("unknown", "bench_setting_error, dps_input"),
+            "the bench supply's setting error is not measured",
+        );
+        assert_eq!(
+            grade(&conn, "supply.dps.current_limit_amps"),
+            some("trusted", "opendps_current_limit"),
+        );
+        assert_eq!(grade(&conn, "pico_3v3.max_volts"), (None, None));
+    }
+
+    #[test]
+    fn a_grade_flows_through_every_copy_and_rule() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let mut cat = Catalogue::load(&root).unwrap();
+        let text = fs::read_to_string(root.join(LIMITS)).unwrap().replace(
+            "basis.max_amps = { policy = \"CLAUDE.md, \\\"Default ceilings: 3.6 V and 200 mA\\\"\" }",
+            "basis.max_amps = { policy = \"x\", rests_on = [\"bench_setting_error\"] }",
+        );
+        cat.limits = Some(Limits::parse(&text).unwrap());
+        let conn = warehouse(&cat);
+        assert_eq!(
+            grade(&conn, "pico_3v3.max_amps"),
+            some("unknown", "bench_setting_error")
+        );
+        // A copy, a copy of a copy that rests on a trusted fact too, and a rule's input.
+        assert_eq!(
+            grade(&conn, "supply.max_amps"),
+            some("unknown", "bench_setting_error")
+        );
+        assert_eq!(
+            grade(&conn, "supply.dps.current_limit_amps"),
+            some("unknown", "bench_setting_error, opendps_current_limit"),
+        );
+        assert_eq!(
+            grade(&conn, "supply.fuse.rating_amps"),
+            some("unknown", "bench_setting_error")
+        );
+        assert_eq!(grade(&conn, "pico_3v3.max_volts"), (None, None));
     }
 
     #[test]
@@ -278,5 +397,38 @@ mod tests {
         let irl_tested = "INSERT INTO silver.claim VALUES ('probe', 1, 1, 'x'); \
                           INSERT INTO silver.referent VALUES ('probe', 1, 1, 'irl', 'tested', 'x')";
         refused(conn.execute_batch(irl_tested), "the bench can only measure");
+        let both =
+            "INSERT INTO silver.lab_limit VALUES ('x', 1.0, 'V', 'y', 'policy', 'p', NULL, 'r')";
+        refused(
+            conn.execute(both, []).map(|_| ()),
+            "a limit is an amount or a choice, not both",
+        );
+        let no_policy =
+            "INSERT INTO silver.lab_limit VALUES ('x', 1.0, 'V', NULL, 'policy', NULL, NULL, 'r')";
+        refused(
+            conn.execute(no_policy, []).map(|_| ()),
+            "a policy basis names its policy",
+        );
+        for (values, why) in [
+            (
+                "1.0, 'W', NULL, 'policy', 'p', NULL",
+                "a limit is in volts or amps",
+            ),
+            (
+                "1.0, NULL, NULL, 'policy', 'p', NULL",
+                "an amount has a unit",
+            ),
+            (
+                "1.0, 'V', NULL, 'guess', NULL, NULL",
+                "a basis is policy, same_as or rule",
+            ),
+            (
+                "1.0, 'V', NULL, 'rule', NULL, NULL",
+                "a rule basis names its rule",
+            ),
+        ] {
+            let sql = format!("INSERT INTO silver.lab_limit VALUES ('x', {values}, 'r')");
+            refused(conn.execute(&sql, []).map(|_| ()), why);
+        }
     }
 }
