@@ -33,14 +33,14 @@ flowchart LR
 | Schema first: every file in `parts/`, `builds/` and `lab/` is loaded into the warehouse, or CI fails. A record is parsed by its schema on the way in; a drawing is kept as it is. A folder's README is not a record. | `every_file_in_the_records_folders_is_loaded` |
 | Every schema refuses a key it doesn't know. | `every_table_refuses_a_key_it_does_not_know`, in `crates/records` and in `crates/lab` |
 | A rule a record states in a comment is a check or a test. | the tests in `crates/lab`, for `lab/limits.toml`. Nothing holds this for new files: `unknown`. |
-| Every file the warehouse loads is in bronze with its sha256, and every silver row traces to one. | `every_row_traces_to_the_bytes_it_came_from` |
+| Every file the warehouse loads is in bronze with its sha256, and every silver row traces to one. | `every_row_traces_to_the_bytes_it_came_from`, for the four silver tables with a `record` column; the rest reference one of those by foreign key. |
 | A grade comes from its referents, never typed. | `grades_derive_from_referents`, `every_limit_gets_the_weakest_grade_of_its_facts`. One exception: a build claim's `sim` grade is typed beside its referent, and nothing checks that the referent earns it. |
-| Readers read gold only. | `the_site_reads_only_gold`; the site is the only reader so far. |
+| Readers of the warehouse read gold only. | `the_site_reads_only_gold`; the site is the only one so far. |
 | Every table and view says what it is, and the catalogue is generated. | `every_table_and_view_says_what_it_is`, `the_catalogue_is_current` |
 | The lab crate needs only serde and toml. | `the_lab_crate_needs_only_serde_and_toml` |
 | Parsing records needs no database. | `parsing_records_needs_no_database` |
-| Every dependency is pinned to one version. | `every_dependency_is_pinned`; the compiler by `rust-toolchain.toml` |
-| What is generated is what its generator writes: build pages, mural SVGs, site images, the catalogue. | the Quality Gate's steps, and `the_catalogue_is_current` |
+| Every dependency is pinned to one version. | `every_dependency_is_pinned`, for each crate's own; the rest by `Cargo.lock`, which CI builds with `--locked`; the compiler by `rust-toolchain.toml`. The workflow's actions are pinned by commit, and nothing checks that: `unknown`. |
+| What is generated is what its generator writes: build pages, mural SVGs, the catalogue. The site's images are `brand/`'s files, byte for byte. | the Quality Gate's steps, and `the_catalogue_is_current` |
 | A published build version never changes. | the Quality Gate's step of that name |
 | `main` changes only through a PR that passes the Quality Gate. | the `main-protection` ruleset on GitHub |
 

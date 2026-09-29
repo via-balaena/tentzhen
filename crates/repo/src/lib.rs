@@ -75,10 +75,9 @@ mod tests {
     #[test]
     fn the_architecture_doc_names_real_tests_and_files() {
         let doc = fs::read_to_string(root().join("docs/architecture.md")).unwrap();
-        let now = doc
-            .split("\n## Proposal")
-            .next()
-            .expect("the doc has a Proposal section");
+        let (now, _) = doc
+            .split_once("\n## Proposal")
+            .expect("docs/architecture.md has a Proposal section");
         // Fenced blocks (the diagram) are not prose, and their ``` would pair with the wrong `.
         let mut fenced = false;
         let now: String = now
@@ -135,22 +134,39 @@ mod tests {
         );
     }
 
-    /// CLAUDE.md: "Pin every dependency version". A crate from this workspace, by path, needs no
-    /// version; every other dependency names exactly one.
+    /// Whether a dependency names exactly one version. None when its version is kept elsewhere: a
+    /// path in this workspace, or [workspace.dependencies], which is checked in its own right.
+    fn pinned(spec: &Value) -> Option<bool> {
+        let exact = |v: Option<&str>| v.is_some_and(|v| v.starts_with('='));
+        match spec {
+            Value::String(v) => Some(exact(Some(v))),
+            Value::Table(t) if t.contains_key("path") || t.contains_key("workspace") => None,
+            Value::Table(t) => Some(exact(t.get("version").and_then(Value::as_str))),
+            _ => Some(false),
+        }
+    }
+
+    #[test]
+    fn what_counts_as_pinned() {
+        let spec = |s: &str| -> Value { s.parse::<Table>().unwrap().remove("d").unwrap() };
+        assert_eq!(pinned(&spec("d = \"=1.2.3\"")), Some(true));
+        assert_eq!(pinned(&spec("d = { version = \"=1.2.3\" }")), Some(true));
+        assert_eq!(pinned(&spec("d = \"1.2.3\"")), Some(false));
+        assert_eq!(pinned(&spec("d = { version = \"^1\" }")), Some(false));
+        assert_eq!(pinned(&spec("d = { git = \"https://x\" }")), Some(false));
+        assert_eq!(pinned(&spec("d = { path = \"../d\" }")), None);
+        assert_eq!(pinned(&spec("d = { workspace = true }")), None);
+    }
+
+    /// CLAUDE.md: "Pin every dependency version".
     #[test]
     fn every_dependency_is_pinned() {
         let found = manifests();
         assert!(found.len() > 3, "found {} manifests", found.len());
         for (at, m) in found {
             for (name, spec) in dependencies(&m) {
-                let version = match &spec {
-                    Value::String(v) => Some(v.as_str()),
-                    Value::Table(t) if t.contains_key("path") => continue,
-                    Value::Table(t) => t.get("version").and_then(Value::as_str),
-                    _ => None,
-                };
                 assert!(
-                    version.is_some_and(|v| v.starts_with('=')),
+                    pinned(&spec) != Some(false),
                     "{at}: {name} is not pinned to one version: {spec}"
                 );
             }
