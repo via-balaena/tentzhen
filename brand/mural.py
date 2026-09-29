@@ -923,23 +923,51 @@ towers = [(at(sx, z), z, w, h, shape) for sx, z, w, h, shape in (
     (1425, 720, 40, 220, 'slab'))]
 towers.sort(key=lambda t: -t[1])
 draw_towers(far_x=1150, far_n=34)
-# the tallest tower's lobby: double-height glass, lit, its doors where the rail comes in
-xc = at(DOOR, 600)
+# The tallest tower's lobby, as a tower base is built: a 16 m wall of tall glass on a 3.2 m module,
+# captured aluminium mullions with two transoms, under a metal spandrel where the tower begins. The
+# lobby is lit behind it: pendants under the ceiling, the stone lift core at the back, a reception
+# desk. At the centre, in an aluminium portal under a projecting canopy with downlights, a revolving
+# door with a pair of swing doors either side. The rail comes in at the revolving door.
+LZ, xc = 600, at(DOOR, 600)
+def front(x0, x1, y0, y1): return [P(x0, y0, LZ), P(x0, y1, LZ), P(x1, y1, LZ), P(x1, y0, LZ)]
 defs.append('<linearGradient id="lobby" x1="0" y1="0" x2="0" y2="1">'
             '<stop offset="0" stop-color="#f6d49a"/><stop offset="0.6" stop-color="#d89a58"/>'
             '<stop offset="1" stop-color="#8a5a34"/></linearGradient>')
 defs.append(f'<radialGradient id="plaza" gradientUnits="userSpaceOnUse" cx="{DOOR}" cy="{VPY + 3}" r="90">'
-            '<stop offset="0" stop-color="#ffc98a" stop-opacity="0.45"/>'
+            '<stop offset="0" stop-color="#ffc98a" stop-opacity="0.35"/>'
             '<stop offset="1" stop-color="#ffc98a" stop-opacity="0"/></radialGradient>')
-ellipse((DOOR, VPY + 4), 90, 14, 'url(#plaza)')
-poly([P(xc - 16, 0, 600), P(xc - 16, 34, 600), P(xc + 16, 34, 600), P(xc + 16, 0, 600)], fill='url(#lobby)',
-     stroke=ALUMINIUM, w=1.2)
-for k in range(1, 8):
-    xx = xc - 16 + 32 * k / 8
-    line(P(xx, 0, 600), P(xx, 34, 600), ALUMINIUM, 0.8, extra='opacity="0.7"')
-line(P(xc - 16, 17, 600), P(xc + 16, 17, 600), ALUMINIUM, 0.8, extra='opacity="0.7"')
-poly([P(xc - 19, 34, 600), P(xc - 19, 37, 600), P(xc + 19, 37, 600), P(xc + 19, 34, 600)], fill=GREY_DD,
-     stroke=METAL, w=0.8)  # the canopy
+defs.append(f'<clipPath id="ground"><rect x="0" y="{VPY + 2}" width="{W}" height="{H - VPY - 2}"/></clipPath>')
+ellipse((DOOR, VPY + 4), 90, 14, 'url(#plaza)', extra='clip-path="url(#ground)"')  # light on the plaza, not the towers
+LW, LH, MODULE = 32, 16, 3.2
+x0, x1 = xc - LW / 2, xc + LW / 2
+poly(front(x0, x1, 0, LH), fill='url(#lobby)')
+poly(front(xc - 7, xc + 7, 0, 10), fill='#8a6444', extra='opacity="0.5"')     # the lift core
+poly(front(xc - 13, xc - 8, 0, 1.1), fill='#5a3e2a')                          # the reception desk
+for k in range(9):                                                            # pendants
+    circle(P(x0 + 2 + k * (LW - 4) / 8, 14.2, LZ), 0.45, '#fff4d8', extra='opacity="0.9"')
+for k in range(round(LW / MODULE) + 1):                                       # mullions
+    xx = x0 + k * MODULE
+    line(P(xx, 0, LZ), P(xx, LH, LZ), ALUMINIUM, 0.4)
+for yy in (5.6, 10.8):                                                        # transoms
+    line(P(x0, yy, LZ), P(x1, yy, LZ), ALUMINIUM, 0.3)
+poly(front(x0 - 0.4, x1 + 0.4, LH, LH + 1.3), fill='#2a2c30', stroke=METAL, w=0.5)  # the spandrel
+# the entrance: its portal, a revolving door at the centre, a pair of swing doors either side
+poly(front(xc - 5.4, xc + 5.4, 0, 3.3), fill='#f8e2b8', stroke=ALUMINIUM, w=0.45)
+poly(front(xc - 1.6, xc + 1.6, 2.6, 3.0), fill='#3a3e44')                    # the drum's canopy
+for xx in (xc - 1.6, xc - 0.7, xc, xc + 0.7, xc + 1.6):                      # its glass and wings
+    line(P(xx, 0, LZ), P(xx, 2.6, LZ), ALUMINIUM, 0.3)
+for side in (-1, 1):
+    for leaf in (0, 1):
+        a = xc + side * (2.0 + 1.3 * leaf)
+        b = a + side * 1.3
+        poly(front(min(a, b), max(a, b), 0, 2.5), stroke=ALUMINIUM, w=0.35)
+        pull = (a + 0.2 * side) if leaf == 1 else (b - 0.2 * side)  # a vertical pull by the meeting stile
+        line(P(pull, 0.8, LZ), P(pull, 1.6, LZ), ALUMINIUM, 0.3)
+line(P(xc - 5.4, 2.8, LZ), P(xc - 2.0, 2.8, LZ), ALUMINIUM, 0.3)             # transoms over the doors
+line(P(xc + 2.0, 2.8, LZ), P(xc + 5.4, 2.8, LZ), ALUMINIUM, 0.3)
+poly(front(xc - 7, xc + 7, 4.2, 4.7), fill='#2a2c30', stroke=METAL, w=0.4)    # the canopy
+line(P(xc - 6.5, 4.15, LZ), P(xc + 6.5, 4.15, LZ), HOMELIGHT, 0.5,
+     extra='opacity="0.9" stroke-dasharray="0.6 1.2"')                        # its downlights
 # The page is wider than this scene on a wide screen: its sides fade into the page, not stop.
 defs.append('<linearGradient id="sides"><stop offset="0" stop-color="black"/><stop offset="0.1" stop-color="white"/>'
             '<stop offset="0.9" stop-color="white"/><stop offset="1" stop-color="black"/></linearGradient>')
