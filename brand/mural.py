@@ -24,6 +24,7 @@ TEAL_LINE, TEAL_EDGE = '#24424a', '#3f7a80'                          # outlines,
 COOL = '#9fe0d8'                                                     # street and shop light
 NEON_RED, NEON_MAGENTA, NEON_ORANGE = '#ff4a3a', '#ff3fa4', '#ff8a3a'
 LAMPLIGHT = '#ffb35a'                                                # light from inside a tent
+GREY_D, GREY_DD, FACADE, SHUTTER = '#3a3e44', '#23262a', '#141517', '#2a2d31'  # street buildings, poles
 LEFT_W, CURB_L, CURB_R, RIGHT_W = -11.0, -5.5, 5.5, 10.0
 
 def P(x, y, z): return (VPX + F * (x - CAM_X) / z, VPY - F * (y - EYE) / z)
@@ -146,9 +147,9 @@ def behind_headline(quad):
     return max(xs) > HEADLINE[0] and min(xs) < HEADLINE[2] and max(ys) > HEADLINE[1] and min(ys) < HEADLINE[3]
 def facade(xw, z0, z1, h, lit_shop=False):
     q = [P(xw, 0, z0), P(xw, h, z0), P(xw, h, z1), P(xw, 0, z1)]
-    poly(q, fill=TEAL_FILL, stroke=TEAL_LINE, w=sw(z0, 0.07, 0.8, 2.2))
-    line(P(xw, h - 0.8, z0), P(xw, h - 0.8, z1), TEAL_LINE, sw(z0, 0.05, 0.6, 1.6))
-    line(P(xw, 3.8, z0), P(xw, 3.8, z1), TEAL_LINE, sw(z0, 0.05, 0.6, 1.6))
+    poly(q, fill=FACADE, stroke=GREY_D, w=sw(z0, 0.07, 0.8, 2.2))
+    line(P(xw, h - 0.8, z0), P(xw, h - 0.8, z1), GREY_D, sw(z0, 0.05, 0.6, 1.6))
+    line(P(xw, 3.8, z0), P(xw, 3.8, z1), GREY_D, sw(z0, 0.05, 0.6, 1.6))
     fl = 4.6
     while fl + 2.0 < h - 1.2:
         zz = z0 + 1.2
@@ -159,7 +160,7 @@ def facade(xw, z0, z1, h, lit_shop=False):
                                        ('#10333a', '#2f7a80', COOL, 0.1),
                                        ('#2a160c', '#5a3420', NEON_ORANGE, 0.06)][min(2, int(random.random() * 2.6))]
             if behind_headline(wq):
-                poly(wq, fill='#0d1417', stroke=TEAL_DEEP, w=sw(zz, 0.04, 0.5, 1.4))
+                poly(wq, fill='#16171a', stroke=GREY_DD, w=sw(zz, 0.04, 0.5, 1.4))
             else:
                 poly(wq, fill=fill, stroke=edge, w=sw(zz, 0.04, 0.5, 1.4))
                 reflect([(xw, fl, zz), (xw, fl + 2.0, zz), (xw, fl + 2.0, zz + 1.4), (xw, fl, zz + 1.4)],
@@ -176,7 +177,7 @@ def facade(xw, z0, z1, h, lit_shop=False):
         line(P(xw, 1.1, a), P(xw, 1.1, b), COOL, sw(z0, 0.03, 0.6, 1.2))
     else:
         for yy in (0.9, 1.5, 2.1, 2.7, 3.3):
-            line(P(xw, yy, z0 + 0.8), P(xw, yy, z1 - 0.8), TEAL_DEEP, sw(z0, 0.03, 0.5, 1.2))
+            line(P(xw, yy, z0 + 0.8), P(xw, yy, z1 - 0.8), SHUTTER, sw(z0, 0.03, 0.5, 1.2))
 
 right = [(140, 240, 16), (100, 140, 13), (74, 100, 15), (52, 74, 12), (32, 52, 17), (12, 32, 14)]
 left = [(135, 240, 14), (95, 135, 15), (66, 95, 12), (44, 66, 18), (24, 44, 13), (1.5, 24, 16)]
@@ -234,14 +235,21 @@ pad(P(-12.0, 9.4, GZ), 3.0, gc); pad(P(11.4, 9.4, GZ), 3.0, gc); pad(P(-0.3, 10.
 poly([P(-1.8, 7.2, GZ), P(-1.8, 8.0, GZ), P(1.2, 8.0, GZ), P(1.2, 7.2, GZ)], fill=BG, stroke=gc, w=1.2)
 
 # ---------------- Streetlights (right curb) ----------------
+# Modern LED streetlights: a grey pole and an arm over the road, a slim head, cool light from an
+# LED strip on its underside, a faint cone to the ground and a pool of light where it lands.
+defs.append(f'<linearGradient id="cone" x1="0" y1="0" x2="0" y2="1">'
+            f'<stop offset="0" stop-color="{COOL}" stop-opacity="0.13"/>'
+            f'<stop offset="1" stop-color="{COOL}" stop-opacity="0"/></linearGradient>')
 LAMPS = (22, 42, 64, 96, 150)
 for zl in LAMPS:
-    base, topp, arm = P(5.9, 0, zl), P(5.9, 6.6, zl), P(4.8, 6.6, zl)
-    line(base, topp, TEAL_LINE, sw(zl, 0.14, 0.8, 3)); line(topp, arm, TEAL_LINE, sw(zl, 0.12, 0.8, 3))
-for zl in LAMPS:
-    streak(4.8, 6.6, zl, 0.5, COOL, 0.4)
-for zl in LAMPS:
-    pad(P(4.8, 6.6, zl), max(1.8, F * 0.2 / zl), COOL)
+    line(P(5.9, 0, zl), P(5.9, 6.8, zl), GREY_D, sw(zl, 0.14, 0.8, 3))
+    line(P(5.9, 6.8, zl), P(4.95, 6.95, zl), GREY_D, sw(zl, 0.1, 0.8, 2.5))
+    poly([P(4.15, 6.86, zl), P(4.95, 6.86, zl), P(5.7, 0, zl), P(3.4, 0, zl)], fill='url(#cone)')
+    ellipse(P(4.55, 0, zl), F * 1.3 / zl, F * EYE * 1.3 / zl ** 2, COOL, extra='opacity="0.09"')
+    poly([P(4.1, 7.02, zl), P(4.98, 7.02, zl), P(4.98, 6.88, zl), P(4.1, 6.88, zl)], fill=SHUTTER, stroke=GREY_D,
+         w=sw(zl, 0.03, 0.6, 1.4))
+    line(P(4.18, 6.87, zl), P(4.9, 6.87, zl), COOL, max(1.0, F * 0.05 / zl))
+    streak(4.55, 6.87, zl, 0.7, COOL, 0.35)
 
 # ---------------- Blade signs ----------------
 # 茶楼 tea house, 电器维修 appliance repair, 饭店 restaurant, 腾振, 药材 herbal medicine.

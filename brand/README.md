@@ -41,9 +41,10 @@ radio: an antenna on every roof, faint links along the street, across it and up 
 Red paper lanterns hang across the street on wires, lit from inside, the ones behind the headline
 unlit. The street is wet: every light, window, lantern and tent door reflects as a streak,
 stretched toward you, blurred more up and down than across and broken by ripples. A puddle at your
-feet mirrors the towers. Its colours come from a Chinatown street at night: teal shadow, red
-lanterns, magenta, red and orange neon, cool white street and shop light. Copper and yellow belong
-to the network alone: traces, vias, pads, antennas and radio.
+feet mirrors the towers. Its colours come from a Chinatown street at night: red lanterns, magenta,
+red and orange neon, teal on the tents and towers, cool white shop light and modern LED
+streetlights; the street's buildings and poles stay grey. Copper and yellow belong to the network
+alone: traces, vias, pads, antennas and radio.
 
 - **Perspective breaks the 0°/45°/90° rule**, because it has to. Traces on the ground keep it in
   plan: the tent's trace runs 45° then 0° into a path at 90°.
