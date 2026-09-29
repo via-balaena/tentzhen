@@ -482,6 +482,35 @@ mod tests {
     }
 
     #[test]
+    fn every_table_refuses_a_key_it_does_not_know() {
+        let refused = |parts: &[Source], builds: &[Source]| {
+            let err = Catalogue::from_sources(parts, builds)
+                .err()
+                .unwrap_or_default();
+            assert!(err.contains("unknown field `extra`"), "{err}");
+        };
+        refused(
+            &[src("parts/rp2350.toml", &format!("extra = 1\n{PART}"))],
+            &[],
+        );
+        let firmware = "name = \"f\"\nlicense = \"MIT\"\nsource = \"s\"\nrelease = \"r\"\nfile = \"f\"\nsha256 = \"0\"\n";
+        for table in [
+            "extra = 1\n".to_string(),
+            "[[line]]\nextra = 1\ncommodity = \"wire\"\nqty = 1\n".into(),
+            "[[uses]]\nextra = 1\nbuild = \"b\"\nversion = 1\n".into(),
+            format!("[firmware]\nextra = 1\n{firmware}"),
+            "[[pin]]\nextra = 1\nname = \"p\"\nboard_pin = 1\nnet = \"n\"\nrequired = true\n"
+                .into(),
+            "[[step]]\nextra = 1\ndo = \"d\"\n".into(),
+            "[[claim]]\nextra = 1\nsays = \"s\"\n".into(),
+            "[[claim]]\nsays = \"s\"\nsim = { extra = 1, grade = \"tested\", by = \"t\" }\n".into(),
+            "[[claim]]\nsays = \"s\"\nirl = { extra = 1, record = \"r\" }\n".into(),
+        ] {
+            refused(&[], &[build("probe", 1, &table)]);
+        }
+    }
+
+    #[test]
     fn an_unrecorded_part_is_refused() {
         let b = build("probe", 1, "[[line]]\npart = \"RP9999\"\nqty = 1\n");
         let err = Catalogue::from_sources(&[src("parts/rp2350.toml", PART)], &[b])

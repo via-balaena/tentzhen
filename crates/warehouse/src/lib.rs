@@ -229,6 +229,39 @@ mod tests {
         assert_eq!(hashed, one(&conn, "SELECT count(*) FROM bronze.record"));
     }
 
+    /// Schema first: a file in the records' folders is loaded, or CI fails; a record is parsed by its
+    /// schema on the way in. A folder's README describes the folder and is not a record.
+    #[test]
+    fn every_file_in_the_records_folders_is_loaded() {
+        fn walk(dir: &Path, root: &Path, out: &mut Vec<String>) {
+            for entry in fs::read_dir(dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    walk(&path, root, out);
+                } else if !path.ends_with("README.md") {
+                    let rel = path.strip_prefix(root).unwrap();
+                    out.push(rel.to_string_lossy().replace('\\', "/"));
+                }
+            }
+        }
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let mut files = vec!["DISCLAIMER.md".to_string()];
+        for dir in ["parts", "builds", "lab"] {
+            walk(&root.join(dir), &root, &mut files);
+        }
+        let conn = warehouse(&Catalogue::load(&root).unwrap());
+        for f in files {
+            let n: i64 = conn
+                .query_row(
+                    "SELECT count(*) FROM bronze.record WHERE path = ?",
+                    [&f],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert_eq!(n, 1, "{f} sits with the records, but nothing loads it");
+        }
+    }
+
     #[test]
     fn the_lab_limits_have_a_hash() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
