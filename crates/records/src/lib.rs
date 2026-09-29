@@ -1,5 +1,6 @@
 //! The catalogue's records: parts and versioned builds, parsed from `parts/` and `builds/` and
-//! checked against the contract every consumer relies on (the site, the warehouse).
+//! checked against the contract every consumer relies on (the site, the warehouse). Both can carry
+//! claims, in one shape: [`Claim`].
 
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -15,6 +16,8 @@ pub struct Part {
     #[serde(default)]
     pub authorized_only: bool,
     pub datasheet: Option<String>,
+    #[serde(default)]
+    pub claim: Vec<Claim>,
     /// The file this came from, relative to the repo root. Set on load, never written in a record.
     #[serde(skip)]
     pub record: String,
@@ -116,36 +119,90 @@ pub struct Step {
     pub agent: Option<String>,
 }
 
-/// A claim and its referents. The grade shown is derived from these, never typed.
+/// A claim on a part or a build version, and its referents. Its grades come from which referents
+/// are present, and there is no field to type one: `proof`, `check` and `test` give proven, checked
+/// and tested; `record` gives measured, and `trusted` gives trusted.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Claim {
+    /// Unique in its record. The claim is cited as `<part>#<id>` or `<build>/v<n>#<id>`.
+    pub id: String,
     pub says: String,
-    pub sim: Option<Sim>,
-    pub irl: Option<Irl>,
+    /// A proof that shows it (SBY `prove`, Verus), with its tool.
+    pub proof: Option<String>,
+    /// A bounded check that shows it (SBY `bmc`, Kani), with its bound.
+    pub check: Option<String>,
+    /// A test that shows it, in simulation or on the host.
+    pub test: Option<String>,
+    /// A bench measurement record that shows it.
+    pub record: Option<String>,
+    /// The entry in docs/verification.md's trusted base that assumes it.
+    pub trusted: Option<String>,
+    /// Numbers the claim states. Each key ends in its unit: [`VALUE_UNITS`].
+    #[serde(default)]
+    pub values: BTreeMap<String, f64>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Sim {
-    pub grade: SimGrade,
-    /// The test, bounded check or proof that shows it.
-    pub by: String,
+/// The unit a claim's value may name, as the last part of its key (`min_volts`, `input_ratio`).
+pub const VALUE_UNITS: [&str; 7] = [
+    "volts", "amps", "ohms", "watts", "hertz", "seconds", "ratio",
+];
+
+impl Claim {
+    /// Its referents by kind, as the warehouse stores them.
+    pub fn referents(&self) -> impl Iterator<Item = (&'static str, &str)> {
+        [
+            ("proof", &self.proof),
+            ("check", &self.check),
+            ("test", &self.test),
+            ("record", &self.record),
+            ("trusted", &self.trusted),
+        ]
+        .into_iter()
+        .filter_map(|(kind, r)| r.as_deref().map(|r| (kind, r)))
+    }
 }
 
-#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum SimGrade {
-    Tested,
-    Checked,
-    Proven,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Irl {
-    /// The lab measurement record that shows it.
-    pub record: String,
+/// Holds a record's claims to their shape: ids that are unique and plain, nothing empty, and
+/// values that are finite and name their unit.
+fn check_claims(at: &str, claims: &[Claim]) -> Result<(), String> {
+    for (i, c) in claims.iter().enumerate() {
+        let plain = |t: &str| {
+            !t.is_empty()
+                && t.chars()
+                    .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-')
+        };
+        if !plain(&c.id) {
+            return Err(format!(
+                "{at}: claim id {:?} must be lowercase letters, digits and hyphens",
+                c.id
+            ));
+        }
+        if claims[..i].iter().any(|d| d.id == c.id) {
+            return Err(format!("{at}: claim id {} is used twice", c.id));
+        }
+        if c.says.is_empty() || c.referents().any(|(_, r)| r.is_empty()) {
+            return Err(format!("{at}: claim {} has an empty string", c.id));
+        }
+        for (key, v) in &c.values {
+            let unit = key.rsplit('_').next().unwrap_or_default();
+            let named = key.contains('_')
+                && key
+                    .chars()
+                    .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_');
+            if !named || !VALUE_UNITS.contains(&unit) {
+                return Err(format!(
+                    "{at}: claim {} value {key} must end in its unit, one of {}",
+                    c.id,
+                    VALUE_UNITS.join(", ")
+                ));
+            }
+            if !v.is_finite() {
+                return Err(format!("{at}: claim {} value {key} is {v}", c.id));
+            }
+        }
+    }
+    Ok(())
 }
 
 impl Kind {
@@ -163,30 +220,6 @@ impl Status {
         match self {
             Status::Draft => "draft",
             Status::Published => "published",
-        }
-    }
-}
-
-impl SimGrade {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            SimGrade::Tested => "tested",
-            SimGrade::Checked => "checked",
-            SimGrade::Proven => "proven",
-        }
-    }
-}
-
-impl Claim {
-    pub fn sim_grade(&self) -> &'static str {
-        self.sim.as_ref().map_or("unknown", |s| s.grade.as_str())
-    }
-
-    pub fn irl_grade(&self) -> &'static str {
-        if self.irl.is_some() {
-            "measured"
-        } else {
-            "unknown"
         }
     }
 }
@@ -267,6 +300,7 @@ impl Catalogue {
         for s in part_sources {
             let mut p: Part = toml::from_str(&s.text).map_err(|e| format!("{}: {e}", s.path))?;
             p.record = s.path.clone();
+            check_claims(&s.path, &p.claim)?;
             if parts.contains_key(&p.part) {
                 return Err(format!("{}: part {} is defined twice", s.path, p.part));
             }
@@ -277,6 +311,7 @@ impl Catalogue {
         for s in build_sources {
             let mut b: Build = toml::from_str(&s.text).map_err(|e| format!("{}: {e}", s.path))?;
             b.record = s.path.clone();
+            check_claims(&s.path, &b.claim)?;
             let expected = format!("builds/{}/v{}.toml", b.build, b.version);
             if s.path != expected {
                 return Err(format!(
@@ -470,15 +505,70 @@ mod tests {
     }
 
     #[test]
-    fn grades_come_from_referents() {
-        let none: Claim = toml::from_str("says = \"x\"").unwrap();
-        assert_eq!((none.sim_grade(), none.irl_grade()), ("unknown", "unknown"));
-        let both: Claim =
-            toml::from_str("says = \"x\"\nsim = { grade = \"checked\", by = \"sby bmc 20\" }\nirl = { record = \"lab-0001\" }").unwrap();
-        assert_eq!(
-            (both.sim_grade(), both.irl_grade()),
-            ("checked", "measured")
+    fn no_record_can_type_a_grade() {
+        let typed = "[[claim]]\nid = \"a\"\nsays = \"x\"\ngrade = \"proven\"\n";
+        let err = Catalogue::from_sources(&[], &[build("probe", 1, typed)])
+            .err()
+            .unwrap_or_default();
+        assert!(err.contains("unknown field `grade`"), "{err}");
+    }
+
+    #[test]
+    fn a_part_can_carry_claims() {
+        let part = format!("{PART}[[claim]]\nid = \"io\"\nsays = \"x\"\ntrusted = \"t\"\n");
+        let cat = Catalogue::from_sources(&[src("parts/rp2350.toml", &part)], &[]).unwrap();
+        let c = &cat.parts["RP2350"].claim[0];
+        assert_eq!(c.referents().collect::<Vec<_>>(), [("trusted", "t")]);
+    }
+
+    #[test]
+    fn a_claim_keeps_its_shape() {
+        let refused = |claims: &str, because: &str| {
+            let err = Catalogue::from_sources(&[], &[build("probe", 1, claims)])
+                .err()
+                .unwrap_or_default();
+            assert!(err.contains(because), "{because}: {err}");
+        };
+        let claim = |body: &str| format!("[[claim]]\n{body}\n");
+        refused(&claim("id = \"A b\"\nsays = \"x\""), "lowercase letters");
+        refused(&claim("id = \"\"\nsays = \"x\""), "lowercase letters");
+        refused(
+            &format!(
+                "{}{}",
+                claim("id = \"a\"\nsays = \"x\""),
+                claim("id = \"a\"\nsays = \"y\"")
+            ),
+            "claim id a is used twice",
         );
+        refused(&claim("id = \"a\"\nsays = \"\""), "empty string");
+        refused(
+            &claim("id = \"a\"\nsays = \"x\"\ntest = \"\""),
+            "empty string",
+        );
+        refused(
+            &claim("id = \"a\"\nsays = \"x\"\nvalues = { min = 6.0 }"),
+            "must end in its unit",
+        );
+        refused(
+            &claim("id = \"a\"\nsays = \"x\"\nvalues = { min_furlongs = 6.0 }"),
+            "must end in its unit",
+        );
+        refused(
+            &claim("id = \"a\"\nsays = \"x\"\nvalues = { min_volts = inf }"),
+            "is inf",
+        );
+        let part = format!("{PART}{}", claim("id = \"A\"\nsays = \"x\""));
+        let err = Catalogue::from_sources(&[src("parts/rp2350.toml", &part)], &[])
+            .err()
+            .unwrap_or_default();
+        assert!(
+            err.contains("lowercase letters"),
+            "a part's claims are checked too: {err}"
+        );
+        let ok = claim(
+            "id = \"input-range\"\nsays = \"x\"\nvalues = { min_volts = 6, input_ratio = 1.1 }",
+        );
+        assert!(Catalogue::from_sources(&[], &[build("probe", 1, &ok)]).is_ok());
     }
 
     #[test]
@@ -493,6 +583,8 @@ mod tests {
             &[src("parts/rp2350.toml", &format!("extra = 1\n{PART}"))],
             &[],
         );
+        let part_claim = format!("{PART}[[claim]]\nextra = 1\nid = \"a\"\nsays = \"s\"\n");
+        refused(&[src("parts/rp2350.toml", &part_claim)], &[]);
         let firmware = "name = \"f\"\nlicense = \"MIT\"\nsource = \"s\"\nrelease = \"r\"\nfile = \"f\"\nsha256 = \"0\"\n";
         for table in [
             "extra = 1\n".to_string(),
@@ -502,9 +594,7 @@ mod tests {
             "[[pin]]\nextra = 1\nname = \"p\"\nboard_pin = 1\nnet = \"n\"\nrequired = true\n"
                 .into(),
             "[[step]]\nextra = 1\ndo = \"d\"\n".into(),
-            "[[claim]]\nextra = 1\nsays = \"s\"\n".into(),
-            "[[claim]]\nsays = \"s\"\nsim = { extra = 1, grade = \"tested\", by = \"t\" }\n".into(),
-            "[[claim]]\nsays = \"s\"\nirl = { extra = 1, record = \"r\" }\n".into(),
+            "[[claim]]\nextra = 1\nid = \"a\"\nsays = \"s\"\n".into(),
         ] {
             refused(&[], &[build("probe", 1, &table)]);
         }
