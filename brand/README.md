@@ -37,7 +37,9 @@ First person, standing on a sidewalk at night, every window on. Everyone on the 
 network. The ridge tents along the wall are on copper: each door's trace jogs 45° and joins a path that starts at your
 feet and runs down the street, under a gate, to the door of the tallest tower. The buildings talk
 by radio: an antenna on every roof, faint gold links along the street, across it and up through the
-towers. A puddle at your feet reflects the towers.
+towers. The street is wet: every light, window, lantern and tent door reflects as a streak,
+stretched toward you, blurred more up and down than across and broken by ripples. A puddle at
+your feet mirrors the towers.
 
 - **Perspective breaks the 0°/45°/90° rule**, because it has to. Traces on the ground keep it in
   plan: the tent's trace runs 45° then 0° into a path at 90°.
