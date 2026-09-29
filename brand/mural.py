@@ -27,6 +27,7 @@ LAMPLIGHT = '#ffb35a'                                                # light fro
 HOMELIGHT = '#f0dfb8'                                                # a lamp in a home window
 GREY_D, GREY_DD, SHUTTER = '#3a3e44', '#23262a', '#2a2d31'  # building trim, shutters, poles
 METAL, METAL_FAR, ALUMINIUM = '#7a8088', '#555b63', '#8a9098'         # towers, window and shop frames
+BOARD_RED, BOARD_GOLD = '#b8261c', '#f5dca0'                         # sign boards and their lettering
 # One night, one set of lights, for everything but the network: LED streetlights along the far kerb
 # (cool, from above and across the street), the lanterns and signs overhead (warm red), each tent's
 # lamp (amber, from inside), and the windows. Every surface is a solid, shaded by those lights and
@@ -153,6 +154,7 @@ def draw_towers():
 draw_towers()
 
 # ---------------- Street facades ----------------
+TENT_STRETCH = (4.0, 41.0)  # the stretch of the left wall where the tents stand, front to back
 # The site sets its headline over the top left. At the narrowest desktop width (1280 px) it covers
 # about this box of the mural; windows touching it stay dark so the words keep their contrast.
 HEADLINE = (60, 20, 780, 480)
@@ -236,19 +238,88 @@ def facade(xw, z0, z1, h, brick, lit_shop=False):
             zz = a + (b - a) * k / 4
             line(P(xw, 0.15, zz), P(xw, 3.3, zz), ALUMINIUM, sw(zz, 0.03, 0.6, 1.2))
         line(P(xw, 1.1, a), P(xw, 1.1, b), ALUMINIUM, sw(z0, 0.03, 0.6, 1.2))
-    else:  # shops shut for the night: a corrugated roller shutter in each bay, brick piers between
+    else:  # a shop in each 5 m bay, brick piers between: shut where the tents are, open everywhere else
         n = max(1, round((z1 - z0) / 5.0))
+        rnd = random.Random(int(z0 * 10) + (1000 if xw > 0 else 0))
         for i in range(n):
             a, b = z0 + (z1 - z0) * i / n + 0.8, z0 + (z1 - z0) * (i + 1) / n - 0.8
-            poly([P(xw, 0.0, a), P(xw, 3.1, a), P(xw, 3.1, b), P(xw, 0.0, b)], fill='#1a1c1f', stroke=GREY_D,
-                 w=sw(a, 0.04, 0.5, 1.4))
-            d, yy = [], 0.2
-            while yy < 3.1 and F * 0.2 / a >= 1.5:  # slats closer than 1.5 px merge
-                u, v = P(xw, yy, a), P(xw, yy, b)
-                d.append(f'M{u[0]:.1f} {u[1]:.1f}L{v[0]:.1f} {v[1]:.1f}')
-                yy += 0.2
-            out.append(f'<path d="{"".join(d)}" stroke="{SHUTTER}" stroke-width="{sw(a, 0.02, 0.4, 1.0):.2f}" fill="none"/>')
-            poly([P(xw, 3.1, a), P(xw, 3.35, a), P(xw, 3.35, b), P(xw, 3.1, b)], fill=GREY_DD)  # the shutter box
+            name = SHOP_NAMES[rnd.randrange(len(SHOP_NAMES))]
+            if xw < 0 and a < TENT_STRETCH[1] and b > TENT_STRETCH[0]:  # by the tents: shut, mostly dark glass
+                if i % 3 == 1:
+                    shutter(xw, a, b)
+                else:
+                    shopfront(xw, a, b, None, name, door_near=i % 2 == 0)
+            else:
+                shopfront(xw, a, b, SHOPS[rnd.randrange(len(SHOPS))], name, door_near=i % 2 == 0)
+
+def shutter(xw, a, b):  # shut for the night: a corrugated roller shutter under its box
+    poly([P(xw, 0.0, a), P(xw, 3.1, a), P(xw, 3.1, b), P(xw, 0.0, b)], fill='#1a1c1f', stroke=GREY_D,
+         w=sw(a, 0.04, 0.5, 1.4))
+    d, yy = [], 0.2
+    while yy < 3.1 and F * 0.2 / a >= 1.5:  # slats closer than 1.5 px merge
+        u, v = P(xw, yy, a), P(xw, yy, b)
+        d.append(f'M{u[0]:.1f} {u[1]:.1f}L{v[0]:.1f} {v[1]:.1f}')
+        yy += 0.2
+    if d:
+        out.append(f'<path d="{"".join(d)}" stroke="{SHUTTER}" stroke-width="{sw(a, 0.02, 0.4, 1.0):.2f}" fill="none"/>')
+    poly([P(xw, 3.1, a), P(xw, 3.35, a), P(xw, 3.35, b), P(xw, 3.1, b)], fill=GREY_DD)
+
+# Shops: glass behind aluminium, a glass door with a transom at one end, and a sign band with the
+# shop's name. An open shop's glass is lit, brightest under the ceiling lights, with a strip of its
+# light under the sign; the light reflects in the road and spills onto the sidewalk. Interiors are
+# lamplight, cool shop white or cream, never red. A shut shop's glass is dark and its sign unlit.
+def mix(c1, c2, t):
+    a_, b_ = [int(c1[i:i + 2], 16) for i in (1, 3, 5)], [int(c2[i:i + 2], 16) for i in (1, 3, 5)]
+    return '#' + ''.join(f'{round(u + (v - u) * t):02x}' for u, v in zip(a_, b_))
+SHOPS = [('#7a6242', LAMPLIGHT), ('#3a6c69', COOL), ('#6c6450', HOMELIGHT)]  # (glass, light)
+for n_, (glass, light) in enumerate(SHOPS):
+    defs.append(f'<linearGradient id="shop{n_}" x1="0" y1="0" x2="0" y2="1">'
+                f'<stop offset="0" stop-color="{mix(glass, light, 0.55)}"/><stop offset="0.4" stop-color="{glass}"/>'
+                f'<stop offset="1" stop-color="{mix(glass, "#000000", 0.35)}"/></linearGradient>')
+defs.append('<linearGradient id="shut" x1="0" y1="0" x2="1" y2="1">'  # dark glass, a faint sheen across it
+            '<stop offset="0" stop-color="#1a1f22"/><stop offset="0.42" stop-color="#20272b"/>'
+            '<stop offset="0.5" stop-color="#15191c"/><stop offset="1" stop-color="#0f1113"/></linearGradient>')
+SHOP_NAMES = ['面馆', '烧腊', '超市', '五金', '书店', '电子', '面包', '药房', '茶饮', '花店']
+SPILL = []  # light on the sidewalk in front of each open shop: (x, z, half-length along the wall, colour)
+def wall_text(xw, yc, zc, chars, hc, fill):
+    # characters painted on the wall, each drawn in the wall's own perspective at its centre;
+    # they read left to right: away from you on the left wall, toward you on the right
+    along = 1 if xw < 0 else -1
+    for i, ch in enumerate(chars):
+        z = zc + along * (i - (len(chars) - 1) / 2) * hc * 1.25
+        cx, cy = P(xw, yc, z)
+        k = hc / 100
+        ux, uy = along * -F * (xw - CAM_X) / z ** 2 * k, along * F * (yc - EYE) / z ** 2 * k
+        out.append(f'<text transform="matrix({ux:.4f} {uy:.4f} 0 {F / z * k:.4f} {cx:.1f} {cy:.1f})" font-size="100" '
+                   f'fill="{fill}" text-anchor="middle" dominant-baseline="central" '
+                   f'font-family="Noto Sans SC, PingFang SC, sans-serif" font-weight="500">{ch}</text>')
+def shopfront(xw, a, b, shop, name, door_near):
+    near = F * abs(xw - CAM_X) * (b - a) / a ** 2 >= 12  # wide enough on screen for the details
+    fw = sw(a, 0.04, 0.5, 1.6)
+    frame = ALUMINIUM if shop else GREY_D
+    fill = f'url(#shop{SHOPS.index(shop)})' if shop else 'url(#shut)'
+    da, db = (a, a + 1.1) if door_near else (b - 1.1, b)  # the door
+    wa, wb = (db + 0.15, b) if door_near else (a, da - 0.15)  # the display window
+    window = [(xw, 0.45, wa), (xw, 2.9, wa), (xw, 2.9, wb), (xw, 0.45, wb)]
+    door = [(xw, 0.0, da), (xw, 2.9, da), (xw, 2.9, db), (xw, 0.0, db)]
+    for q in (window, door):
+        poly([P(*v) for v in q], fill=fill, stroke=frame, w=fw)
+        if shop:
+            reflect(q, shop[1], 0.3, stretch=1.6)
+    if near:
+        line(P(xw, 2.4, da), P(xw, 2.4, db), frame, fw)       # the door's transom
+        line(P(xw, 1.05, da + 0.12), P(xw, 1.05, db - 0.12), frame, fw)  # its push bar
+        panes = max(1, round((wb - wa) / 1.2))
+        for k in range(1, panes):
+            zz = wa + (wb - wa) * k / panes
+            line(P(xw, 0.45, zz), P(xw, 2.9, zz), frame, sw(zz, 0.03, 0.5, 1.2))
+    band = [P(xw, 3.1, a), P(xw, 3.7, a), P(xw, 3.7, b), P(xw, 3.1, b)]
+    poly(band, fill=GREY_DD)  # the sign band
+    if F * 0.6 / a >= 8 and not (not shop and behind_headline(band)):  # tall enough to letter
+        wall_text(xw, 3.4, (a + b) / 2, name, 0.4, BOARD_GOLD if shop else '#3e3f41')
+    if shop:
+        line(P(xw, 3.08, a), P(xw, 3.08, b), shop[1], max(0.6, F * 0.04 / a), extra='opacity="0.8"')
+        SPILL.append((xw - 1.25 if xw > 0 else xw + 1.25, (a + b) / 2, (b - a) / 2, shop[1]))
 
 right = [(140, 240, 16), (100, 140, 13), (74, 100, 15), (52, 74, 12), (32, 52, 17), (12, 32, 14)]
 left = [(135, 240, 14), (95, 135, 15), (66, 95, 12), (44, 66, 18), (24, 44, 13), (1.5, 24, 16)]
@@ -309,6 +380,14 @@ for i in range(12):  # a crosswalk, kerb to kerb
     xs = CURB_L + 0.25 + i * 1.0
     poly([P(xs, 0, 46), P(xs + 0.5, 0, 46), P(xs + 0.5, 0, 51), P(xs, 0, 51)], fill='#26282c')
 ground_pad(2.6, 7.5, 0.55, '#26282c')   # a manhole cover, pad-shaped
+spills = {}
+for x, z, half, light in SPILL:
+    if light not in spills:
+        spills[light] = f'spill{len(spills)}'
+        defs.append(f'<radialGradient id="{spills[light]}"><stop offset="0" stop-color="{light}" stop-opacity="0.3"/>'
+                    f'<stop offset="1" stop-color="{light}" stop-opacity="0"/></radialGradient>')
+    poly([P(x + 1.2 * math.cos(t), 0, z + half * 1.3 * math.sin(t)) for t in [i * math.pi / 12 for i in range(24)]],
+         fill=f'url(#{spills[light]})')
 
 REFL_AT = len(out)  # the reflection layer goes here, on the ground
 
@@ -354,7 +433,6 @@ def streetlight(zl):
 # 茶楼 tea house, 电器维修 appliance repair, 饭店 restaurant, 腾振, 药材 herbal medicine.
 # Most are backlit red boards with pale-gold characters and trim, as on Yaowarat Road; the
 # electronics repair shop is neon.
-BOARD_RED, BOARD_GOLD = '#b8261c', '#f5dca0'
 def sign(xs0, xs1, y0, y1, z, chars, color=None, refl=0.18):
     q = [(xs0, y0, z), (xs0, y1, z), (xs1, y1, z), (xs1, y0, z)]
     reflect(q, color or BOARD_RED, refl, stretch=1.4)
@@ -440,6 +518,7 @@ TENTS = [(TENT_LIT, 2.3, 1.3, True, NAVY, NAVY, True), (10.4, 2.1, 1.15, False, 
          (13.4, 2.3, 1.25, True, RED_FLY, GREY_FLY, False), (19.6, 1.9, 1.05, False, NAVY, GREY_FLY, False),
          (22.2, 2.2, 1.2, True, NAVY, NAVY, True), (30.5, 2.0, 1.1, False, GREEN, GREY_FLY, False),
          (38.0, 2.3, 1.25, True, RED_FLY, GREY_FLY, False)]
+assert TENT_STRETCH[0] <= min(t[0] for t in TENTS) and max(t[0] for t in TENTS) + 2.2 <= TENT_STRETCH[1]
 MAIN = [(CAM_X, 2.4), (CAM_X, 640.0)]
 def ribbon(a, b, wd):
     (x0, z0), (x1, z1) = a, b

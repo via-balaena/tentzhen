@@ -36,24 +36,27 @@ at 0°, 45° and 90°, with through-hole pads at the free ends.
 First person, standing on a sidewalk at night, every window on except those behind the site's
 headline, which stay dark for contrast. The street's commercial buildings are brick, each laid in
 its own as if from neighbouring quarries (red, brown, buff, clinker, orange, grey), in running bond
-with paler mortar, falling dark above the lanterns, with roller shutters down over the closed shops;
-behind the headline the mortar stays quiet. Everyone on the street is on one network. The dome tents
-along the wall, as they stand on Portland sidewalks (two-tone rainflies, some under blue tarps, each
-lit from inside), are on copper: each door's trace jogs 45° and joins a path that starts at your
-feet and runs down the street, under a gate, to the door of the tallest tower. That copper is inlaid
-flush in the concrete, in thin dark joints, and lit by what it mirrors: dim at your feet, bright far
-off, with a glint of the lantern above it on every wire. The buildings talk by radio: an antenna on
-every roof, faint links along the street, across it and up through the towers. Red paper lanterns
-hang across the street on wires, lit from inside, the ones behind the headline unlit. The road is
-wet asphalt: lights, windows, lanterns and signs reflect in it as streaks, stretched toward you,
-blurred more up and down than across and broken by ripples. The sidewalks are opaque grey concrete,
-cut into slabs, and reflect nothing. One set of lights shades everything except the network in the
-sky: the LED streetlights across the road, the lanterns and signs, each tent's lamp and the windows.
-Surfaces are solid and dimmed toward grey as night dims colour, the sky glows toward the horizon
-behind solid towers, and nearer things cover farther ones. Its colours come from a Chinatown street
-at night: red lanterns, red sign boards with pale-gold characters as on Yaowarat Road, a red lacquer
-gate, magenta neon on the repair shop, teal in the window glass, cool white shop light and modern
-LED streetlights; the poles, shutters and building trim stay grey. Copper and yellow belong to the
+with paler mortar, falling dark above the lanterns; behind the headline the mortar stays quiet.
+There is a shop in every 5 m bay, a glass door and display window under a lettered sign band. Along
+the tents the shops are shut: dark glass, and a roller shutter every third bay. Everywhere else they
+are open, lit in lamplight, cool white or cream, their light reflected in the road and spilling onto
+the sidewalk. Everyone on the street is on one network. The dome tents along the wall, as they stand
+on Portland sidewalks (two-tone rainflies, some under blue tarps, each lit from inside), are on
+copper: each door's trace jogs 45° and joins a path that starts at your feet and runs down the
+street, under a gate, to the door of the tallest tower. That copper is inlaid flush in the concrete,
+in thin dark joints, and lit by what it mirrors: dim at your feet, bright far off, with a glint of
+the lantern above it on every wire. The buildings talk by radio: an antenna on every roof, faint
+links along the street, across it and up through the towers. Red paper lanterns hang across the
+street on wires, lit from inside, the ones behind the headline unlit. The road is wet asphalt:
+lights, windows, lanterns and signs reflect in it as streaks, stretched toward you, blurred more up
+and down than across and broken by ripples. The sidewalks are opaque grey concrete, cut into slabs,
+and reflect nothing. One set of lights shades everything except the network in the sky: the LED
+streetlights across the road, the lanterns and signs, each tent's lamp and the windows. Surfaces are
+solid and dimmed toward grey as night dims colour, the sky glows toward the horizon behind solid
+towers, and nearer things cover farther ones. Its colours come from a Chinatown street at night: red
+lanterns, red sign boards with pale-gold characters as on Yaowarat Road, a red lacquer gate, magenta
+neon on the repair shop, teal in the window glass, cool white shop light and modern LED
+streetlights; the poles, shutters and building trim stay grey. Copper and yellow belong to the
 network alone: inlaid in the ground, and drawn flat over the sky as antennas, rooftop pads and
 radio.
 
