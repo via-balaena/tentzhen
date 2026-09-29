@@ -5,7 +5,8 @@ The catalogue's records, loaded into DuckDB. `schema.sql` is the contract; read 
 ```
 bronze   the record files exactly as read, and their sha256 (lineage)
 silver   typed rows; the database enforces keys, foreign keys and checks
-gold     views: latest, claim_grades, grade_coverage, bom_exploded, where_used
+gold     views: latest, claim_grades, grade_coverage, bom_exploded, where_used,
+         lab_fact_grades, limit_grades
 ```
 
 The records in `parts/`, `builds/` and `lab/` are the system of record. The warehouse is rebuilt
@@ -22,8 +23,13 @@ any DuckDB client, for example the full parts list of a build through every buil
 SELECT * FROM gold.bom_exploded WHERE build = 'debug-probe' AND version = 1;
 ```
 
-`lab/limits.toml` is checked by `crates/lab` and held in bronze only, for its sha256; nothing
-reads it from the warehouse yet.
+`lab/limits.toml` is checked by `crates/lab`, then loaded like the records: each limit with its
+basis (a person's policy, a copy of another limit, or a rule in `crates/lab`) and the facts it
+rests on. Which limits rest on a fact that is neither measured nor trusted:
+
+```sql
+SELECT path, weakest_grade, rests_on FROM gold.limit_grades WHERE weakest_grade = 'unknown';
+```
 
 Data we may not share stays out: LCSC and JLCPCB data is joined in locally, per user, never
 loaded here (`docs/sourcing.md`).

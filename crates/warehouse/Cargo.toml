@@ -8,5 +8,6 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+tentzhen-lab = { path = "../lab" }
 tentzhen-records = { path = "../records" }
 duckdb = { version = "=1.10505.0", features = ["bundled"] }

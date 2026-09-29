@@ -37,7 +37,7 @@ fn build() -> Result<String, String> {
         let n: i64 = conn
             .query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))
             .map_err(|e| e.to_string())?;
-        report.push_str(&format!("  {table:<22} {n:>4} rows\n"));
+        report.push_str(&format!("  {table:<26} {n:>4} rows\n"));
     }
     Ok(report)
 }

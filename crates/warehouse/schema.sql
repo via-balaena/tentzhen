@@ -133,6 +133,50 @@ CREATE TABLE silver.referent (
     CHECK ((kind = 'irl') = (grade = 'measured'))
 );
 
+-- ---------------------------------------------------------------- silver: the lab's limits
+-- From lab/limits.toml, which crates/lab has checked. `record` names that file, as above.
+
+-- The facts the limits rest on. `measurement` is a bench measurement record; `trusted` is an entry
+-- in docs/verification.md's trusted base.
+CREATE TABLE silver.lab_fact (
+    fact        TEXT PRIMARY KEY,
+    says        TEXT NOT NULL,
+    trusted     TEXT,
+    measurement TEXT,
+    record      TEXT NOT NULL
+);
+
+-- Each limit and its basis: a person's decision (policy), a copy of another value (same_as), or a
+-- rule in crates/lab (rule).
+CREATE TABLE silver.lab_limit (
+    path   TEXT PRIMARY KEY,
+    amount DOUBLE,
+    unit   TEXT CHECK (unit IN ('V', 'A')),
+    choice TEXT,
+    basis  TEXT NOT NULL CHECK (basis IN ('policy', 'same_as', 'rule')),
+    policy TEXT,
+    rule   TEXT,
+    record TEXT NOT NULL,
+    CHECK ((amount IS NULL) = (unit IS NULL)),
+    CHECK ((amount IS NULL) <> (choice IS NULL)),
+    CHECK ((basis = 'policy') = (policy IS NOT NULL)),
+    CHECK ((basis = 'rule') = (rule IS NOT NULL))
+);
+
+-- The values each limit comes from: the original it copies, or its rule's inputs.
+CREATE TABLE silver.lab_limit_input (
+    path  TEXT NOT NULL REFERENCES silver.lab_limit (path),
+    input TEXT NOT NULL REFERENCES silver.lab_limit (path),
+    PRIMARY KEY (path, input)
+);
+
+-- The facts a limit relies on to do its job.
+CREATE TABLE silver.lab_limit_rests_on (
+    path TEXT NOT NULL REFERENCES silver.lab_limit (path),
+    fact TEXT NOT NULL REFERENCES silver.lab_fact (fact),
+    PRIMARY KEY (path, fact)
+);
+
 -- ---------------------------------------------------------------- gold
 
 -- The newest version of each build.
@@ -179,6 +223,37 @@ GROUP BY ALL;
 -- Where each part ends up, directly or inside another build.
 CREATE VIEW gold.where_used AS
 SELECT part, build, version, qty FROM gold.bom_exploded WHERE part IS NOT NULL;
+
+-- Each lab fact's grade, from its referent. Neither referent reads 'unknown'.
+CREATE VIEW gold.lab_fact_grades AS
+SELECT fact, says,
+       CASE WHEN measurement IS NOT NULL THEN 'measured'
+            WHEN trusted IS NOT NULL THEN 'trusted'
+            ELSE 'unknown' END AS grade,
+       coalesce(measurement, trusted) AS evidence
+FROM silver.lab_fact;
+
+-- Each limit with the weakest grade among the facts it rests on, directly or through any value it
+-- comes from. NULL when it rests on no fact: nothing here claims it does its job.
+CREATE VIEW gold.limit_grades AS
+WITH RECURSIVE reach (path, via) AS (
+    SELECT path, path FROM silver.lab_limit
+    UNION
+    SELECT r.path, i.input FROM reach r JOIN silver.lab_limit_input i ON i.path = r.via
+),
+rests AS (
+    SELECT r.path, g.fact, g.grade,
+           CASE g.grade WHEN 'unknown' THEN 0 WHEN 'trusted' THEN 1 ELSE 2 END AS strength
+    FROM reach r
+    JOIN silver.lab_limit_rests_on o ON o.path = r.via
+    JOIN gold.lab_fact_grades g ON g.fact = o.fact
+)
+SELECT l.path, l.amount, l.unit, l.choice, l.basis,
+       arg_min(s.grade, s.strength)                   AS weakest_grade,
+       string_agg(DISTINCT s.fact, ', ' ORDER BY s.fact) AS rests_on
+FROM silver.lab_limit l
+LEFT JOIN rests s USING (path)
+GROUP BY l.path, l.amount, l.unit, l.choice, l.basis;
 
 -- ---------------------------------------------------------------- gold: the site's pages
 -- Everything a build page shows comes from these views. The site reads nothing else.

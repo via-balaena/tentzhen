@@ -205,6 +205,8 @@ pub struct Catalogue {
     /// Every file exactly as read, records then drawings then site documents then the lab's
     /// limits: the warehouse's bronze layer.
     pub sources: Vec<Source>,
+    /// The lab's limits, checked. Set by [`Catalogue::load`]; `from_sources` leaves it empty.
+    pub limits: Option<tentzhen_lab::Limits>,
 }
 
 impl Catalogue {
@@ -250,12 +252,13 @@ impl Catalogue {
             path: "DISCLAIMER.md".into(),
             text,
         });
-        // The lab's limits, checked on the way in, so bronze holds their sha256 for lineage.
-        let (_, text) = tentzhen_lab::Limits::load(root)?;
+        // The lab's limits, checked on the way in; bronze holds their sha256 for lineage.
+        let (limits, text) = tentzhen_lab::Limits::load(root)?;
         cat.sources.push(Source {
             path: tentzhen_lab::LIMITS.into(),
             text,
         });
+        cat.limits = Some(limits);
         Ok(cat)
     }
 
@@ -306,6 +309,7 @@ impl Catalogue {
             parts,
             builds,
             sources: part_sources.iter().chain(build_sources).cloned().collect(),
+            limits: None,
         };
         for versions in cat.builds.values() {
             for b in versions {
