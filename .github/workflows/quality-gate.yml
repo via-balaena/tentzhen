@@ -7,6 +7,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # By hand, from the Actions tab or `gh workflow run "Quality Gate" --ref main`: GitHub started no
+  # run for #18's merge, and without this there was no way to start one.
+  workflow_dispatch:
 
 permissions:
   contents: read
