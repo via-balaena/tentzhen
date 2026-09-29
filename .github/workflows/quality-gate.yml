@@ -7,6 +7,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # By hand, from the Actions tab or `gh workflow run "Quality Gate" --ref main`: GitHub started no
+  # run for #18's merge, and without this there was no way to start one.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -48,7 +51,9 @@ jobs:
           git status --porcelain -- site
           test -z "$(git status --porcelain -- site)"
       - name: A published build version never changes
-        if: github.event_name == 'pull_request'
+        # On every run but a push to main, which has nothing to compare with. A run started by hand
+        # on a branch must check this too: it posts the same Quality Gate check a PR's run does.
+        if: github.event_name != 'push'
         env:
           BASE: origin/main
         run: |

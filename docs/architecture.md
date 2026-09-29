@@ -65,8 +65,9 @@ test and path it names up to the proposal below must exist.
   DPS5005 has no part record. The Pico ceiling rests on no fact at all (`gold.limit_grades`).
 - **Three gold views have no reader:** `grade_coverage`, `where_used` and `limit_grades`
   (`docs/data-catalogue.md`).
-- **`main`'s Quality Gate did not run for the merge of #18,** for an unknown cause, and the workflow
-  has no manual trigger. The tree was the one the PR's run had passed.
+- **`main`'s Quality Gate did not run for the merge of #18,** for an unknown cause. The tree was
+  the one the PR's run had passed, and the run for #19's merge covered it. The workflow can now be
+  started by hand (`workflow_dispatch`).
 
 ## Proposal: one claim model
 
@@ -115,5 +116,3 @@ Each step is one PR, done when its check passes:
    `parts/rp2350.toml`. Done when `pico_3v3.max_volts` rests on it.
 5. **Measurement records** with the lab log (`roadmap.md`, Phase 0). Done when a `record` referent
    is a foreign key.
-
-Separately, small: a manual trigger for the Quality Gate, so a run can be started on `main`.
