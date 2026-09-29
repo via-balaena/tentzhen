@@ -213,16 +213,21 @@ for m in (masts['left'][0], masts['right'][0]):  # the far end of the street up 
     arc(m, (tip, (x, h, z)), lift=40.0)
 
 # ---------------- Ground ----------------
+# Grey concrete sidewalks with expansion joints; the road between them stays dark asphalt, with no
+# line painted along it. The change of surface marks the kerb.
 ZF = 240
-for xc in (CURB_L, CURB_R, LEFT_W, RIGHT_W):
-    line(P(xc, 0, 2.5), P(xc, 0, ZF), TEAL_LINE, 1.4)
-z = 2.8
-while z < 44:
-    line(P(LEFT_W, 0, z), P(CURB_L, 0, z), '#14232a', sw(z, 0.03, 0.5, 1.5)); z *= 1.12
+SIDEWALK, JOINT = '#1d1e21', '#2c2e32'
+for x0, x1 in ((LEFT_W, CURB_L), (CURB_R, RIGHT_W)):
+    poly([P(x0, 0, 2.4), P(x0, 0, ZF), P(x1, 0, ZF), P(x1, 0, 2.4)], fill=SIDEWALK)
+    z = 2.8
+    while z < 60:
+        line(P(x0, 0, z), P(x1, 0, z), JOINT, sw(z, 0.03, 0.5, 1.5)); z *= 1.12
+for xc in (LEFT_W, RIGHT_W):  # where the buildings meet the sidewalk
+    line(P(xc, 0, 2.5), P(xc, 0, ZF), GREY_D, 1.4)
 for i in range(11):
     xs = -5.0 + i * 1.0
-    poly([P(xs, 0, 46), P(xs + 0.5, 0, 46), P(xs + 0.5, 0, 51), P(xs, 0, 51)], fill='#17282e')
-ground_pad(2.6, 7.5, 0.55, '#1c2e34')   # a manhole cover, pad-shaped
+    poly([P(xs, 0, 46), P(xs + 0.5, 0, 46), P(xs + 0.5, 0, 51), P(xs, 0, 51)], fill='#26282c')
+ground_pad(2.6, 7.5, 0.55, '#26282c')   # a manhole cover, pad-shaped
 
 REFL_AT = len(out)  # the reflection layer goes here, on the ground
 
@@ -320,14 +325,14 @@ for zl in (16, 21, 27, 34, 43, 55, 70, 90, 118):
 PX, PZ, PRX, PRZ = -7.35, 3.75, 0.95, 0.85
 puddle = [P(PX + PRX * math.cos(t) * (1 + 0.12 * math.sin(3 * t)), 0, PZ + PRZ * math.sin(t)) for t in [i * math.pi / 24 for i in range(48)]]
 defs.append(f'<clipPath id="puddle"><polygon points="{pts(puddle)}"/></clipPath>')
-poly(puddle, fill='#0a1316', stroke=TEAL_DEEP, w=1.2)
+poly(puddle, fill='#0c0d0f', stroke='#2a2d31', w=1.2)
 out.append('<g clip-path="url(#puddle)" opacity="0.55">')
 draw_towers(lambda x, y, z: P(x, -y, z))
 out.append('</g>')
 ys_ = [p[1] for p in puddle]; y = min(ys_)
 rip = ['<g clip-path="url(#puddle)" opacity="0.55">']
 while y < max(ys_):
-    rip.append(f'<line x1="0" y1="{y:.1f}" x2="{W}" y2="{y:.1f}" stroke="#0a1316" stroke-width="1.6"/>'); y += 4.5
+    rip.append(f'<line x1="0" y1="{y:.1f}" x2="{W}" y2="{y:.1f}" stroke="#0c0d0f" stroke-width="1.6"/>'); y += 4.5
 rip.append('</g>'); out.append(''.join(rip))
 
 # ---------------- The network on the ground ----------------
