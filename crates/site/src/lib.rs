@@ -60,7 +60,7 @@ fn page(up: &str, title: &str, body: &str) -> String {
 <footer class="site-footer">
   <div class="column">
     <span>腾振 TENTZHEN · A VIA BALAENA PROJECT</span>
-    <span>MIT OR APACHE-2.0</span>
+    <span>MIT OR APACHE-2.0 · <a href="{up}legal/index.html">LEGAL</a></span>
     <a href="https://github.com/via-balaena/tentzhen">GITHUB.COM/VIA-BALAENA/TENTZHEN</a>
   </div>
 </footer>
@@ -354,7 +354,7 @@ pub fn render_version(conn: &Connection, b: &PageRow) -> duckdb::Result<String> 
         .query_map(key, |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
         .collect::<duckdb::Result<_>>()?;
     if !steps.is_empty() {
-        h.push_str("<h2>Walkthrough</h2>\n<ol class=\"steps\">\n");
+        h.push_str("<h2>Walkthrough</h2>\n<p class=\"notice\">At your own risk: not certified or calibrated test equipment. <a href=\"../../../legal/index.html\">Legal</a></p>\n<ol class=\"steps\">\n");
         for (instruction, run, expect, agent) in &steps {
             let _ = write!(h, "<li><p>{}</p>", esc(instruction));
             if let Some(r) = run {
@@ -404,7 +404,16 @@ pub fn render_version(conn: &Connection, b: &PageRow) -> duckdb::Result<String> 
     Ok(page(up, &format!("{name} v{} · Tentzhen", b.version), &h))
 }
 
-/// Writes every generated file under `root/site/builds/`. Returns how many it wrote.
+/// `site/legal/`: DISCLAIMER.md, as the warehouse holds it.
+pub fn render_legal(markdown: &str) -> String {
+    let mut body = String::from("<div class=\"prose\">\n");
+    pulldown_cmark::html::push_html(&mut body, pulldown_cmark::Parser::new(markdown));
+    body.push_str("</div>\n");
+    page("../", "Legal · Tentzhen", &body)
+}
+
+/// Writes every generated file under `root/site/builds/` and `root/site/legal/`. Returns how many
+/// it wrote.
 pub fn write_site(conn: &Connection, root: &Path) -> Result<usize, String> {
     let out = root.join("site/builds");
     let write = |path: &Path, bytes: &[u8]| -> Result<(), String> {
@@ -415,6 +424,14 @@ pub fn write_site(conn: &Connection, root: &Path) -> Result<usize, String> {
     };
     let pages = pages(conn).map_err(|e| e.to_string())?;
     let mut n = 0;
+    let legal: String = conn
+        .query_row("SELECT body FROM gold.legal", [], |r| r.get(0))
+        .map_err(|e| format!("gold.legal: {e}"))?;
+    write(
+        &root.join("site/legal/index.html"),
+        render_legal(&legal).as_bytes(),
+    )?;
+    n += 1;
     write(&out.join("index.html"), render_index(&pages).as_bytes())?;
     n += 1;
     for b in &pages {
@@ -499,5 +516,18 @@ mod tests {
             "{page}"
         );
         assert!(render(&conn, "bench", 1).contains("<h2>Uses</h2>"));
+    }
+
+    #[test]
+    fn a_walkthrough_carries_the_risk_notice() {
+        let steps = "[[step]]\ndo = \"plug it in\"\n";
+        let conn = site(&[build("probe", 1, steps)]);
+        let page = render(&conn, "probe", 1);
+        assert!(
+            page.contains("<p class=\"notice\">At your own risk"),
+            "{page}"
+        );
+        assert!(page.contains("href=\"../../../legal/index.html\""));
+        assert!(render_legal("# Disclaimer\n\nAS IS.").contains("<h1>Disclaimer</h1>"));
     }
 }

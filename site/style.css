@@ -167,3 +167,13 @@ h1, h2, h3, p { margin: 0; }
 .grade.tested::before, .grade.checked::before, .grade.proven::before { border-color: var(--copper); }
 .grade.proven::before { background: var(--copper); }
 .claims .grade { margin-right: 8px; }
+
+/* ---------- legal ---------- */
+.notice { font-size: 14px; color: var(--muted); }
+.notice a, .site-footer span a { color: var(--muted); }
+.notice a:hover, .site-footer span a:hover { color: var(--copper); }
+.prose { max-width: 820px; display: flex; flex-direction: column; gap: 18px; }
+.prose h1 { font-family: var(--display); font-size: 56px; line-height: 1.05; font-weight: 600; color: var(--cream); }
+.prose p { font-size: 17px; line-height: 1.7; color: var(--soft); }
+.prose strong { color: var(--cream); font-weight: 500; }
+.prose code { font-family: var(--mono); font-size: 15px; color: var(--yellow); }

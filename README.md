@@ -17,6 +17,7 @@ trusted, or unknown.
 - [Sourcing](docs/sourcing.md) — LCSC, JLCPCB, incoming QA
 - [Instrument #1](docs/scope.md) — the digitizer and generator
 - [Brand](brand/README.md) — the peregrine mark and the 腾振 lockup
+- [Disclaimer](DISCLAIMER.md) — as is, at your own risk, not certified test equipment
 
 ## License
 

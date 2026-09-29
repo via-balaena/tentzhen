@@ -11,3 +11,4 @@ repository.workspace = true
 tentzhen-records = { path = "../records" }
 tentzhen-warehouse = { path = "../warehouse" }
 duckdb = { version = "=1.10505.0", features = ["bundled"] }
+pulldown-cmark = { version = "=0.13.4", default-features = false, features = ["html"] }

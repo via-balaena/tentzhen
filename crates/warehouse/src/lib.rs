@@ -186,6 +186,7 @@ mod tests {
              WHERE bv.drawing IS NOT NULL AND p.drawing_svg IS NULL",
         );
         assert_eq!(missing, 0, "a declared drawing reaches its page");
+        assert_eq!(one(&conn, "SELECT count(*) FROM gold.legal"), 1);
     }
 
     #[test]

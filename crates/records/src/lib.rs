@@ -202,7 +202,8 @@ pub struct Catalogue {
     pub parts: BTreeMap<String, Part>,
     /// Each build's versions, oldest first; `versions[i].version == i + 1`.
     pub builds: BTreeMap<String, Vec<Build>>,
-    /// Every file exactly as read, records then drawings: the warehouse's bronze layer.
+    /// Every file exactly as read, records then drawings then site documents: the warehouse's
+    /// bronze layer.
     pub sources: Vec<Source>,
 }
 
@@ -241,6 +242,14 @@ impl Catalogue {
             }
         }
         cat.sources.extend(drawings);
+        // Site documents go through the warehouse like everything else the site shows.
+        let disclaimer = root.join("DISCLAIMER.md");
+        let text = fs::read_to_string(&disclaimer)
+            .map_err(|e| format!("{}: {e}", disclaimer.display()))?;
+        cat.sources.push(Source {
+            path: "DISCLAIMER.md".into(),
+            text,
+        });
         Ok(cat)
     }
 
