@@ -6,7 +6,9 @@ signal generator. Pronounced "TENT-zhen" (like "tension").
 
 Read before planning anything: `docs/vision.md` (why and for whom), `docs/roadmap.md` (phases and
 acceptance criteria), `docs/verification.md` (how every claim is graded), `docs/sourcing.md`
-(LCSC, JLCPCB, incoming QA), `docs/scope.md` (instrument #1).
+(LCSC, JLCPCB, incoming QA), `docs/scope.md` (instrument #1), `docs/architecture.md` (how records,
+code and checks fit, and the rules each test holds). The warehouse is described in
+`docs/data-catalogue.md`, which is generated.
 
 ## Every claim carries its grade
 
@@ -82,4 +84,6 @@ skyline, which the Quality Gate checks against the committed SVGs.
 - `main` takes changes only through a PR that passes the Quality Gate
   (`.github/workflows/quality-gate.yml`), with signed commits and linear history; the
   `main-protection` ruleset enforces it. Pin every dependency version.
+- Schema first: a new data file gets a typed schema and a loader before anything reads it, and a
+  rule it states in a comment becomes a check or a test (`docs/architecture.md`, "Rules").
 - Docs are written for someone following along on a budget.
