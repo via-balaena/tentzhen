@@ -682,23 +682,27 @@ for z0, wd, *_ in TENTS:  # every tent: out of the door, a 45-degree jog, across
 pad(P(CAM_X, 0.0, 640.0), 3.6, COPPER)
 
 # ---------------- Tents along the left wall ----------------
-# Light from a lamp inside: brightest low in the opening and falling off to amber at its edges; the
-# translucent fabric warming around the door; the tied-back flap catching it; a pool on the wet
-# pavement that fades with distance.
-defs.append('<radialGradient id="tentlight" cx="0.5" cy="0.82" r="0.75">'
-            '<stop offset="0" stop-color="#fff1c8"/><stop offset="0.22" stop-color="#ffc070"/>'
-            '<stop offset="0.6" stop-color="#e0782a"/><stop offset="1" stop-color="#5a2610"/></radialGradient>')
-defs.append('<radialGradient id="fabricglow" cx="0.5" cy="0.9" r="0.75">'
-            '<stop offset="0" stop-color="#ff9a4a" stop-opacity="0.42"/>'
-            '<stop offset="1" stop-color="#ff9a4a" stop-opacity="0"/></radialGradient>')
-defs.append('<radialGradient id="sideglow" cx="0.12" cy="0.85" r="0.8">'
-            '<stop offset="0" stop-color="#ff9a4a" stop-opacity="0.22"/>'
-            '<stop offset="1" stop-color="#ff9a4a" stop-opacity="0"/></radialGradient>')
+# Nylon lit from inside glows in its own colour, like a lantern: blue through a blue tent, red
+# through a red fly, brightest near the lamp. Outside, the streetlights across the road catch each
+# dome's upper right; the side against the wall and the base fall dark, and each sits in its own
+# contact shadow. Seams and pole sleeves are folds in the fabric, not outlines. Through each open
+# door, the warm inside; through the nearest, wide open, a home someone keeps.
 defs.append('<radialGradient id="pool"><stop offset="0" stop-color="#ffb35a" stop-opacity="0.3"/>'
             '<stop offset="0.5" stop-color="#ff9a4a" stop-opacity="0.12"/>'
             '<stop offset="1" stop-color="#ff9a4a" stop-opacity="0"/></radialGradient>')
-defs.append('<linearGradient id="flaplit" x1="1" y1="0.6" x2="0" y2="0.9">'
-            '<stop offset="0" stop-color="#c8743a"/><stop offset="1" stop-color="#4a2a18"/></linearGradient>')
+defs.append('<radialGradient id="tentlight" cx="0.45" cy="0.8" r="0.8">'
+            '<stop offset="0" stop-color="#f2c98a"/><stop offset="0.45" stop-color="#b8703a"/>'
+            '<stop offset="1" stop-color="#4a2616"/></radialGradient>')
+defs.append('<filter id="contact" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>')
+defs.append('<linearGradient id="flyshade" x1="1" y1="0" x2="0.15" y2="1">'
+            '<stop offset="0.35" stop-color="#000000" stop-opacity="0"/>'
+            '<stop offset="1" stop-color="#000000" stop-opacity="0.5"/></linearGradient>')
+defs.append(f'<radialGradient id="domekey" cx="0.7" cy="0.2" r="0.5"><stop offset="0" stop-color="{COOL}" stop-opacity="0.16"/>'
+            f'<stop offset="1" stop-color="{COOL}" stop-opacity="0"/></radialGradient>')
+defs.append('<radialGradient id="lampbloom"><stop offset="0" stop-color="#fff0c8" stop-opacity="0.8"/>'
+            '<stop offset="0.3" stop-color="#ffc070" stop-opacity="0.35"/>'
+            '<stop offset="1" stop-color="#ffc070" stop-opacity="0"/></radialGradient>')
+FABRIC_LIT = {NAVY: '#4460b0', GREEN: '#76923f', RED_FLY: '#b04c38', GREY_FLY: '#9a9ea3', TARP: '#4d6ccc'}
 def hull(points):
     pts_ = sorted(set((round(x, 2), round(y, 2)) for x, y in points))
     def half(seq):
@@ -710,16 +714,72 @@ def hull(points):
         return h
     lower, upper = half(pts_), half(reversed(pts_))
     return lower[:-1] + upper[:-1]
-# the streetlights across the road light each dome from the upper right; the side against the wall
-# and the ground falls into shadow
-defs.append('<linearGradient id="flyshade" x1="1" y1="0" x2="0.2" y2="1">'
-            f'<stop offset="0" stop-color="{COOL}" stop-opacity="0.12"/>'
-            '<stop offset="0.45" stop-color="#000000" stop-opacity="0"/>'
-            '<stop offset="1" stop-color="#000000" stop-opacity="0.45"/></linearGradient>')
+def box(x0, x1, y0, y1, z0, z1, front, top, side):
+    # a box on the tent floor, seen from the right and above: its front, its top, its right end
+    poly([P(x0, y0, z0), P(x0, y1, z0), P(x1, y1, z0), P(x1, y0, z0)], fill=front)
+    poly([P(x0, y1, z0), P(x0, y1, z1), P(x1, y1, z1), P(x1, y1, z0)], fill=top)
+    poly([P(x1, y0, z0), P(x1, y1, z0), P(x1, y1, z1), P(x1, y0, z1)], fill=side)
+def home(xm, zc, wd, ln, ht, lamp_at):
+    # The nearest tent, kept as a home: a rug, a made bed with a pillow and a blanket, books, a crate
+    # for a desk with a laptop open and a small board being worked on, a lamp, and fairy lights
+    # strung along the back wall.
+    lx, ly, lz = lamp_at
+    floor = [P(xm + wd / 2 * 0.97 * math.cos(t), 0.01, zc + ln / 2 * 0.97 * math.sin(t))
+             for t in [i * math.pi / 18 for i in range(36)]]
+    poly(floor, fill='#4a3224')
+    poly([P(-10.45, 0.015, 5.95), P(-10.45, 0.015, 6.6), P(-9.3, 0.015, 6.6), P(-9.3, 0.015, 5.95)], fill='#2e4d48')
+    poly([P(-10.37, 0.016, 6.02), P(-10.37, 0.016, 6.53), P(-9.38, 0.016, 6.53), P(-9.38, 0.016, 6.02)],
+         stroke='#b08a52', w=sw(6.2, 0.012, 0.5, 1.2))  # the rug's border
+    # fairy lights along the back wall, sagging between the poles
+    bulbs = []
+    for i in range(13):
+        t = i / 12
+        x = -10.6 + 1.7 * t
+        y = 0.64 - 0.1 * math.sin(math.pi * t)
+        r = 1 - ((x - xm) / (wd / 2)) ** 2 - (y / ht) ** 2
+        bulbs.append(P(x, y, zc + ln / 2 * 0.95 * math.sqrt(max(0.0, r))))
+    pline(bulbs, '#3a2a1e', 0.6)
+    for c in bulbs:
+        circle(c, 4.0, 'url(#lampbloom)'); circle(c, 1.1, '#ffe6b0')
+    # the bed: a foam mattress under a cream sheet, a pillow, a teal blanket turned down
+    box(-10.62, -8.9, 0.0, 0.2, 6.62, 7.25, '#8c7460', '#d6bf9e', '#a88c70')
+    box(-10.58, -10.18, 0.2, 0.3, 6.72, 7.16, '#cfc2a8', '#ece2cc', '#dcd0b6')  # the pillow, plumped
+    poly([P(-10.38 + 0.2 * math.cos(t), 0.31, 6.94 + 0.22 * math.sin(t)) for t in [i * math.pi / 10 for i in range(20)]],
+         fill='#f2eadb')
+    poly([P(-10.1, 0.205, 6.6), P(-10.1, 0.205, 7.26), P(-8.88, 0.205, 7.26), P(-8.88, 0.205, 6.6)], fill='#2f5f6c')
+    poly([P(-10.1, 0.207, 6.6), P(-10.1, 0.207, 7.26), P(-9.96, 0.207, 7.26), P(-9.96, 0.207, 6.6)],
+         fill='#d8c8a8')  # the sheet, turned down over the blanket
+    drape = [P(-10.1, 0.205, 6.6)] + [P(-10.1 + 1.22 * k / 8, 0.07 + 0.025 * math.sin(k * 1.7), 6.59) for k in range(9)] \
+            + [P(-8.88, 0.205, 6.6)]
+    poly(drape, fill='#244c57')
+    # a stack of books on the rug, a small board with a lit LED on top
+    for k, colour in enumerate(('#6a2c26', '#2a4a6a', '#b89a62')):
+        box(-9.98, -9.72, 0.05 * k, 0.05 * (k + 1), 6.36, 6.54, colour, mix(colour, '#ffffff', 0.25), mix(colour, '#000000', 0.2))
+    poly([P(-9.94, 0.152, 6.39), P(-9.94, 0.152, 6.5), P(-9.78, 0.152, 6.5), P(-9.78, 0.152, 6.39)], fill='#2f6a44')
+    circle(P(-9.82, 0.16, 6.43), 1.0, COOL)
+    # a crate for a desk, the laptop open on it, the lamp beside
+    box(-10.62, -10.2, 0.0, 0.34, 5.9, 6.3, '#6e5238', '#9a7a56', '#83654a')
+    for k in (1, 2):  # the crate's slats
+        yy = 0.34 * k / 3
+        line(P(-10.62, yy, 5.9), P(-10.2, yy, 5.9), '#4a3424', sw(5.9, 0.012, 0.5, 1.2))
+    poly([P(-10.56, 0.345, 5.97), P(-10.56, 0.345, 6.16), P(-10.34, 0.345, 6.16), P(-10.34, 0.345, 5.97)], fill='#2a2c30')
+    screen = [P(-10.56, 0.345, 6.16), P(-10.56, 0.52, 6.22), P(-10.34, 0.52, 6.22), P(-10.34, 0.345, 6.16)]
+    sc = P(-10.45, 0.44, 6.19)
+    circle(sc, F * 0.25 / 6.2, 'url(#screenbloom)')
+    poly(screen, fill='#a8dde2', stroke='#2a2c30', w=sw(6.2, 0.012, 0.5, 1.2))
+    c = P(lx, ly, lz)
+    circle(c, F * 0.35 / lz, 'url(#lampbloom)')
+    # a camping lantern: dark base and cap, the lit globe between
+    poly([P(lx - 0.045, 0.34, lz), P(lx - 0.045, 0.37, lz), P(lx + 0.045, 0.37, lz), P(lx + 0.045, 0.34, lz)], fill='#2a2c30')
+    poly([P(lx - 0.04, 0.37, lz), P(lx - 0.04, 0.46, lz), P(lx + 0.04, 0.46, lz), P(lx + 0.04, 0.37, lz)], fill='#fff4d8')
+    poly([P(lx - 0.045, 0.46, lz), P(lx - 0.03, 0.49, lz), P(lx + 0.03, 0.49, lz), P(lx + 0.045, 0.46, lz)], fill='#2a2c30')
+defs.append(f'<radialGradient id="screenbloom"><stop offset="0" stop-color="{COOL}" stop-opacity="0.5"/>'
+            f'<stop offset="1" stop-color="{COOL}" stop-opacity="0"/></radialGradient>')
 def tent(z0, wd, ht, antenna, body, fly, tarp):
     # a half-ellipsoid dome: base ellipse wd x ln, height ht; its front touches z0
     xm, ln = -10.9 + wd / 2, 2.2
     zc = z0 + ln / 2
+    is_home = z0 == TENT_LIT
     def surf(u, v):  # u around the base, v from the ground (0) to the top (pi/2)
         return (xm + wd / 2 * math.cos(v) * math.cos(u), ht * math.sin(v), zc + ln / 2 * math.cos(v) * math.sin(u))
     def facing(pt):  # is this surface point turned toward the viewer?
@@ -743,45 +803,70 @@ def tent(z0, wd, ht, antenna, body, fly, tarp):
         r = 1 - ((x - xm) / (wd / 2)) ** 2 - (y / ht) ** 2
         return (x, y, zc - ln / 2 * math.sqrt(max(0.0, r)))
     w = sw(z0, 0.04, 0.8, 2.6)
+    tid = f'tent{int(z0 * 10)}'
     ellipse(P(xm, 0, z0 - 0.7), F * 1.25 / z0, F * EYE * 1.25 / (z0 - 0.7) ** 2, 'url(#pool)')
-    grid = [P(*surf(math.radians(a), math.radians(b))) for a in range(0, 360, 10) for b in range(0, 91, 10)]
-    outline = hull(grid)
-    poly(outline, fill=body, stroke='#0c0e12', w=w)
-    # the rainfly: the upper cap, in its own colour
+    base = [P(xm + wd / 2 * 1.05 * math.cos(t), 0, zc + ln / 2 * 1.05 * math.sin(t)) for t in [i * math.pi / 18 for i in range(36)]]
+    poly(base, fill='#000000', extra='opacity="0.5" filter="url(#contact)"')
+    outline = hull([P(*surf(math.radians(a), math.radians(b))) for a in range(0, 360, 10) for b in range(0, 91, 10)])
     cap = hull([P(*surf(math.radians(a), math.radians(b))) for a in range(0, 360, 10) for b in range(38, 91, 8)])
-    poly(cap, fill=fly, stroke='#0c0e12', w=w * 0.8)
-    poly(outline, fill='url(#flyshade)')
-    # two poles crossing over the top, where they face you
-    for a in (45, 135):
-        arc_ = [surf(math.radians(a + (180 if b < 0 else 0)), math.radians(abs(b))) for b in range(-90, 91, 4)]
-        for run in visible_runs(arc_):
-            pline(run, '#0c0e12', max(0.6, w * 0.6), extra='opacity="0.7"')
+    regions = [(outline, body), (cap, fly)]
     if tarp:  # a blue tarp thrown over the top and down one side, its hem uneven
         rnd = random.Random(int(z0 * 10))
         drape = [P(*surf(math.radians(a), math.radians(b))) for a in range(-60, 181, 10) for b in range(20, 91, 10)]
         hem = [P(*surf(math.radians(a), math.radians(12 + 14 * rnd.random()))) for a in range(-60, 181, 15)]
-        poly(hull(drape + hem), fill=TARP, stroke='#101a3a', w=w * 0.8)
+        regions.append((hull(drape + hem), TARP))
+    # each fabric, then the lamp's light coming through it in that fabric's colour
+    lamp_at = (-10.27, 0.41, 6.1) if is_home else (xm - 0.25, 0.35, zc - 0.2)
+    lc, lr = P(*lamp_at), F * wd * 0.7 / z0
+    for k, (region, fabric) in enumerate(regions):
+        gid = f'{tid}g{k}'
+        defs.append(f'<radialGradient id="{gid}" gradientUnits="userSpaceOnUse" cx="{lc[0]:.1f}" cy="{lc[1]:.1f}" r="{lr:.1f}">'
+                    f'<stop offset="0" stop-color="{FABRIC_LIT[fabric]}" stop-opacity="0.85"/>'
+                    f'<stop offset="0.55" stop-color="{FABRIC_LIT[fabric]}" stop-opacity="0.3"/>'
+                    f'<stop offset="1" stop-color="{FABRIC_LIT[fabric]}" stop-opacity="0"/></radialGradient>')
+        poly(region, fill=fabric)
+        poly(region, fill=f'url(#{gid})')
+    # outside light: the streetlights on the upper right, shadow toward the wall and the ground
+    poly(outline, fill='url(#flyshade)')
+    poly(outline, fill='url(#domekey)')
+    # the fly's seam and the two pole sleeves, as folds: a shadow with a lit edge beside it
+    seam = [surf(math.radians(a), math.radians(38)) for a in range(0, 361, 6)]
+    for run in visible_runs(seam):
+        pline(run, mix(fly, '#000000', 0.45), max(0.5, w * 0.45), extra='opacity="0.6"')
+    for a in (45, 135):
+        arc_ = [surf(math.radians(a + (180 if b < 0 else 0)), math.radians(abs(b))) for b in range(-90, 91, 4)]
+        for run in visible_runs(arc_):
+            pline(run, mix(fly, '#ffffff', 0.3), max(0.5, w * 0.5), extra='opacity="0.35"')
+    if tarp:
         for a in (-20, 40, 100):
             crease = [surf(math.radians(a + 6 * math.sin(b)), math.radians(b)) for b in range(18, 88, 6)]
             for run in visible_runs(crease):
-                pline(run, '#3a5ab0', max(0.5, w * 0.4), extra='opacity="0.5"')
-    # the door: a D-shaped zip opening on the front, lit from inside, its panel rolled to one side
-    dw, hd = 0.22 * wd, 0.62 * ht
+                pline(run, mix(TARP, '#ffffff', 0.35), max(0.5, w * 0.4), extra='opacity="0.3"')
+    # the door: a D-shaped zip opening, its panel rolled to one side; the nearest wide open
+    dw, hd = (0.3 * wd, 0.72 * ht) if is_home else (0.22 * wd, 0.62 * ht)
     d_world = [on_front(xm - dw, 0.0)]
     d_world += [on_front(xm - dw, hd * t) for t in (0.3, 0.6, 0.85)]
     d_world += [on_front(xm + dw * math.cos(math.radians(a)) * -1, hd * 0.85 + hd * 0.15 * math.sin(math.radians(a)))
                 for a in range(0, 181, 20)]
     d_world += [on_front(xm + dw, hd * t) for t in (0.85, 0.6, 0.3)] + [on_front(xm + dw, 0.0)]
     door = [P(*p) for p in d_world]
-    cid = f'tent{int(z0 * 10)}'
-    defs.append(f'<clipPath id="{cid}"><polygon points="{pts(outline)}"/></clipPath>')
-    dc = P(*on_front(xm, hd * 0.4))
-    out.append(f'<g clip-path="url(#{cid})"><circle cx="{dc[0]:.1f}" cy="{dc[1]:.1f}" r="{F * 0.9 / z0:.1f}" '
-               f'fill="url(#bloom)"/></g>')
-    poly(door, fill='url(#tentlight)')
-    reflect(d_world, LAMPLIGHT, 0.2, stretch=1.0)
-    roll = [P(*on_front(xm - dw - 0.12, hd * t)) for t in (0.0, 0.9)]
-    line(roll[0], roll[1], '#6a4a2a', max(1.2, w * 1.6))
+    defs.append(f'<clipPath id="{tid}d"><polygon points="{pts(door)}"/></clipPath>')
+    out.append(f'<g clip-path="url(#{tid}d)">')
+    if is_home:
+        defs.append(f'<radialGradient id="{tid}in" gradientUnits="userSpaceOnUse" cx="{lc[0]:.1f}" cy="{lc[1]:.1f}" r="{F * 1.3 / z0:.1f}">'
+                    '<stop offset="0" stop-color="#f0c68a"/><stop offset="0.4" stop-color="#b87840"/>'
+                    '<stop offset="1" stop-color="#4a2a1a"/></radialGradient>')
+        poly(door, fill=f'url(#{tid}in)')
+        home(xm, zc, wd, ln, ht, lamp_at)
+    else:
+        poly(door, fill='url(#tentlight)')
+        bag = [P(xm - 0.1 + 0.55 * math.cos(t), 0.1 + 0.1 * math.sin(t), zc + 0.2) for t in [i * math.pi / 8 for i in range(16)]]
+        poly(bag, fill='#2a1c16', extra='opacity="0.8"')  # a sleeping bag
+    out.append('</g>')
+    pline(door, mix(body, '#000000', 0.5), max(0.5, w * 0.4), extra='opacity="0.7"')  # the zip
+    roll = [P(*on_front(xm - dw - 0.1, hd * t)) for t in (0.02, 0.5, 0.92)]
+    pline(roll, mix(body, '#000000', 0.3), max(1.4, w * 2.2))
+    pline(roll, FABRIC_LIT[body], max(0.6, w * 0.8), extra='opacity="0.5"')
     if antenna:
         a, b = P(xm + 0.2, ht * 0.95, zc), P(xm + 0.2, ht * 1.85, zc)
         line(a, b, COPPER, w); pad(b, F * 0.12 / z0, COPPER)
