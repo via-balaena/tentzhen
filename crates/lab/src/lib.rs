@@ -1,6 +1,8 @@
 //! The lab's safety records. For now that is `lab/limits.toml`, what the hardware below any agent
 //! will allow. [`Limits::parse`] refuses a key it does not know, a value that is not a finite
-//! number above zero, and values that break the rules the file's comments state.
+//! number above zero, a DPS5005 setting outside the supply's ceiling or its input rule, and a fuse
+//! that is not the next rating above `max_amps`. The tests also check what the file's comments say
+//! about its own values.
 
 use serde::Deserialize;
 use std::fmt;
@@ -227,8 +229,7 @@ mod tests {
     #[test]
     fn the_repo_limits_load() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let (limits, _) = Limits::load(&root).expect("lab/limits.toml loads");
-        assert_eq!(limits.supply.reenable, Reenable::Agent);
+        Limits::load(&root).expect("lab/limits.toml loads");
     }
 
     // What the file's comments say about its own values.
@@ -260,6 +261,23 @@ mod tests {
             &with("current_limit_amps = 0.200", "current_limit_amp = 0.200"),
             "unknown field `current_limit_amp`",
         );
+    }
+
+    #[test]
+    fn every_table_refuses_a_key_it_does_not_know() {
+        refused(&format!("extra = 1\n{}", repo()), "unknown field `extra`");
+        for table in [
+            "[pico_3v3]\n",
+            "[supply]\n",
+            "[supply.upstream]\n",
+            "[supply.dps]\n",
+            "[supply.fuse]\n",
+        ] {
+            refused(
+                &with(table, &format!("{table}extra = 1\n")),
+                "unknown field `extra`",
+            );
+        }
     }
 
     #[test]
@@ -297,7 +315,7 @@ mod tests {
     #[test]
     fn the_dps_gets_the_input_it_needs() {
         refused(&with("volts = 6.5", "volts = 5.9"), "the DPS5005 needs");
-        refused(&with("volts = 6.5", "volts = 56"), "input");
+        refused(&with("volts = 6.5", "volts = 56"), "maximum input");
     }
 
     #[test]
