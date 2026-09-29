@@ -1178,6 +1178,7 @@ name = "tentzhen-records"
 version = "0.0.0"
 dependencies = [
  "serde",
+ "tentzhen-lab",
  "toml",
 ]
 

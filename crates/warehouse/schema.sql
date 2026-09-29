@@ -4,8 +4,8 @@
 --   silver  typed rows with keys, foreign keys and checks; each names the record it came from
 --   gold    views that answer questions (marts); never stored, always derived
 --
--- The records in parts/ and builds/ are the system of record. This database is rebuilt from them
--- on every load, so it can be deleted at any time.
+-- The records in parts/, builds/ and lab/ are the system of record. This database is rebuilt
+-- from them on every load, so it can be deleted at any time.
 
 CREATE SCHEMA bronze;
 CREATE SCHEMA silver;

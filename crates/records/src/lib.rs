@@ -202,8 +202,8 @@ pub struct Catalogue {
     pub parts: BTreeMap<String, Part>,
     /// Each build's versions, oldest first; `versions[i].version == i + 1`.
     pub builds: BTreeMap<String, Vec<Build>>,
-    /// Every file exactly as read, records then drawings then site documents: the warehouse's
-    /// bronze layer.
+    /// Every file exactly as read, records then drawings then site documents then the lab's
+    /// limits: the warehouse's bronze layer.
     pub sources: Vec<Source>,
 }
 
@@ -248,6 +248,12 @@ impl Catalogue {
             .map_err(|e| format!("{}: {e}", disclaimer.display()))?;
         cat.sources.push(Source {
             path: "DISCLAIMER.md".into(),
+            text,
+        });
+        // The lab's limits, checked on the way in, so bronze holds their sha256 for lineage.
+        let (_, text) = tentzhen_lab::Limits::load(root)?;
+        cat.sources.push(Source {
+            path: tentzhen_lab::LIMITS.into(),
             text,
         });
         Ok(cat)
