@@ -335,8 +335,6 @@ def trace(points, vias=()):
     for x, z in vias:
         ground_pad(x, z, 0.2, COPPER)
 
-spill = P(-9.8, 0, TENT_LIT - 0.9)
-ellipse(spill, F * 0.8 / (TENT_LIT - 0.9), F * EYE * 0.8 / (TENT_LIT - 0.9) ** 2, LAMPLIGHT, extra='opacity="0.08"')
 poly(ribbon(MAIN[0], MAIN[1], 0.24), fill=COPPER, extra='opacity="0.12"')
 poly(ribbon(MAIN[0], MAIN[1], 0.075), fill=COPPER, stroke=COPPER, w=0.8)
 for z0, wd, _, _ in TENTS:  # every tent: out of the door, a 45-degree jog, across to your path
@@ -345,6 +343,23 @@ for z0, wd, _, _ in TENTS:  # every tent: out of the door, a 45-degree jog, acro
 pad(P(CAM_X, 0.0, 640.0), 3.6, COPPER)
 
 # ---------------- Tents along the left wall ----------------
+# Light from a lamp inside: brightest low in the opening and falling off to amber at its edges; the
+# translucent fabric warming around the door; the tied-back flap catching it; a pool on the wet
+# pavement that fades with distance.
+defs.append('<radialGradient id="tentlight" cx="0.5" cy="0.82" r="0.75">'
+            '<stop offset="0" stop-color="#fff1c8"/><stop offset="0.22" stop-color="#ffc070"/>'
+            '<stop offset="0.6" stop-color="#e0782a"/><stop offset="1" stop-color="#5a2610"/></radialGradient>')
+defs.append('<radialGradient id="fabricglow" cx="0.5" cy="0.9" r="0.75">'
+            '<stop offset="0" stop-color="#ff9a4a" stop-opacity="0.42"/>'
+            '<stop offset="1" stop-color="#ff9a4a" stop-opacity="0"/></radialGradient>')
+defs.append('<radialGradient id="sideglow" cx="0.12" cy="0.85" r="0.8">'
+            '<stop offset="0" stop-color="#ff9a4a" stop-opacity="0.22"/>'
+            '<stop offset="1" stop-color="#ff9a4a" stop-opacity="0"/></radialGradient>')
+defs.append('<radialGradient id="pool"><stop offset="0" stop-color="#ffb35a" stop-opacity="0.3"/>'
+            '<stop offset="0.5" stop-color="#ff9a4a" stop-opacity="0.12"/>'
+            '<stop offset="1" stop-color="#ff9a4a" stop-opacity="0"/></radialGradient>')
+defs.append('<linearGradient id="flaplit" x1="1" y1="0.6" x2="0" y2="0.9">'
+            '<stop offset="0" stop-color="#c8743a"/><stop offset="1" stop-color="#4a2a18"/></linearGradient>')
 def tent(z0, wd, ht, antenna):
     xa, xb = -10.9, -10.9 + wd
     xm = (xa + xb) / 2
@@ -352,22 +367,28 @@ def tent(z0, wd, ht, antenna):
     ln = 2.2
     w = sw(z0, 0.045, 0.9, 3.0)
     rope = TEAL_LINE
+    # the pool of light on the pavement in front of the door
+    ellipse(P(xm, 0, z0 - 0.7), F * 1.25 / z0, F * EYE * 1.25 / (z0 - 0.7) ** 2, 'url(#pool)')
     # guy lines first, so the tent stands in front of them: eave corners out to stakes
     for (x, z), (sx, sz) in [((xa, z0), (xa - 0.55, z0 - 0.45)), ((xb, z0), (xb + 0.55, z0 - 0.45)),
                              ((xb, z0 + ln), (xb + 0.55, z0 + ln + 0.45))]:
         line(P(x, hw, z), P(sx, 0, sz), rope, max(0.6, w * 0.35))
         line(P(sx, 0, sz), P(sx, 0.12, sz), rope, max(0.8, w * 0.5))
     # the side you can see: roof panel from ridge to eave, then the skirt wall
-    poly([P(xm, ht, z0), P(xm, ht, z0 + ln), P(xb, hw, z0 + ln), P(xb, hw, z0)], fill=TEAL_FILL_2, stroke=TEAL_EDGE, w=w)
+    side = [P(xm, ht, z0), P(xm, ht, z0 + ln), P(xb, hw, z0 + ln), P(xb, hw, z0)]
+    poly(side, fill=TEAL_FILL_2, stroke=TEAL_EDGE, w=w)
+    poly(side, fill='url(#sideglow)')
     poly([P(xb, hw, z0), P(xb, hw, z0 + ln), P(xb, 0, z0 + ln), P(xb, 0, z0)], fill=TEAL_FILL, stroke=TEAL_EDGE, w=w)
     # the front: an A over the skirt
-    poly([P(xa, 0, z0), P(xa, hw, z0), P(xm, ht, z0), P(xb, hw, z0), P(xb, 0, z0)], fill='#163038', stroke=TEAL_EDGE, w=w)
+    front = [P(xa, 0, z0), P(xa, hw, z0), P(xm, ht, z0), P(xb, hw, z0), P(xb, 0, z0)]
+    poly(front, fill='#163038', stroke=TEAL_EDGE, w=w)
+    poly(front, fill='url(#fabricglow)')
     line(P(xa, hw, z0), P(xb, hw, z0), rope, w * 0.5)   # the seam where roof meets skirt
     # the door: the front's own triangle, smaller, lit from inside, with its flap tied back
     hd, dw = 0.86 * ht, 0.24 * wd
-    poly([P(xm - dw, 0, z0), P(xm, hd, z0), P(xm + dw, 0, z0)], fill=LAMPLIGHT, stroke='#e08a3a', w=w * 0.8)
+    poly([P(xm - dw, 0, z0), P(xm, hd, z0), P(xm + dw, 0, z0)], fill='url(#tentlight)')
     reflect([(xm - dw, 0, z0), (xm, hd, z0), (xm + dw, 0, z0)], LAMPLIGHT, 0.2, stretch=1.0)
-    poly([P(xm, hd, z0), P(xm - dw, 0, z0), P(xm - dw - 0.28 * wd, 0.18 * ht, z0)], fill='#2a3a3e', stroke=TEAL_EDGE, w=w * 0.6)
+    poly([P(xm, hd, z0), P(xm - dw, 0, z0), P(xm - dw - 0.28 * wd, 0.18 * ht, z0)], fill='url(#flaplit)', stroke=TEAL_EDGE, w=w * 0.5)
     if antenna:
         a, b = P(xm + 0.15, ht, z0 + 0.3), P(xm + 0.15, 1.9 * ht, z0 + 0.3)
         line(a, b, COPPER, w); pad(b, F * 0.12 / z0, COPPER)
