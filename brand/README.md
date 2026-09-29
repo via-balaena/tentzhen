@@ -88,8 +88,9 @@ feet, as the sky pales from night to first light behind them. The sun is still b
 behind the tallest tower. Its base is a lobby built as towers are: a 16 m curtain wall of tall glass
 on a 3.2 m module under a metal spandrel, lit from inside, and at its centre a revolving door and
 two pairs of swing doors under a canopy with downlights; a pool of that light lies on the plaza. The
-page draws the rail over the scene, soldered in at the door at (1180, 520) with no via. The scene
-has no background of its own and fades out at its sides, so it sits on the page at any width.
+page draws the rail across the plaza in front of the scene, turning up into the revolving door at
+(1180, 520), soldered in with no via and stopping at the threshold, below the doors. The scene has
+no background of its own and fades out at its sides, so it sits on the page at any width.
 
 ## Source
 
