@@ -1183,6 +1183,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "tentzhen-repo"
+version = "0.0.0"
+dependencies = [
+ "toml",
+]
+
+[[package]]
 name = "tentzhen-site"
 version = "0.0.0"
 dependencies = [
