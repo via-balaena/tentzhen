@@ -1,0 +1,6 @@
+part = "RP2350"
+kind = "chip"
+is = "microcontroller"
+# Security-critical: buy from authorized distributors only.
+authorized_only = true
+datasheet = "https://datasheets.raspberrypi.com/rp2350/rp2350-datasheet.pdf"

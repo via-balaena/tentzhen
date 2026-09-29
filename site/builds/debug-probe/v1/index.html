@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>debug-probe v1 · Tentzhen</title>
+<link rel="icon" href="../../../img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500&amp;display=swap">
+<link rel="stylesheet" href="../../../style.css">
+</head>
+<body>
+
+<header class="column site-header">
+  <a class="brand" href="../../../index.html" aria-label="Tentzhen home">
+    <img src="../../../img/mark-black.svg" alt="">
+    <span class="wordmark">TENTZHEN</span>
+  </a>
+  <nav class="site-nav" aria-label="Main">
+    <a href="../../../builds/index.html">BUILDS</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/vision.md">VISION</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">INSTRUMENT</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/verification.md">VERIFICATION</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/roadmap.md">ROADMAP</a>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
+  </nav>
+</header>
+
+<main class="column spec">
+<p class="crumbs"><a href="../../index.html">BUILDS</a> / DEBUG-PROBE / V1</p>
+<h1 class="spec-title">debug-probe</h1>
+<p class="spec-meta"><span class="state draft">v1 · draft</span><span class="versions">versions <span class="here">v1</span></span></p>
+<p class="spec-does">Flashes and debugs a target over SWD, and bridges the target's UART to USB.</p>
+<figure class="drawing" role="img" aria-label="Drawing of debug-probe v1">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" font-family="IBM Plex Mono, monospace">
+  <rect width="1200" height="640" fill="#111111"/>
+
+  <!-- lab computer, over USB -->
+  <text x="864" y="58" text-anchor="middle" font-size="13" letter-spacing="1.5" fill="#f6efe0">LAB COMPUTER · USB</text>
+  <path d="M864 78 V138" stroke="#6b7078" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="864" cy="78" r="7" fill="#6b7078"/><circle cx="864" cy="78" r="3" fill="#111111"/>
+
+  <!-- target -->
+  <rect x="120" y="190" width="300" height="300" rx="10" fill="#141517" stroke="#6b7078" stroke-width="2"/>
+  <text x="150" y="228" font-size="14" letter-spacing="1.5" fill="#f6efe0">TARGET</text>
+  <text x="150" y="250" font-size="12" fill="#a3a7ad">3.3 V logic</text>
+  <g font-size="12" fill="#a3a7ad" text-anchor="end">
+    <text x="404" y="274">RESET</text>
+    <text x="404" y="314">GND</text>
+    <text x="404" y="354">SWCLK</text>
+    <text x="404" y="394">SWDIO</text>
+    <text x="404" y="434">RX</text>
+    <text x="404" y="474">TX</text>
+  </g>
+
+  <!-- probe: an RP2350 board with the Pico 2 pinout, pin 1 top left -->
+  <rect x="780" y="150" width="168" height="408" rx="10" fill="#141517" stroke="#6b7078" stroke-width="2"/>
+  <rect x="846" y="138" width="36" height="18" rx="3" fill="#141517" stroke="#6b7078" stroke-width="2"/>
+  <g fill="none" stroke-linecap="round" stroke-dasharray="0 20.32">
+    <path d="M793 161 V547.6 M935 161 V547.6" stroke="#4a4f56" stroke-width="9"/>
+    <path d="M793 161 V547.6 M935 161 V547.6" stroke="#111111" stroke-width="3.4"/>
+  </g>
+  <rect x="836" y="332" width="56" height="56" rx="3" fill="#1b1c1f" stroke="#a3a7ad" stroke-width="1.5"/>
+  <g fill="none" stroke="#a3a7ad" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="0 4">
+    <path d="M842 327 H886.5 M842 393 H886.5 M831 338 V382.5 M897 338 V382.5"/>
+  </g>
+  <text x="864" y="364" text-anchor="middle" font-size="11" fill="#f6efe0">RP2350</text>
+  <rect x="888" y="186" width="22" height="14" rx="3" fill="#1b1c1f" stroke="#a3a7ad" stroke-width="1.5"/>
+  <path d="M910 193 H952" stroke="#3a3e44" stroke-width="1"/>
+  <text x="958" y="197" font-size="11" fill="#a3a7ad">BOOTSEL</text>
+  <circle cx="912" cy="168" r="4" fill="#ffc81a"/>
+  <path d="M916 168 H952" stroke="#3a3e44" stroke-width="1"/>
+  <text x="958" y="172" font-size="11" fill="#a3a7ad">LED · GP25</text>
+  <g font-size="11" fill="#a3a7ad">
+    <text x="806" y="185">GP1</text>
+    <text x="806" y="205">GND</text>
+    <text x="806" y="226">GP2</text>
+    <text x="806" y="246">GP3</text>
+    <text x="806" y="266">GP4</text>
+    <text x="806" y="287">GP5</text>
+  </g>
+
+  <!-- nets: required solid, optional dashed. Straight, then 45 degrees, then straight. -->
+  <g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M793 221.96 H700 L571.96 350 H420" stroke="#e0aa45"/>
+    <path d="M793 242.28 H700 L552.28 390 H420" stroke="#e0aa45"/>
+    <path d="M793 201.64 H700 L591.64 310 H420" stroke="#6b7078"/>
+    <path d="M793 181.32 H700 L611.32 270 H420" stroke="#7a5c26" stroke-dasharray="10 8"/>
+    <path d="M793 262.6 H700 L532.6 430 H420" stroke="#7a5c26" stroke-dasharray="10 8"/>
+    <path d="M793 282.92 H700 L512.92 470 H420" stroke="#7a5c26" stroke-dasharray="10 8"/>
+  </g>
+  <g>
+    <circle cx="793" cy="221.96" r="5.5" fill="#e0aa45"/><circle cx="793" cy="242.28" r="5.5" fill="#e0aa45"/>
+    <circle cx="793" cy="201.64" r="5.5" fill="#6b7078"/>
+    <circle cx="793" cy="181.32" r="5.5" fill="#7a5c26"/><circle cx="793" cy="262.6" r="5.5" fill="#7a5c26"/><circle cx="793" cy="282.92" r="5.5" fill="#7a5c26"/>
+    <circle cx="420" cy="350" r="7" fill="#e0aa45"/><circle cx="420" cy="390" r="7" fill="#e0aa45"/>
+    <circle cx="420" cy="310" r="7" fill="#6b7078"/>
+    <circle cx="420" cy="270" r="7" fill="#7a5c26"/><circle cx="420" cy="430" r="7" fill="#7a5c26"/><circle cx="420" cy="470" r="7" fill="#7a5c26"/>
+  </g>
+  <g fill="#111111">
+    <circle cx="793" cy="221.96" r="2"/><circle cx="793" cy="242.28" r="2"/><circle cx="793" cy="201.64" r="2"/>
+    <circle cx="793" cy="181.32" r="2"/><circle cx="793" cy="262.6" r="2"/><circle cx="793" cy="282.92" r="2"/>
+    <circle cx="420" cy="350" r="3"/><circle cx="420" cy="390" r="3"/><circle cx="420" cy="310" r="3"/>
+    <circle cx="420" cy="270" r="3"/><circle cx="420" cy="430" r="3"/><circle cx="420" cy="470" r="3"/>
+  </g>
+  <g font-size="11" letter-spacing="1" fill="#a3a7ad">
+    <text x="440" y="262">RESET</text>
+    <text x="440" y="302">GND</text>
+    <text x="440" y="342" fill="#e0aa45">SWCLK</text>
+    <text x="440" y="382" fill="#e0aa45">SWDIO</text>
+    <text x="440" y="422">TX → RX</text>
+    <text x="440" y="462">RX ← TX</text>
+  </g>
+
+  <!-- legend and title block -->
+  <g font-size="11" letter-spacing="1" fill="#a3a7ad">
+    <path d="M120 560 H160" stroke="#e0aa45" stroke-width="4" stroke-linecap="round"/>
+    <text x="172" y="564">REQUIRED</text>
+    <path d="M270 560 H310" stroke="#7a5c26" stroke-width="4" stroke-linecap="round" stroke-dasharray="10 8"/>
+    <text x="322" y="564">OPTIONAL</text>
+  </g>
+  <rect x="760" y="590" width="400" height="34" fill="none" stroke="#26292d" stroke-width="1"/>
+  <text x="776" y="611" font-size="11" letter-spacing="1" fill="#a3a7ad">DEBUG-PROBE · V1 · DEBUGPROBE V2.3.1 ON RP2350</text>
+</svg>
+</figure>
+<h2>Parts</h2>
+<table class="spec-table">
+<thead><tr><th>QTY</th><th>PART</th><th>FORM</th><th></th></tr></thead>
+<tbody>
+<tr><td>1</td><td><a href="https://datasheets.raspberrypi.com/rp2350/rp2350-datasheet.pdf">RP2350</a></td><td>board with the Pico 2 pinout</td><td class="muted">authorized sellers only</td></tr>
+<tr><td>6</td><td>jumper wire, female to female</td><td></td><td class="muted"></td></tr>
+</tbody>
+</table>
+<h2>Firmware</h2>
+<dl class="facts">
+<div><dt>NAME</dt><dd><a href="https://github.com/raspberrypi/debugprobe">debugprobe</a> · MIT</dd></div>
+<div><dt>RELEASE</dt><dd>debugprobe-v2.3.1</dd></div>
+<div><dt>FILE</dt><dd>debugprobe_on_pico2.uf2</dd></div>
+<div><dt>SHA-256</dt><dd class="hash">98cbb993872e4bb7bf7ac064cef8986cda171b9e783ef6ce1544873d7b704621</dd></div>
+<div><dt>PIN MAP</dt><dd>include/board_pico_config.h</dd></div>
+</dl>
+<h2>Pins</h2>
+<table class="spec-table">
+<thead><tr><th>PIN</th><th>BOARD PIN</th><th>NET</th><th></th></tr></thead>
+<tbody>
+<tr><td>GP2</td><td>4</td><td>SWCLK</td><td class="muted">required</td></tr>
+<tr><td>GP3</td><td>5</td><td>SWDIO</td><td class="muted">required</td></tr>
+<tr><td>GND</td><td>3</td><td>GND</td><td class="muted">required</td></tr>
+<tr><td>GP1</td><td>2</td><td>RESET</td><td class="muted">optional</td></tr>
+<tr><td>GP4</td><td>6</td><td>UART TX, to the target's RX</td><td class="muted">optional</td></tr>
+<tr><td>GP5</td><td>7</td><td>UART RX, from the target's TX</td><td class="muted">optional</td></tr>
+</tbody>
+</table>
+<h2>Walkthrough</h2>
+<ol class="steps">
+<li><p>Download the firmware and check its hash.</p><pre><code>curl -LO https://github.com/raspberrypi/debugprobe/releases/download/debugprobe-v2.3.1/debugprobe_on_pico2.uf2
+shasum -a 256 debugprobe_on_pico2.uf2</code></pre><p class="expect"><span>EXPECT</span>98cbb993872e4bb7bf7ac064cef8986cda171b9e783ef6ce1544873d7b704621</p></li>
+<li><p>Hold BOOTSEL and plug the board into the lab computer.</p><p class="expect"><span>EXPECT</span>A drive named RP2350 appears.</p></li>
+<li><p>Copy debugprobe_on_pico2.uf2 onto the RP2350 drive.</p><p class="expect"><span>EXPECT</span>The drive disappears, the LED lights, and a USB device named “Debugprobe on Pico (CMSIS-DAP)” appears.</p><p class="agent"><span>AGENTS</span>Flashing is a hardware action: only for a board on the lab-target list, and logged.</p></li>
+<li><p>With the target powered off, wire SWCLK, SWDIO and GND as drawn. RESET and UART are optional. Targets with 3.3 V logic only.</p></li>
+<li><p>Power the target and ask the probe what it sees.</p><pre><code>probe-rs info</code></pre><p class="expect"><span>EXPECT</span>probe-rs finds the probe and reads the target's debug port.</p></li>
+</ol>
+<h2>Claims</h2>
+<table class="spec-table claims">
+<thead><tr><th>CLAIM</th><th>SIMULATION</th><th>ON THE BENCH</th></tr></thead>
+<tbody>
+<tr><td>Enumerates over USB as “Debugprobe on Pico (CMSIS-DAP)”.</td><td><span class="grade unknown">unknown</span></td><td><span class="grade unknown">unknown</span></td></tr>
+<tr><td>Reads a 3.3 V target's debug port over SWD.</td><td><span class="grade unknown">unknown</span></td><td><span class="grade unknown">unknown</span></td></tr>
+</tbody>
+</table>
+</main>
+
+<footer class="site-footer">
+  <div class="column">
+    <span>腾振 TENTZHEN · A VIA BALAENA PROJECT</span>
+    <span>MIT OR APACHE-2.0</span>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB.COM/VIA-BALAENA/TENTZHEN</a>
+  </div>
+</footer>
+
+</body>
+</html>

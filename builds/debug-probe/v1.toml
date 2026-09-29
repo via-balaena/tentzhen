@@ -1,0 +1,97 @@
+build = "debug-probe"
+version = 1
+# draft: may still change. published: frozen; any change is a new version.
+status = "draft"
+does = "Flashes and debugs a target over SWD, and bridges the target's UART to USB."
+drawing = "v1.svg"
+
+[[line]]
+part = "RP2350"
+form = "board with the Pico 2 pinout"
+qty = 1
+
+[[line]]
+commodity = "jumper wire, female to female"
+qty = 6
+
+[firmware]
+name = "debugprobe"
+license = "MIT"
+source = "https://github.com/raspberrypi/debugprobe"
+release = "debugprobe-v2.3.1"
+file = "debugprobe_on_pico2.uf2"
+sha256 = "98cbb993872e4bb7bf7ac064cef8986cda171b9e783ef6ce1544873d7b704621"
+# The pin map below is read from this file at that release.
+pin_map = "include/board_pico_config.h"
+
+[[pin]]
+name = "GP2"
+board_pin = 4
+net = "SWCLK"
+required = true
+
+[[pin]]
+name = "GP3"
+board_pin = 5
+net = "SWDIO"
+required = true
+
+[[pin]]
+name = "GND"
+board_pin = 3
+net = "GND"
+required = true
+
+[[pin]]
+name = "GP1"
+board_pin = 2
+net = "RESET"
+required = false
+
+[[pin]]
+name = "GP4"
+board_pin = 6
+net = "UART TX, to the target's RX"
+required = false
+
+[[pin]]
+name = "GP5"
+board_pin = 7
+net = "UART RX, from the target's TX"
+required = false
+
+# The walkthrough, for a person or an agent. `expect` is what you should see; until someone has
+# done the step, it is a prediction from the firmware source.
+
+[[step]]
+do = "Download the firmware and check its hash."
+run = """
+curl -LO https://github.com/raspberrypi/debugprobe/releases/download/debugprobe-v2.3.1/debugprobe_on_pico2.uf2
+shasum -a 256 debugprobe_on_pico2.uf2"""
+expect = "98cbb993872e4bb7bf7ac064cef8986cda171b9e783ef6ce1544873d7b704621"
+
+[[step]]
+do = "Hold BOOTSEL and plug the board into the lab computer."
+expect = "A drive named RP2350 appears."
+
+[[step]]
+do = "Copy debugprobe_on_pico2.uf2 onto the RP2350 drive."
+expect = "The drive disappears, the LED lights, and a USB device named “Debugprobe on Pico (CMSIS-DAP)” appears."
+agent = "Flashing is a hardware action: only for a board on the lab-target list, and logged."
+
+[[step]]
+do = "With the target powered off, wire SWCLK, SWDIO and GND as drawn. RESET and UART are optional. Targets with 3.3 V logic only."
+
+[[step]]
+do = "Power the target and ask the probe what it sees."
+run = "probe-rs info"
+expect = "probe-rs finds the probe and reads the target's debug port."
+
+# What this build claims, and how each claim is known. A grade is never typed: the site derives it
+# from the referents (irl record -> measured; sim test -> tested; none -> unknown).
+
+[[claim]]
+says = "Enumerates over USB as “Debugprobe on Pico (CMSIS-DAP)”."
+
+[[claim]]
+says = "Reads a 3.3 V target's debug port over SWD."
