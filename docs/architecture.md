@@ -56,8 +56,7 @@ test and path it names up to the proposal below must exist.
 - **Nothing cites a claim yet.** Claims have ids and a citation (`<part>#<id>`, `<build>/v<n>#<id>`),
   and lab facts are still named only inside `lab/limits.toml`.
 - **The trusted base is data,** in `trusted-base.toml`: each entry has an id, and a `trusted`
-  referent is that id, held by a foreign key. Only the DPS5005's entry is cited so far, by lab
-  facts; no claim is trusted yet.
+  referent is that id, held by a foreign key.
 - **`record` referents resolve to nothing.** Build claims and lab facts can name a measurement
   record, but no format or store for records exists yet. That's the lab log in `roadmap.md`,
   Phase 0.
