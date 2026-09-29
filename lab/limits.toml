@@ -2,7 +2,9 @@
 #
 # The Pico enforcer is to compile these values in, so nothing at run time can raise them. It is
 # not built yet, so none of these limits is enforced by anything: `unknown`. Raising a limit is a
-# change to this file, and a person approves it (CLAUDE.md, "Safety and permission rules").
+# change to this file, which a person is to approve (CLAUDE.md, "Safety and permission rules").
+# That is a convention, not enforced: the branch rules require no approval, and agents work
+# through the same GitHub account as the person, so a required review could not tell them apart.
 # Nothing drives a supply or a load until the values it needs are set; the load has none yet.
 #
 # Every value says where it comes from. A value taken from the DPS5005's manual or datasheet, or
