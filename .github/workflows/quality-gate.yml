@@ -32,3 +32,21 @@ jobs:
         run: python3 brand/mural.py && git diff --exit-code brand/mural-street-night.svg
       - name: The site's images are brand/'s files, byte for byte
         run: for f in site/img/*.svg; do cmp "$f" "brand/$(basename "$f")"; done
+      - name: The build pages are exactly what crates/site generates
+        run: |
+          cargo run -q -p tentzhen-site --locked
+          git status --porcelain -- site
+          test -z "$(git status --porcelain -- site)"
+      - name: A published build version never changes
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: origin/main
+        run: |
+          git fetch -q --depth=1 origin main
+          for f in $(git ls-tree -r --name-only "$BASE" -- builds | grep -E '^builds/[^/]+/v[0-9]+\.toml$'); do
+            git show "$BASE:$f" | grep -q '^status = "published"' || continue
+            if ! git diff --quiet "$BASE" -- "${f%.toml}.*"; then
+              echo "::error file=$f::$f is published; change it in a new version instead"
+              exit 1
+            fi
+          done

@@ -1,0 +1,12 @@
+[package]
+name = "tentzhen-site"
+version = "0.0.0"
+description = "Generates tentzhen.com's build pages from parts/ and builds/"
+publish = false
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+toml = "=1.1.6"

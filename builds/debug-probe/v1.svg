@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" font-family="IBM Plex Mono, monospace">
+  <rect width="1200" height="640" fill="#111111"/>
+
+  <!-- lab computer, over USB -->
+  <text x="864" y="58" text-anchor="middle" font-size="13" letter-spacing="1.5" fill="#f6efe0">LAB COMPUTER · USB</text>
+  <path d="M864 78 V138" stroke="#6b7078" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="864" cy="78" r="7" fill="#6b7078"/><circle cx="864" cy="78" r="3" fill="#111111"/>
+
+  <!-- target -->
+  <rect x="120" y="190" width="300" height="300" rx="10" fill="#141517" stroke="#6b7078" stroke-width="2"/>
+  <text x="150" y="228" font-size="14" letter-spacing="1.5" fill="#f6efe0">TARGET</text>
+  <text x="150" y="250" font-size="12" fill="#a3a7ad">3.3 V logic</text>
+  <g font-size="12" fill="#a3a7ad" text-anchor="end">
+    <text x="404" y="274">RESET</text>
+    <text x="404" y="314">GND</text>
+    <text x="404" y="354">SWCLK</text>
+    <text x="404" y="394">SWDIO</text>
+    <text x="404" y="434">RX</text>
+    <text x="404" y="474">TX</text>
+  </g>
+
+  <!-- probe: an RP2350 board with the Pico 2 pinout, pin 1 top left -->
+  <rect x="780" y="150" width="168" height="408" rx="10" fill="#141517" stroke="#6b7078" stroke-width="2"/>
+  <rect x="846" y="138" width="36" height="18" rx="3" fill="#141517" stroke="#6b7078" stroke-width="2"/>
+  <g fill="none" stroke-linecap="round" stroke-dasharray="0 20.32">
+    <path d="M793 161 V547.6 M935 161 V547.6" stroke="#4a4f56" stroke-width="9"/>
+    <path d="M793 161 V547.6 M935 161 V547.6" stroke="#111111" stroke-width="3.4"/>
+  </g>
+  <rect x="836" y="332" width="56" height="56" rx="3" fill="#1b1c1f" stroke="#a3a7ad" stroke-width="1.5"/>
+  <g fill="none" stroke="#a3a7ad" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="0 4">
+    <path d="M842 327 H886.5 M842 393 H886.5 M831 338 V382.5 M897 338 V382.5"/>
+  </g>
+  <text x="864" y="364" text-anchor="middle" font-size="11" fill="#f6efe0">RP2350</text>
+  <rect x="888" y="186" width="22" height="14" rx="3" fill="#1b1c1f" stroke="#a3a7ad" stroke-width="1.5"/>
+  <path d="M910 193 H952" stroke="#3a3e44" stroke-width="1"/>
+  <text x="958" y="197" font-size="11" fill="#a3a7ad">BOOTSEL</text>
+  <circle cx="912" cy="168" r="4" fill="#ffc81a"/>
+  <path d="M916 168 H952" stroke="#3a3e44" stroke-width="1"/>
+  <text x="958" y="172" font-size="11" fill="#a3a7ad">LED · GP25</text>
+  <g font-size="11" fill="#a3a7ad">
+    <text x="806" y="185">GP1</text>
+    <text x="806" y="205">GND</text>
+    <text x="806" y="226">GP2</text>
+    <text x="806" y="246">GP3</text>
+    <text x="806" y="266">GP4</text>
+    <text x="806" y="287">GP5</text>
+  </g>
+
+  <!-- nets: required solid, optional dashed. Straight, then 45 degrees, then straight. -->
+  <g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M793 221.96 H700 L571.96 350 H420" stroke="#e0aa45"/>
+    <path d="M793 242.28 H700 L552.28 390 H420" stroke="#e0aa45"/>
+    <path d="M793 201.64 H700 L591.64 310 H420" stroke="#6b7078"/>
+    <path d="M793 181.32 H700 L611.32 270 H420" stroke="#7a5c26" stroke-dasharray="10 8"/>
+    <path d="M793 262.6 H700 L532.6 430 H420" stroke="#7a5c26" stroke-dasharray="10 8"/>
+    <path d="M793 282.92 H700 L512.92 470 H420" stroke="#7a5c26" stroke-dasharray="10 8"/>
+  </g>
+  <g>
+    <circle cx="793" cy="221.96" r="5.5" fill="#e0aa45"/><circle cx="793" cy="242.28" r="5.5" fill="#e0aa45"/>
+    <circle cx="793" cy="201.64" r="5.5" fill="#6b7078"/>
+    <circle cx="793" cy="181.32" r="5.5" fill="#7a5c26"/><circle cx="793" cy="262.6" r="5.5" fill="#7a5c26"/><circle cx="793" cy="282.92" r="5.5" fill="#7a5c26"/>
+    <circle cx="420" cy="350" r="7" fill="#e0aa45"/><circle cx="420" cy="390" r="7" fill="#e0aa45"/>
+    <circle cx="420" cy="310" r="7" fill="#6b7078"/>
+    <circle cx="420" cy="270" r="7" fill="#7a5c26"/><circle cx="420" cy="430" r="7" fill="#7a5c26"/><circle cx="420" cy="470" r="7" fill="#7a5c26"/>
+  </g>
+  <g fill="#111111">
+    <circle cx="793" cy="221.96" r="2"/><circle cx="793" cy="242.28" r="2"/><circle cx="793" cy="201.64" r="2"/>
+    <circle cx="793" cy="181.32" r="2"/><circle cx="793" cy="262.6" r="2"/><circle cx="793" cy="282.92" r="2"/>
+    <circle cx="420" cy="350" r="3"/><circle cx="420" cy="390" r="3"/><circle cx="420" cy="310" r="3"/>
+    <circle cx="420" cy="270" r="3"/><circle cx="420" cy="430" r="3"/><circle cx="420" cy="470" r="3"/>
+  </g>
+  <g font-size="11" letter-spacing="1" fill="#a3a7ad">
+    <text x="440" y="262">RESET</text>
+    <text x="440" y="302">GND</text>
+    <text x="440" y="342" fill="#e0aa45">SWCLK</text>
+    <text x="440" y="382" fill="#e0aa45">SWDIO</text>
+    <text x="440" y="422">TX → RX</text>
+    <text x="440" y="462">RX ← TX</text>
+  </g>
+
+  <!-- legend and title block -->
+  <g font-size="11" letter-spacing="1" fill="#a3a7ad">
+    <path d="M120 560 H160" stroke="#e0aa45" stroke-width="4" stroke-linecap="round"/>
+    <text x="172" y="564">REQUIRED</text>
+    <path d="M270 560 H310" stroke="#7a5c26" stroke-width="4" stroke-linecap="round" stroke-dasharray="10 8"/>
+    <text x="322" y="564">OPTIONAL</text>
+  </g>
+  <rect x="760" y="590" width="400" height="34" fill="none" stroke="#26292d" stroke-width="1"/>
+  <text x="776" y="611" font-size="11" letter-spacing="1" fill="#a3a7ad">DEBUG-PROBE · V1 · DEBUGPROBE V2.3.1 ON RP2350</text>
+</svg>
