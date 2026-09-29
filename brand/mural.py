@@ -14,10 +14,16 @@ random.seed(11)
 
 W, H = 1600, 1000
 CAM_X, EYE, F, VPX, VPY = -7.6, 1.6, 820.0, 800.0, 540.0
-BG = '#111111'
-COPPER, YELLOW, DIMCOPPER = '#e0aa45', '#ffc81a', '#7a5c26'
-GREY, GREY_D, GREY_DD = '#6b7078', '#3a3e44', '#23262a'
-FACADE, DRILL = '#141517', '#111111'
+# Palette. Copper and yellow belong to the network alone: traces, vias, pads, antennas and radio.
+# Everything else takes its colour from a Chinatown street at night: teal shadow, red and orange
+# lanterns, magenta, red and orange neon, cool white street and shop light.
+BG, DRILL = '#111111', '#111111'
+COPPER, YELLOW = '#e0aa45', '#ffc81a'                                # the network
+TEAL_FILL, TEAL_FILL_2, TEAL_DEEP = '#0f1a1e', '#12242a', '#162a2f'   # walls, fabric, the street
+TEAL_LINE, TEAL_EDGE = '#24424a', '#3f7a80'                          # outlines, quiet then bright
+COOL = '#9fe0d8'                                                     # street and shop light
+NEON_RED, NEON_MAGENTA, NEON_ORANGE = '#ff4a3a', '#ff3fa4', '#ff8a3a'
+LAMPLIGHT = '#ffb35a'                                                # light from inside a tent
 LEFT_W, CURB_L, CURB_R, RIGHT_W = -11.0, -5.5, 5.5, 10.0
 
 def P(x, y, z): return (VPX + F * (x - CAM_X) / z, VPY - F * (y - EYE) / z)
@@ -97,7 +103,7 @@ def draw_towers(Q):
     rnd = random.Random(3)
     for x, z, w, h, top in towers:
         near = z < 650
-        col = COPPER if near else '#b58a3c'
+        col = TEAL_EDGE if near else TEAL_LINE
         x0, x1 = x - w / 2, x + w / 2
         bl, br = Q(x0, 0, z), Q(x1, 0, z)
         if top == 'pyramid':
@@ -118,7 +124,7 @@ def draw_towers(Q):
             yy = 7.0
             while yy < top_y - 3:
                 bright = rnd.random() < 0.25
-                circle(Q(xx, yy, z), 1.3, YELLOW if bright else col)
+                circle(Q(xx, yy, z), 1.3, NEON_ORANGE if bright else '#5aa8a2')
                 yy += 8.0
     # Every rooftop linked to its neighbours by an arc through the sky.
     by_x = sorted(towers, key=lambda t: t[0])
@@ -140,34 +146,37 @@ def behind_headline(quad):
     return max(xs) > HEADLINE[0] and min(xs) < HEADLINE[2] and max(ys) > HEADLINE[1] and min(ys) < HEADLINE[3]
 def facade(xw, z0, z1, h, lit_shop=False):
     q = [P(xw, 0, z0), P(xw, h, z0), P(xw, h, z1), P(xw, 0, z1)]
-    poly(q, fill=FACADE, stroke=GREY_D, w=sw(z0, 0.07, 0.8, 2.2))
-    line(P(xw, h - 0.8, z0), P(xw, h - 0.8, z1), GREY_D, sw(z0, 0.05, 0.6, 1.6))
-    line(P(xw, 3.8, z0), P(xw, 3.8, z1), GREY_D, sw(z0, 0.05, 0.6, 1.6))
+    poly(q, fill=TEAL_FILL, stroke=TEAL_LINE, w=sw(z0, 0.07, 0.8, 2.2))
+    line(P(xw, h - 0.8, z0), P(xw, h - 0.8, z1), TEAL_LINE, sw(z0, 0.05, 0.6, 1.6))
+    line(P(xw, 3.8, z0), P(xw, 3.8, z1), TEAL_LINE, sw(z0, 0.05, 0.6, 1.6))
     fl = 4.6
     while fl + 2.0 < h - 1.2:
         zz = z0 + 1.2
         while zz + 1.4 < z1 - 0.6:
             wq = [P(xw, fl, zz), P(xw, fl + 2.0, zz), P(xw, fl + 2.0, zz + 1.4), P(xw, fl, zz + 1.4)]
-            warm = random.random() < 0.3  # every window is on, some warmer, except behind the headline
+            # every window is on, warm or teal, except behind the headline
+            fill, edge, glow, alpha = [('#3a1f10', '#8a4a2a', NEON_ORANGE, 0.14),
+                                       ('#10333a', '#2f7a80', COOL, 0.1),
+                                       ('#2a160c', '#5a3420', NEON_ORANGE, 0.06)][min(2, int(random.random() * 2.6))]
             if behind_headline(wq):
-                poly(wq, fill='#16171a', stroke=GREY_DD, w=sw(zz, 0.04, 0.5, 1.4))
+                poly(wq, fill='#0d1417', stroke=TEAL_DEEP, w=sw(zz, 0.04, 0.5, 1.4))
             else:
-                poly(wq, fill='#4a3715' if warm else '#2e2413', stroke=DIMCOPPER, w=sw(zz, 0.04, 0.5, 1.4))
+                poly(wq, fill=fill, stroke=edge, w=sw(zz, 0.04, 0.5, 1.4))
                 reflect([(xw, fl, zz), (xw, fl + 2.0, zz), (xw, fl + 2.0, zz + 1.4), (xw, fl, zz + 1.4)],
-                        COPPER, 0.16 if warm else 0.1, stretch=1.25)
+                        glow, alpha, stretch=1.25)
             zz += 3.0
         fl += 3.4
     if lit_shop:
         a, b = z0 + 1.0, z1 - 1.0
-        poly([P(xw, 0.15, a), P(xw, 3.3, a), P(xw, 3.3, b), P(xw, 0.15, b)], fill='#33270f', stroke=COPPER, w=sw(z0, 0.07, 0.8, 2.0))
-        reflect([(xw, 0.15, a), (xw, 3.3, a), (xw, 3.3, b), (xw, 0.15, b)], COPPER, 0.35, stretch=1.6)
+        poly([P(xw, 0.15, a), P(xw, 3.3, a), P(xw, 3.3, b), P(xw, 0.15, b)], fill='#1d3c3e', stroke=COOL, w=sw(z0, 0.07, 0.8, 2.0))
+        reflect([(xw, 0.15, a), (xw, 3.3, a), (xw, 3.3, b), (xw, 0.15, b)], COOL, 0.35, stretch=1.6)
         for k in range(1, 4):
             zz = a + (b - a) * k / 4
-            line(P(xw, 0.15, zz), P(xw, 3.3, zz), COPPER, sw(zz, 0.03, 0.6, 1.2))
-        line(P(xw, 1.1, a), P(xw, 1.1, b), COPPER, sw(z0, 0.03, 0.6, 1.2))
+            line(P(xw, 0.15, zz), P(xw, 3.3, zz), COOL, sw(zz, 0.03, 0.6, 1.2))
+        line(P(xw, 1.1, a), P(xw, 1.1, b), COOL, sw(z0, 0.03, 0.6, 1.2))
     else:
         for yy in (0.9, 1.5, 2.1, 2.7, 3.3):
-            line(P(xw, yy, z0 + 0.8), P(xw, yy, z1 - 0.8), '#2a2d31', sw(z0, 0.03, 0.5, 1.2))
+            line(P(xw, yy, z0 + 0.8), P(xw, yy, z1 - 0.8), TEAL_DEEP, sw(z0, 0.03, 0.5, 1.2))
 
 right = [(140, 240, 16), (100, 140, 13), (74, 100, 15), (52, 74, 12), (32, 52, 17), (12, 32, 14)]
 left = [(135, 240, 14), (95, 135, 15), (66, 95, 12), (44, 66, 18), (24, 44, 13), (1.5, 24, 16)]
@@ -202,20 +211,20 @@ for m in (masts['left'][0], masts['right'][0]):  # the far end of the street up 
 # ---------------- Ground ----------------
 ZF = 240
 for xc in (CURB_L, CURB_R, LEFT_W, RIGHT_W):
-    line(P(xc, 0, 2.5), P(xc, 0, ZF), GREY_D, 1.4)
+    line(P(xc, 0, 2.5), P(xc, 0, ZF), TEAL_LINE, 1.4)
 z = 2.8
 while z < 44:
-    line(P(LEFT_W, 0, z), P(CURB_L, 0, z), '#1c1e21', sw(z, 0.03, 0.5, 1.5)); z *= 1.12
+    line(P(LEFT_W, 0, z), P(CURB_L, 0, z), '#14232a', sw(z, 0.03, 0.5, 1.5)); z *= 1.12
 for i in range(11):
     xs = -5.0 + i * 1.0
-    poly([P(xs, 0, 46), P(xs + 0.5, 0, 46), P(xs + 0.5, 0, 51), P(xs, 0, 51)], fill='#1f2124')
-ground_pad(2.6, 7.5, 0.55, '#24272b')   # a manhole cover, pad-shaped
+    poly([P(xs, 0, 46), P(xs + 0.5, 0, 46), P(xs + 0.5, 0, 51), P(xs, 0, 51)], fill='#17282e')
+ground_pad(2.6, 7.5, 0.55, '#1c2e34')   # a manhole cover, pad-shaped
 
 REFL_AT = len(out)  # the reflection layer goes here, on the ground
 
 # ---------------- Gate ----------------
 GZ = 82
-gc = '#a88240'
+gc = '#c23a2a'
 for xp in (-9.2, 8.6):
     poly([P(xp - 0.4, 0, GZ), P(xp - 0.4, 8.2, GZ), P(xp + 0.4, 8.2, GZ), P(xp + 0.4, 0, GZ)], fill=BG, stroke=gc, w=1.6)
 poly([P(-10.0, 6.4, GZ), P(-10.0, 7.0, GZ), P(9.4, 7.0, GZ), P(9.4, 6.4, GZ)], fill=BG, stroke=gc, w=1.4)
@@ -228,27 +237,27 @@ poly([P(-1.8, 7.2, GZ), P(-1.8, 8.0, GZ), P(1.2, 8.0, GZ), P(1.2, 7.2, GZ)], fil
 LAMPS = (22, 42, 64, 96, 150)
 for zl in LAMPS:
     base, topp, arm = P(5.9, 0, zl), P(5.9, 6.6, zl), P(4.8, 6.6, zl)
-    line(base, topp, GREY_D, sw(zl, 0.14, 0.8, 3)); line(topp, arm, GREY_D, sw(zl, 0.12, 0.8, 3))
+    line(base, topp, TEAL_LINE, sw(zl, 0.14, 0.8, 3)); line(topp, arm, TEAL_LINE, sw(zl, 0.12, 0.8, 3))
 for zl in LAMPS:
-    streak(4.8, 6.6, zl, 0.5, YELLOW, 0.45)
+    streak(4.8, 6.6, zl, 0.5, COOL, 0.4)
 for zl in LAMPS:
-    pad(P(4.8, 6.6, zl), max(1.8, F * 0.2 / zl), YELLOW)
+    pad(P(4.8, 6.6, zl), max(1.8, F * 0.2 / zl), COOL)
 
 # ---------------- Blade signs ----------------
 # 茶楼 tea house, 电器维修 appliance repair, 饭店 restaurant, 腾振, 药材 herbal medicine.
 def sign(xs0, xs1, y0, y1, z, chars, color, refl=0.15):
     q = [(xs0, y0, z), (xs0, y1, z), (xs1, y1, z), (xs1, y0, z)]
     reflect(q, color, refl, stretch=1.4)
-    poly([P(*p) for p in q], fill='#131416', stroke=color, w=sw(z, 0.08, 0.8, 2.2))
+    poly([P(*p) for p in q], fill='#160e14', stroke=color, w=sw(z, 0.08, 0.8, 2.2))
     n = len(chars); step = (y1 - y0) / n
     size = F * min(xs1 - xs0, step) * 0.64 / z
     for i, ch in enumerate(chars):
         text(P((xs0 + xs1) / 2, y1 - step * (i + 0.5), z), ch, size, color)
-sign(-10.9, -9.5, 4.6, 9.8, 26, '茶楼', DIMCOPPER)
-sign(8.6, 9.9, 4.2, 10.2, 36, '电器维修', YELLOW, refl=0.35)
-sign(-10.9, -9.8, 4.6, 9.0, 54, '饭店', DIMCOPPER)
-sign(8.7, 9.9, 4.2, 8.4, 60, '腾振', COPPER, refl=0.3)
-sign(8.8, 9.9, 4.4, 8.2, 92, '药材', DIMCOPPER)
+sign(-10.9, -9.5, 4.6, 9.8, 26, '茶楼', NEON_RED)
+sign(8.6, 9.9, 4.2, 10.2, 36, '电器维修', NEON_MAGENTA, refl=0.35)
+sign(-10.9, -9.8, 4.6, 9.0, 54, '饭店', NEON_ORANGE)
+sign(8.7, 9.9, 4.2, 8.4, 60, '腾振', NEON_RED, refl=0.3)
+sign(8.8, 9.9, 4.4, 8.2, 92, '药材', NEON_MAGENTA)
 
 # ---------------- Lanterns ----------------
 # Red paper lanterns on wires across the street, hung as in Chinatown: round, lit from inside,
@@ -275,13 +284,13 @@ def lantern(x, y, z):
                        f'stroke="#b8341f" stroke-width="{max(0.5, rx * 0.05):.2f}" opacity="0.7"/>')
     for dy in (-ry - cap_h / 2, ry + cap_h / 2):
         out.append(f'<rect x="{c[0] - cap_w / 2:.1f}" y="{c[1] + dy - cap_h / 2:.1f}" width="{cap_w:.2f}" '
-                   f'height="{cap_h:.2f}" fill="#b58a3c"/>')
+                   f'height="{cap_h:.2f}" fill="#8c3a1f"/>')
     streak(x, y, z, 0.4, LANTERN_RED, 0.2)
 for zl in (16, 21, 27, 34, 43, 55, 70, 90, 118):
     xsamp = [LEFT_W + i * (RIGHT_W - LEFT_W) / 30 for i in range(31)]
     mid, half = (LEFT_W + RIGHT_W) / 2, (RIGHT_W - LEFT_W) / 2
     ys = [8.4 - 1.0 * (1 - ((xx - mid) / half) ** 2) for xx in xsamp]
-    pline([P(xx, yy, zl) for xx, yy in zip(xsamp, ys)], '#8a6a2e', sw(zl, 0.025, 0.5, 1.0))
+    pline([P(xx, yy, zl) for xx, yy in zip(xsamp, ys)], '#3a2a24', sw(zl, 0.025, 0.5, 1.0))
     for i in range(1, 30, 2):
         xx, yy = xsamp[i], ys[i]
         line(P(xx, yy, zl), P(xx, yy - 0.25, zl), '#5a3a1c', sw(zl, 0.02, 0.4, 0.9))
@@ -291,14 +300,14 @@ for zl in (16, 21, 27, 34, 43, 55, 70, 90, 118):
 PX, PZ, PRX, PRZ = -7.35, 3.75, 0.95, 0.85
 puddle = [P(PX + PRX * math.cos(t) * (1 + 0.12 * math.sin(3 * t)), 0, PZ + PRZ * math.sin(t)) for t in [i * math.pi / 24 for i in range(48)]]
 defs.append(f'<clipPath id="puddle"><polygon points="{pts(puddle)}"/></clipPath>')
-poly(puddle, fill='#0c0d0f', stroke='#2a2d31', w=1.2)
+poly(puddle, fill='#0a1316', stroke=TEAL_DEEP, w=1.2)
 out.append('<g clip-path="url(#puddle)" opacity="0.55">')
 draw_towers(lambda x, y, z: P(x, -y, z))
 out.append('</g>')
 ys_ = [p[1] for p in puddle]; y = min(ys_)
 rip = ['<g clip-path="url(#puddle)" opacity="0.55">']
 while y < max(ys_):
-    rip.append(f'<line x1="0" y1="{y:.1f}" x2="{W}" y2="{y:.1f}" stroke="#0c0d0f" stroke-width="1.6"/>'); y += 4.5
+    rip.append(f'<line x1="0" y1="{y:.1f}" x2="{W}" y2="{y:.1f}" stroke="#0a1316" stroke-width="1.6"/>'); y += 4.5
 rip.append('</g>'); out.append(''.join(rip))
 
 # ---------------- The network on the ground ----------------
@@ -319,7 +328,7 @@ def trace(points, vias=()):
         ground_pad(x, z, 0.2, COPPER)
 
 spill = P(-9.8, 0, TENT_LIT - 0.9)
-ellipse(spill, F * 0.8 / (TENT_LIT - 0.9), F * EYE * 0.8 / (TENT_LIT - 0.9) ** 2, YELLOW, extra='opacity="0.08"')
+ellipse(spill, F * 0.8 / (TENT_LIT - 0.9), F * EYE * 0.8 / (TENT_LIT - 0.9) ** 2, LAMPLIGHT, extra='opacity="0.08"')
 poly(ribbon(MAIN[0], MAIN[1], 0.24), fill=COPPER, extra='opacity="0.12"')
 poly(ribbon(MAIN[0], MAIN[1], 0.075), fill=COPPER, stroke=COPPER, w=0.8)
 for z0, wd, _, _ in TENTS:  # every tent: out of the door, a 45-degree jog, across to your path
@@ -334,23 +343,23 @@ def tent(z0, wd, ht, antenna):
     hw = 0.2 * ht   # the skirt wall under the roof
     ln = 2.2
     w = sw(z0, 0.045, 0.9, 3.0)
-    rope = '#8a6a2e'
+    rope = TEAL_LINE
     # guy lines first, so the tent stands in front of them: eave corners out to stakes
     for (x, z), (sx, sz) in [((xa, z0), (xa - 0.55, z0 - 0.45)), ((xb, z0), (xb + 0.55, z0 - 0.45)),
                              ((xb, z0 + ln), (xb + 0.55, z0 + ln + 0.45))]:
         line(P(x, hw, z), P(sx, 0, sz), rope, max(0.6, w * 0.35))
         line(P(sx, 0, sz), P(sx, 0.12, sz), rope, max(0.8, w * 0.5))
     # the side you can see: roof panel from ridge to eave, then the skirt wall
-    poly([P(xm, ht, z0), P(xm, ht, z0 + ln), P(xb, hw, z0 + ln), P(xb, hw, z0)], fill='#1a1611', stroke=COPPER, w=w)
-    poly([P(xb, hw, z0), P(xb, hw, z0 + ln), P(xb, 0, z0 + ln), P(xb, 0, z0)], fill='#15120d', stroke=COPPER, w=w)
+    poly([P(xm, ht, z0), P(xm, ht, z0 + ln), P(xb, hw, z0 + ln), P(xb, hw, z0)], fill=TEAL_FILL_2, stroke=TEAL_EDGE, w=w)
+    poly([P(xb, hw, z0), P(xb, hw, z0 + ln), P(xb, 0, z0 + ln), P(xb, 0, z0)], fill=TEAL_FILL, stroke=TEAL_EDGE, w=w)
     # the front: an A over the skirt
-    poly([P(xa, 0, z0), P(xa, hw, z0), P(xm, ht, z0), P(xb, hw, z0), P(xb, 0, z0)], fill='#3a2c12', stroke=COPPER, w=w)
+    poly([P(xa, 0, z0), P(xa, hw, z0), P(xm, ht, z0), P(xb, hw, z0), P(xb, 0, z0)], fill='#163038', stroke=TEAL_EDGE, w=w)
     line(P(xa, hw, z0), P(xb, hw, z0), rope, w * 0.5)   # the seam where roof meets skirt
     # the door: the front's own triangle, smaller, lit from inside, with its flap tied back
     hd, dw = 0.86 * ht, 0.24 * wd
-    poly([P(xm - dw, 0, z0), P(xm, hd, z0), P(xm + dw, 0, z0)], fill=YELLOW, stroke=COPPER, w=w * 0.8)
-    reflect([(xm - dw, 0, z0), (xm, hd, z0), (xm + dw, 0, z0)], YELLOW, 0.2, stretch=1.0)
-    poly([P(xm, hd, z0), P(xm - dw, 0, z0), P(xm - dw - 0.28 * wd, 0.18 * ht, z0)], fill='#4a3a18', stroke=COPPER, w=w * 0.6)
+    poly([P(xm - dw, 0, z0), P(xm, hd, z0), P(xm + dw, 0, z0)], fill=LAMPLIGHT, stroke='#e08a3a', w=w * 0.8)
+    reflect([(xm - dw, 0, z0), (xm, hd, z0), (xm + dw, 0, z0)], LAMPLIGHT, 0.2, stretch=1.0)
+    poly([P(xm, hd, z0), P(xm - dw, 0, z0), P(xm - dw - 0.28 * wd, 0.18 * ht, z0)], fill='#2a3a3e', stroke=TEAL_EDGE, w=w * 0.6)
     if antenna:
         a, b = P(xm + 0.15, ht, z0 + 0.3), P(xm + 0.15, 1.9 * ht, z0 + 0.3)
         line(a, b, COPPER, w); pad(b, F * 0.12 / z0, COPPER)
