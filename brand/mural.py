@@ -677,7 +677,6 @@ for zl in WIRES:
     yl = wire_y(xl) - 0.46
     ellipse(P(xl, -yl, zl), F * 0.3 / zl, F * 0.3 / zl * 1.4, 'url(#glint)')
 out.append('</g>')
-pad(P(CAM_X, 0.0, 640.0), 3.6, COPPER)
 
 # ---------------- Tents along the left wall ----------------
 # Nylon lit from inside glows in its own colour, like a lantern: blue through a blue tent, red
