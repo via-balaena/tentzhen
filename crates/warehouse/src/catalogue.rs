@@ -97,12 +97,8 @@ pub fn sources(root: &Path) -> Result<Vec<(String, String)>, String> {
     dirs.sort();
     for dir in dirs {
         let mut text = String::new();
-        let src = dir.join("src");
-        let mut files: Vec<_> = fs::read_dir(&src)
-            .map_err(|e| format!("{}: {e}", src.display()))?
-            .filter_map(|e| e.ok().map(|e| e.path()))
-            .filter(|p| p.extension().is_some_and(|x| x == "rs"))
-            .collect();
+        let mut files = Vec::new();
+        rust_files(&dir.join("src"), &mut files)?;
         files.sort();
         for f in files {
             text.push_str(&fs::read_to_string(&f).map_err(|e| format!("{}: {e}", f.display()))?);
@@ -114,6 +110,24 @@ pub fn sources(root: &Path) -> Result<Vec<(String, String)>, String> {
         out.push((name, text));
     }
     Ok(out)
+}
+
+/// Every `.rs` file under `dir`, at any depth.
+fn rust_files(dir: &Path, out: &mut Vec<std::path::PathBuf>) -> Result<(), String> {
+    for entry in fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))? {
+        let path = entry.map_err(|e| e.to_string())?.path();
+        if path.is_dir() {
+            rust_files(&path, out)?;
+        } else if path.extension().is_some_and(|x| x == "rs") {
+            out.push(path);
+        }
+    }
+    Ok(())
+}
+
+/// Text for a Markdown table cell: a `|` would end the cell.
+fn cell(text: &str) -> String {
+    text.replace('|', "\\|")
 }
 
 fn id(name: &str) -> String {
@@ -200,10 +214,15 @@ pub fn render(conn: &Connection, relations: &[Relation]) -> duckdb::Result<Strin
             for col in cols {
                 let (name, ty, nullable, about) = col?;
                 if r.view {
-                    let _ = writeln!(w, "| `{name}` | {ty} |");
+                    let _ = writeln!(w, "| `{name}` | {} |", cell(&ty));
                 } else {
                     let null = if nullable { "yes" } else { "no" };
-                    let _ = writeln!(w, "| `{name}` | {ty} | {null} | {about} |");
+                    let _ = writeln!(
+                        w,
+                        "| `{name}` | {} | {null} | {} |",
+                        cell(&ty),
+                        cell(&about)
+                    );
                 }
             }
             let checks: Vec<String> = constraints
@@ -241,8 +260,8 @@ pub fn render(conn: &Connection, relations: &[Relation]) -> duckdb::Result<Strin
     Ok(md)
 }
 
-/// The catalogue of `schema.sql` alone: no records are loaded, so it changes only with the schema
-/// and with what the other crates read.
+/// The catalogue of `schema.sql` alone. No records are loaded, so adding or changing a record never
+/// changes it.
 pub fn generate(root: &Path) -> Result<String, String> {
     let conn = Connection::open_in_memory().map_err(|e| e.to_string())?;
     conn.execute_batch(crate::SCHEMA)
@@ -253,7 +272,41 @@ pub fn generate(root: &Path) -> Result<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::names;
+    use super::{cell, names, rust_files};
+    use std::path::Path;
+
+    #[test]
+    fn a_pipe_stays_inside_its_cell() {
+        assert_eq!(cell("a | b"), "a \\| b");
+    }
+
+    #[test]
+    fn source_is_read_at_any_depth() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/catalogue-test/src");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("pages/deep")).unwrap();
+        for f in [
+            "lib.rs",
+            "pages/mod.rs",
+            "pages/deep/x.rs",
+            "pages/notes.md",
+        ] {
+            std::fs::write(dir.join(f), "").unwrap();
+        }
+        let mut found = Vec::new();
+        rust_files(&dir, &mut found).unwrap();
+        let mut found: Vec<String> = found
+            .iter()
+            .map(|p| {
+                p.strip_prefix(&dir)
+                    .unwrap()
+                    .to_string_lossy()
+                    .replace('\\', "/")
+            })
+            .collect();
+        found.sort();
+        assert_eq!(found, ["lib.rs", "pages/deep/x.rs", "pages/mod.rs"]);
+    }
 
     #[test]
     fn a_name_is_matched_whole() {

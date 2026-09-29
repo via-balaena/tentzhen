@@ -570,7 +570,7 @@ Read by: `crates/site`.
 
 ### `gold.page_used_in` (view)
 
-The edges of gold.page_uses read the other way: where each build version is used.
+silver.uses read the other way: where each build version is used.
 
 | column | type |
 |---|---|

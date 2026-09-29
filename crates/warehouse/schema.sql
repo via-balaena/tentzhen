@@ -29,8 +29,9 @@ COMMENT ON VIEW bronze.record_hash IS 'Lineage: the sha256 of each file''s text.
 
 -- ---------------------------------------------------------------- silver
 
--- Each row's `record` names its bronze file. DuckDB refuses foreign keys across schemas, so that
--- link is held by the loader's test every_row_traces_to_the_bytes_it_came_from, not by a key.
+-- A table with a `record` column names its bronze file there; every other silver table references
+-- one that does. DuckDB refuses foreign keys across schemas, so the link to bronze is held by the
+-- loader's test every_row_traces_to_the_bytes_it_came_from, not by a key.
 
 CREATE TABLE silver.part (
     part            TEXT PRIMARY KEY,
@@ -151,7 +152,7 @@ CREATE TABLE silver.referent (
 COMMENT ON TABLE silver.referent IS 'What shows a claim. A simulation grades tested, checked or proven; the bench grades measured.';
 
 -- ---------------------------------------------------------------- silver: the lab's limits
--- From lab/limits.toml, which crates/lab has checked. `record` names that file, as above.
+-- From lab/limits.toml, which crates/lab has checked.
 
 CREATE TABLE silver.lab_fact (
     fact        TEXT PRIMARY KEY,
@@ -274,7 +275,8 @@ GROUP BY l.path, l.amount, l.unit, l.choice, l.basis;
 COMMENT ON VIEW gold.limit_grades IS 'Each limit with the weakest grade among the facts it rests on, directly or through any value it comes from. NULL when it rests on no fact: nothing here claims it does its job.';
 
 -- ---------------------------------------------------------------- gold: the site's pages
--- Everything a build page shows comes from these views. The site reads nothing else.
+-- Views that exist for the site's pages. The site also reads gold.claim_grades above, and reads
+-- only gold: the test the_site_reads_only_gold holds that.
 
 CREATE VIEW gold.page AS
 SELECT bv.build, bv.version, bv.status, bv.does, bv.changes,
@@ -305,7 +307,7 @@ CREATE VIEW gold.page_used_in AS
 SELECT uses_build AS build, uses_version AS version,
        build AS in_build, version AS in_version, qty
 FROM silver.uses;
-COMMENT ON VIEW gold.page_used_in IS 'The edges of gold.page_uses read the other way: where each build version is used.';
+COMMENT ON VIEW gold.page_used_in IS 'silver.uses read the other way: where each build version is used.';
 
 CREATE VIEW gold.page_firmware AS SELECT * FROM silver.firmware;
 CREATE VIEW gold.page_pin      AS SELECT * FROM silver.pin;
