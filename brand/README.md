@@ -42,12 +42,16 @@ talk by radio: an antenna on every roof, faint links along the street, across it
 towers. Red paper lanterns hang across the street on wires, lit from inside, the ones behind the
 headline unlit. The road is wet asphalt: lights, windows, lanterns and signs reflect in it as
 streaks, stretched toward you, blurred more up and down than across and broken by ripples. The
-sidewalks are opaque grey concrete, cut into slabs, and reflect nothing. A puddle at your feet
-mirrors the towers. Its colours come from a Chinatown street at night: red lanterns, red sign
-boards with pale-gold characters as on Yaowarat Road, magenta neon on the repair shop, teal on the
-tents and towers, cool white shop light and modern LED streetlights; the street's buildings and
-poles stay grey. Copper and yellow belong to the network alone: traces, vias, pads, antennas and
-radio.
+sidewalks are opaque grey concrete, cut into slabs, and reflect nothing. A puddle at your feet is a
+clean mirror of what stands above it, turned over: the towers, the wall, the signs, the lanterns
+and the parking sign. One set of lights shades everything except the network: the LED streetlights
+across the road, the lanterns and signs, each tent's lamp and the windows. Surfaces are solid and
+dimmed toward grey as night dims colour, the sky glows toward the horizon behind solid towers, and
+nearer things cover farther ones. Its colours come from a Chinatown street at night: red lanterns,
+red sign boards with pale-gold characters as on Yaowarat Road, a red lacquer gate, magenta neon on
+the repair shop, teal in the window glass, cool white shop light and modern LED streetlights; the
+street's buildings and poles stay grey. Copper and yellow belong to the network alone, drawn flat
+over the scene: traces, vias, pads, antennas and radio.
 
 - **Perspective breaks the 0°/45°/90° rule**, because it has to. Traces on the ground keep it in
   plan: the tent's trace runs 45° then 0° into a path at 90°.
