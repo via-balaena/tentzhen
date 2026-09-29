@@ -122,7 +122,7 @@ for gid, top, bottom in (('glass', '#101216', '#1c1b21'), ('glassside', '#16181d
                 f'<stop offset="0" stop-color="{top}"/><stop offset="1" stop-color="{bottom}"/></linearGradient>')
 FLOOR = 4.2  # floor to floor, m
 towers = [  # (x, z, width, roof height, shape): the layer in front
-    (-120, 780, 52, 230, 'setback'), (-88, 660, 36, 262, 'slab'), (-66, 612, 22, 300, 'twin'),
+    (-120, 780, 52, 230, 'setback'), (-88, 660, 36, 262, 'slab'), (-72, 612, 22, 300, 'twin'),
     (-34, 612, 22, 300, 'twin'), (-30, 760, 46, 336, 'slab'), (-7.6, 640, 40, 385, 'crown'),
     (26, 580, 30, 318, 'bamboo'), (100, 740, 44, 370, 'cup'), (82, 620, 34, 262, 'setback'),
     (112, 760, 54, 300, 'slab'), (144, 680, 40, 228, 'slab'),
@@ -253,14 +253,16 @@ def draw_towers():
         draw_tower(rnd, x, z, w, h, shape, METAL if z < 650 else METAL_FAR)
         if shape == 'twin':
             twins.append((x, z, w, h))
-            if len(twins) == 2:  # the skybridge between them, lit along its length
+            if len(twins) == 2:  # the skybridge across the gap between them, two floors of glass, lit
                 (xa, za, wa, ha), (xb, _, wb, hb) = sorted(twins)
-                y0, y1 = min(ha, hb) - 52, min(ha, hb) - 40
-                bridge = [P(xa - wa / 2 - 6, y0, za), P(xa - wa / 2 - 6, y1, za), P(xb + wb / 2 + 6, y1, za),
-                          P(xb + wb / 2 + 6, y0, za)]
-                poly(bridge, fill='#2a4a4e', stroke=LED_CYAN, w=1.0)
-                line(P(xa - wa / 2 - 6, (y0 + y1) / 2, za), P(xb + wb / 2 + 6, (y0 + y1) / 2, za), OFFICE_COOL, 0.8,
-                     extra='opacity="0.7"')
+                x0, x1, y0 = xa + wa / 2, xb - wb / 2, 0.66 * min(ha, hb)
+                poly([P(x0, y0, za), P(x0, y0 + 2 * FLOOR, za), P(x1, y0 + 2 * FLOOR, za), P(x1, y0, za)],
+                     fill='url(#glass)', stroke=METAL, w=1.0)
+                for k in (0, 1):
+                    yy = y0 + (k + 0.55) * FLOOR
+                    out.append(f'<line x1="{P(x0, yy, za)[0]:.1f}" y1="{P(x0, yy, za)[1]:.1f}" x2="{P(x1, yy, za)[0]:.1f}" '
+                               f'y2="{P(x1, yy, za)[1]:.1f}" stroke="{OFFICE_COOL}" stroke-width="{0.5 * FLOOR * F / za:.2f}" '
+                               f'stroke-dasharray="{3 * F / za:.2f} {1 * F / za:.2f}" opacity="0.8"/>')
     haze('haze_near', 160, 0.25)
     # Every rooftop linked to its neighbours by an arc through the sky.
     by_x = sorted(towers, key=lambda t: t[0])
