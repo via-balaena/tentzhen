@@ -1,8 +1,8 @@
 //! The lab's safety records. For now that is `lab/limits.toml`, what the hardware below any agent
 //! will allow. [`Limits::parse`] refuses a key it does not know, a value that is not a finite
-//! number above zero, a DPS5005 setting outside the supply's ceiling or its input rule, and a fuse
-//! that is not the next rating above `max_amps`. The tests also check what the file's comments say
-//! about its own values.
+//! number above zero, a DPS5005 setpoint or current limit above the supply's ceiling, an upstream
+//! voltage outside the DPS5005's input rule, and a fuse that is not the next rating above
+//! `max_amps`.
 
 use serde::Deserialize;
 use std::fmt;

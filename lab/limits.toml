@@ -12,9 +12,8 @@
 # measured on the bench; then its record id goes here. Sources read 2026-09-28.
 #
 # crates/lab reads this file and refuses a key it does not know, a value that is not a finite
-# number above zero, a DPS5005 setting outside the supply's ceiling or its input rule, and a fuse
-# that is not the next rating above max_amps. Its tests also check what the comments below say
-# about these values.
+# number above zero, a DPS5005 setpoint or current limit above the supply's ceiling, an upstream
+# voltage outside the DPS5005's input rule, and a fuse that is not the next rating above max_amps.
 
 [pico_3v3]
 # Any Pico or 3.3 V circuit. Source: CLAUDE.md, "Default ceilings: 3.6 V and 200 mA".
