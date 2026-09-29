@@ -215,3 +215,7 @@ FROM silver.uses;
 CREATE VIEW gold.page_firmware AS SELECT * FROM silver.firmware;
 CREATE VIEW gold.page_pin      AS SELECT * FROM silver.pin;
 CREATE VIEW gold.page_step     AS SELECT * FROM silver.step;
+
+-- The disclaimer, as the site's legal page shows it.
+CREATE VIEW gold.legal AS
+SELECT body FROM bronze.record WHERE path = 'DISCLAIMER.md';

@@ -15,7 +15,7 @@ fn build(root: &Path) -> Result<usize, String> {
 fn main() -> ExitCode {
     match build(Path::new(".")) {
         Ok(n) => {
-            println!("wrote {n} files under site/builds/");
+            println!("wrote {n} files under site/");
             ExitCode::SUCCESS
         }
         Err(e) => {
