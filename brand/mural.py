@@ -898,7 +898,7 @@ write('mural-street-night.svg')
 # tower's door. The same towers, drawn by the same code from a new camera on a fresh canvas: far
 # off and level with their feet, as the sky pales from night to first light behind them, the sun
 # still below the horizon behind the tallest. Its glass lobby is lit, a pool of that light on the
-# plaza. The page draws the rail and its via over this; they meet the door at (1180, 520). The
+# plaza. The page draws the rail over this, soldered in at the door at (1180, 520), no via. The
 # scene has no background of its own: the page's shows through above the sky and at the sides.
 defs, out = [], []
 W, H = 1440, 560

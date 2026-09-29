@@ -82,12 +82,12 @@ First person, standing on a Chinatown sidewalk at night, looking down the street
 
 ## The daybreak skyline
 
-The foot of the homepage, where the copper rail that runs down the page reaches the tallest
-tower's door: the mural's towers, drawn by the same code from a new camera, far off and level with
-their feet, as the sky pales from night to first light behind them. The sun is still below the
-horizon behind the tallest tower, and its glass lobby is lit, a pool of that light on the plaza.
-The page draws the rail and its via over the scene; they meet the door at (1180, 520). The scene
-has no background of its own and fades out at its sides, so it sits on the page at any width.
+The foot of the homepage, where the copper rail that runs down the page reaches the tallest tower's
+door: the mural's towers, drawn by the same code from a new camera, far off and level with their
+feet, as the sky pales from night to first light behind them. The sun is still below the horizon
+behind the tallest tower, and its glass lobby is lit, a pool of that light on the plaza. The page
+draws the rail over the scene, soldered in at the door at (1180, 520) with no via. The scene has no
+background of its own and fades out at its sides, so it sits on the page at any width.
 
 ## Source
 
