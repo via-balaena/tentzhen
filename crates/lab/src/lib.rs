@@ -233,8 +233,8 @@ pub struct Entry<'a> {
     pub basis: &'a Basis,
 }
 
-/// One fact and its referents: `record` (a bench measurement) or `trusted` (an entry in
-/// docs/verification.md's trusted base). The warehouse grades it from them.
+/// One fact and its referents: `record` (a bench measurement) or `trusted` (the id of an entry in
+/// trusted-base.toml, which crates/records checks). The warehouse grades it from them.
 pub struct Fact<'a> {
     pub id: FactId,
     pub says: &'a str,
@@ -682,60 +682,6 @@ mod tests {
         in_file.sort();
         entries.sort();
         assert_eq!(in_file, entries);
-    }
-
-    /// The entries of docs/verification.md's trusted base, each bullet joined onto one line.
-    fn trusted_base() -> Vec<String> {
-        let doc = fs::read_to_string(root().join("docs/verification.md")).unwrap();
-        let base = doc
-            .split("\n## Trusted base\n")
-            .nth(1)
-            .expect("docs/verification.md has a Trusted base section");
-        let base = base.split("\n## ").next().unwrap_or(base);
-        let mut entries: Vec<String> = Vec::new();
-        for line in base.lines() {
-            if let Some(entry) = line.strip_prefix("- ") {
-                entries.push(entry.into());
-            } else if let (Some(last), Some(more)) = (entries.last_mut(), line.strip_prefix("  ")) {
-                last.push(' ');
-                last.push_str(more);
-            }
-        }
-        entries
-    }
-
-    fn trusted_entry(t: &str) -> Option<String> {
-        trusted_base().into_iter().find(|e| e.starts_with(t))
-    }
-
-    #[test]
-    fn every_trusted_fact_names_an_entry_in_the_trusted_base() {
-        let l = Limits::parse(&repo()).unwrap();
-        for f in l.facts() {
-            if let Some(t) = f.trusted {
-                assert!(
-                    trusted_entry(t).is_some(),
-                    "fact {} is trusted as {t:?}, which begins no entry in the trusted base",
-                    f.id.as_str()
-                );
-            }
-        }
-    }
-
-    /// The trusted base states the DPS5005's numbers in words; the file must carry the same ones.
-    #[test]
-    fn the_dps_input_numbers_are_the_trusted_base_s() {
-        let f = Limits::parse(&repo()).unwrap().fact.dps_input;
-        let entry = trusted_entry(f.trusted.as_deref().unwrap()).unwrap();
-        for said in [
-            format!("{}–{} V", f.min_volts.get(), f.max_volts.get()),
-            format!("{} ×", f.ratio.get()),
-        ] {
-            assert!(
-                entry.contains(&said),
-                "the trusted base does not say {said:?}"
-            );
-        }
     }
 
     /// `facts` lists the facts by hand; this holds it to the file's [fact.*] tables.

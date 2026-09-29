@@ -128,6 +128,17 @@ CREATE TABLE silver.step (
 COMMENT ON TABLE silver.step IS 'A build version''s steps, in order.';
 COMMENT ON COLUMN silver.step.instruction IS 'The record''s `do`.';
 
+CREATE TABLE silver.trusted_entry (
+    entry    TEXT PRIMARY KEY,
+    entry_no INTEGER NOT NULL,
+    assumes  TEXT NOT NULL,
+    record   TEXT NOT NULL
+);
+COMMENT ON TABLE silver.trusted_entry IS 'The trusted base, from trusted-base.toml: what is assumed, not shown. A trusted referent names an entry by its id.';
+COMMENT ON COLUMN silver.trusted_entry.entry IS 'Its id.';
+COMMENT ON COLUMN silver.trusted_entry.entry_no IS 'Its place in the file, from 1.';
+COMMENT ON COLUMN silver.trusted_entry.record IS 'The file in bronze.record this row came from.';
+
 -- DuckDB skips a foreign key when any of its columns is NULL, so the checks below also require
 -- build and version together.
 CREATE TABLE silver.claim (
@@ -149,10 +160,15 @@ COMMENT ON COLUMN silver.claim.claim_no IS 'Its place in its record, from 1.';
 CREATE TABLE silver.referent (
     claim    TEXT NOT NULL REFERENCES silver.claim (claim),
     kind     TEXT NOT NULL CHECK (kind IN ('proof', 'check', 'test', 'record', 'trusted')),
-    evidence TEXT NOT NULL,
-    PRIMARY KEY (claim, kind)
+    evidence TEXT,
+    trusted  TEXT REFERENCES silver.trusted_entry (entry),
+    PRIMARY KEY (claim, kind),
+    CHECK ((kind = 'trusted') = (trusted IS NOT NULL)),
+    CHECK ((evidence IS NULL) = (trusted IS NOT NULL))
 );
 COMMENT ON TABLE silver.referent IS 'What shows a claim: a proof, a bounded check or a test in simulation; a bench measurement record; or an entry in the trusted base.';
+COMMENT ON COLUMN silver.referent.evidence IS 'The proof, check, test or measurement record, as the claim names it. Nothing checks that it exists.';
+COMMENT ON COLUMN silver.referent.trusted IS 'For a trusted referent, the entry in the trusted base that assumes the claim.';
 
 CREATE TABLE silver.claim_value (
     claim  TEXT NOT NULL REFERENCES silver.claim (claim),
@@ -169,12 +185,12 @@ COMMENT ON COLUMN silver.claim_value.name IS 'Ends in its unit: min_volts, input
 CREATE TABLE silver.lab_fact (
     fact        TEXT PRIMARY KEY,
     says        TEXT NOT NULL,
-    trusted     TEXT,
+    trusted     TEXT REFERENCES silver.trusted_entry (entry),
     measurement TEXT,
     record      TEXT NOT NULL
 );
 COMMENT ON TABLE silver.lab_fact IS 'The facts the limits rest on, each with its referents.';
-COMMENT ON COLUMN silver.lab_fact.trusted IS 'An entry in docs/verification.md''s trusted base.';
+COMMENT ON COLUMN silver.lab_fact.trusted IS 'The entry in the trusted base that assumes it.';
 COMMENT ON COLUMN silver.lab_fact.measurement IS 'A bench measurement record.';
 COMMENT ON COLUMN silver.lab_fact.record IS 'The file in bronze.record this row came from.';
 
@@ -223,7 +239,7 @@ WITH r AS (
            max(evidence) FILTER (WHERE kind = 'check')   AS "check",
            max(evidence) FILTER (WHERE kind = 'test')    AS test,
            max(evidence) FILTER (WHERE kind = 'record')  AS record,
-           max(evidence) FILTER (WHERE kind = 'trusted') AS trusted
+           max(trusted)  FILTER (WHERE kind = 'trusted') AS trusted
     FROM silver.referent GROUP BY claim
 )
 SELECT c.claim, c.part, c.build, c.version, c.claim_no, c.id, c.says,

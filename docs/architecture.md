@@ -8,7 +8,7 @@ the same grading `verification.md` asks of any claim.
 
 ```mermaid
 flowchart LR
-  records["records<br/>parts/ builds/ lab/<br/>DISCLAIMER.md"]
+  records["records<br/>parts/ builds/ lab/<br/>trusted-base.toml<br/>DISCLAIMER.md"]
   schemas["schemas and loaders<br/>crates/records<br/>crates/lab"]
   warehouse["warehouse<br/>crates/warehouse<br/>bronze, silver, gold"]
   site(["crates/site"])
@@ -21,7 +21,7 @@ flowchart LR
 
 | layer | where | what it is |
 |---|---|---|
-| records | `parts/`, `builds/`, `lab/`, `DISCLAIMER.md` | The system of record. Everything else is rebuilt from these. |
+| records | `parts/`, `builds/`, `lab/`, `trusted-base.toml`, `DISCLAIMER.md` | The system of record. Everything else is rebuilt from these. |
 | schemas and loaders | `crates/records`, `crates/lab` | Typed schemas that refuse what they don't know, and the checks the records' own rules call for. |
 | warehouse | `crates/warehouse`, described in `docs/data-catalogue.md` | Bronze holds each file as read, silver holds typed rows the database constrains, and gold holds views that answer questions. It can be deleted at any time. |
 | readers | `crates/site` today | They read gold. The Pico enforcer is to read the limits through `crates/lab` alone, so the safety path never depends on the database. |
@@ -30,11 +30,12 @@ flowchart LR
 
 | rule | held by |
 |---|---|
-| Schema first: every file in `parts/`, `builds/` and `lab/` is loaded into the warehouse, or CI fails. A record is parsed by its schema on the way in; a drawing is kept as it is. A folder's README is not a record. | `every_file_in_the_records_folders_is_loaded` |
+| Schema first: every file in `parts/`, `builds/` and `lab/` is loaded into the warehouse, and so are `trusted-base.toml` and `DISCLAIMER.md`, or CI fails. A record is parsed by its schema on the way in; a drawing is kept as it is. A folder's README is not a record. | `every_file_in_the_records_folders_is_loaded` |
 | Every schema refuses a key it doesn't know. | `every_table_refuses_a_key_it_does_not_know`, in `crates/records` and in `crates/lab` |
 | A rule a record states in a comment is a check or a test. | the tests in `crates/lab`, for `lab/limits.toml`. Nothing holds this for new files: `unknown`. |
-| Every file the warehouse loads is in bronze with its sha256, and every silver row traces to one. | `every_row_traces_to_the_bytes_it_came_from`, for the four silver tables with a `record` column; the rest reference one of those by foreign key, directly or through another table. |
+| Every file the warehouse loads is in bronze with its sha256, and every silver row traces to one. | `every_row_traces_to_the_bytes_it_came_from`, for the five silver tables with a `record` column; the rest reference one of those by foreign key, directly or through another table. |
 | A grade comes from its referents, never typed. | `no_record_can_type_a_grade`, `grades_derive_from_referents`, `every_limit_gets_the_weakest_grade_of_its_facts` |
+| A `trusted` referent, on a claim or a lab fact, names an entry in the trusted base. | `a_trusted_referent_names_an_entry_in_the_trusted_base` in `crates/records`, and the warehouse's foreign keys to `silver.trusted_entry` (`the_database_refuses_what_the_records_refuse`) |
 | Readers of the warehouse read gold only. | `the_site_reads_only_gold`; the site is the only one so far. |
 | Every table and view says what it is, and the catalogue is generated. | `every_table_and_view_says_what_it_is`, `the_catalogue_is_current` |
 | The lab crate needs only serde and toml. | `the_lab_crate_needs_only_serde_and_toml` |
@@ -54,9 +55,9 @@ test and path it names up to the proposal below must exist.
   landing in `silver.lab_fact` and graded by `gold.lab_fact_grades`.
 - **Nothing cites a claim yet.** Claims have ids and a citation (`<part>#<id>`, `<build>/v<n>#<id>`),
   and lab facts are still named only inside `lab/limits.toml`.
-- **The trusted base is prose.** A lab fact's `trusted` is matched against the start of a bullet in
-  `verification.md` by the test `every_trusted_fact_names_an_entry_in_the_trusted_base`. A claim's
-  `trusted` is not checked at all: `unknown`.
+- **The trusted base is data,** in `trusted-base.toml`: each entry has an id, and a `trusted`
+  referent is that id, held by a foreign key. Only the DPS5005's entry is cited so far, by lab
+  facts; no claim is trusted yet.
 - **`record` referents resolve to nothing.** Build claims and lab facts can name a measurement
   record, but no format or store for records exists yet. That's the lab log in `roadmap.md`,
   Phase 0.
@@ -71,7 +72,8 @@ test and path it names up to the proposal below must exist.
 ## Proposal: one claim model
 
 Every graded statement becomes a claim on its subject, in one shape. Step 1 built it for parts and
-builds (`crates/records`, `Claim`); the lab's facts join in step 3.
+builds (`crates/records`, `Claim`), and step 2 made the trusted base data; the lab's facts join in
+step 3.
 
 ```toml
 [[claim]]
@@ -109,7 +111,9 @@ Each step is one PR, done when its check passes:
 1. **One claim model** in `crates/records` and the warehouse, with `debug-probe`'s claims migrated.
    Done when `gold.claim_grades` covers parts and builds, and no record can type a grade. Done:
    `a_part_s_claims_are_graded_like_a_build_s`, `no_record_can_type_a_grade`.
-2. **The trusted base as data.** Done when every `trusted` referent is a foreign key.
+2. **The trusted base as data.** Done when every `trusted` referent is a foreign key. Done:
+   `trusted-base.toml`, `silver.trusted_entry`,
+   `a_trusted_referent_names_an_entry_in_the_trusted_base`.
 3. **Lab facts become claims on parts:** `parts/dps5005.toml`, and a bench supply record. Done
    when `lab/limits.toml` has no `[fact.*]` and `gold.limit_grades` gives the same grades as
    before.

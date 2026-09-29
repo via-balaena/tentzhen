@@ -1,0 +1,43 @@
+# The trusted base: everything Tentzhen assumes and does not show. Shrinking it is the long-term
+# work (docs/verification.md).
+#
+# A claim or a lab fact that rests on an entry names its `id` as its `trusted` referent, which
+# grades it `trusted`. crates/records refuses a `trusted` that names no entry here, and so does
+# the warehouse, by foreign key. An id is lowercase letters, digits and hyphens, used once.
+
+[[entry]]
+id = "silicon"
+assumes = "ECP5 and RP2040/RP2350 silicon, including their hard blocks and MPUs."
+
+[[entry]]
+id = "fpga-toolchain"
+assumes = "Yosys, nextpnr-ecp5, Project Trellis."
+
+[[entry]]
+id = "rustc"
+assumes = "rustc and LLVM."
+
+[[entry]]
+id = "vexriscv"
+assumes = "The VexRiscv soft core."
+
+[[entry]]
+id = "tock-isolation"
+assumes = "Tock's kernel isolation on the Pico."
+
+[[entry]]
+id = "aliexpress-modules"
+assumes = "Every AliExpress module, until its incoming-QA record exists."
+
+[[entry]]
+id = "dps5005"
+assumes = """
+The DPS5005 and OpenDPS, until measured on the bench: the 6–55 V input range and the rule that \
+the input be at least 1.1 × the output (Joy-IT manual and datasheet), and that OpenDPS regulates \
+to its current limit (OpenDPS README). `lab/limits.toml` rests on these."""
+
+[[entry]]
+id = "references"
+assumes = """
+The measuring references themselves (LM4040, crystal) — from authorized distributors, and \
+cross-checked against each other."""
