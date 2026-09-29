@@ -216,12 +216,22 @@ for m in (masts['left'][0], masts['right'][0]):  # the far end of the street up 
 # Grey concrete sidewalks with expansion joints; the road between them stays dark asphalt, with no
 # line painted along it. The change of surface marks the kerb.
 ZF = 240
-SIDEWALK, JOINT = '#1d1e21', '#2c2e32'
+SIDEWALK, JOINT, KERB, KERB_FACE = '#1d1e21', '#28292d', '#34363b', '#2a2c30'
 for x0, x1 in ((LEFT_W, CURB_L), (CURB_R, RIGHT_W)):
     poly([P(x0, 0, 2.4), P(x0, 0, ZF), P(x1, 0, ZF), P(x1, 0, 2.4)], fill=SIDEWALK)
-    z = 2.8
-    while z < 60:
-        line(P(x0, 0, z), P(x1, 0, z), JOINT, sw(z, 0.03, 0.5, 1.5)); z *= 1.12
+    # square slabs, 1.5 m, jointed across and along
+    z = 2.4
+    while z < 90:
+        line(P(x0, 0, z), P(x1, 0, z), JOINT, sw(z, 0.025, 0.4, 1.2)); z += 1.5
+    inner = CURB_L - 0.3 if x1 == CURB_L else CURB_R + 0.3
+    xs = [x for x in (-9.5, -8.0, -6.6, 7.1, 8.6) if min(x0, x1) < x < max(x0, x1)]
+    for x in xs:
+        line(P(x, 0, 2.4), P(x, 0, 90), JOINT, 1.0)
+    # the kerbstone along the road edge
+    poly([P(inner, 0, 2.4), P(inner, 0, ZF), P(CURB_L if x1 == CURB_L else CURB_R, 0, ZF),
+          P(CURB_L if x1 == CURB_L else CURB_R, 0, 2.4)], fill=KERB)
+# the far kerb's face, dropping 15 cm to the road, is turned toward you
+poly([P(CURB_R, 0, 3.0), P(CURB_R, 0, ZF), P(CURB_R, -0.15, ZF), P(CURB_R, -0.15, 3.0)], fill=KERB_FACE)
 for xc in (LEFT_W, RIGHT_W):  # where the buildings meet the sidewalk
     line(P(xc, 0, 2.5), P(xc, 0, ZF), GREY_D, 1.4)
 for i in range(11):
@@ -230,6 +240,14 @@ for i in range(11):
 ground_pad(2.6, 7.5, 0.55, '#26282c')   # a manhole cover, pad-shaped
 
 REFL_AT = len(out)  # the reflection layer goes here, on the ground
+
+# ---------------- A parking sign at the kerb ----------------
+# Portland's magenta "P" on a pole, standing between the tents and the road.
+PZ_SIGN, PX_SIGN = 8.0, CURB_L - 0.45
+line(P(PX_SIGN, 0, PZ_SIGN), P(PX_SIGN, 2.9, PZ_SIGN), GREY_D, sw(PZ_SIGN, 0.06, 0.8, 2.4))
+sq = [(PX_SIGN - 0.24, 2.35, PZ_SIGN), (PX_SIGN - 0.24, 2.85, PZ_SIGN), (PX_SIGN + 0.24, 2.85, PZ_SIGN), (PX_SIGN + 0.24, 2.35, PZ_SIGN)]
+poly([P(*q) for q in sq], fill='#b0306a', stroke='#d8d8dc', w=sw(PZ_SIGN, 0.02, 0.5, 1.0))
+text(P(PX_SIGN, 2.6, PZ_SIGN), 'P', F * 0.36 / PZ_SIGN, '#f2f2f4')
 
 # ---------------- Gate ----------------
 GZ = 82
