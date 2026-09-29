@@ -14,7 +14,7 @@ Every claim about Tentzhen carries one of these, plus a referent (see `CLAUDE.md
   no further.
 - `tested` — tests passed in simulation or on the host.
 - `measured` — observed on the bench, with a measurement record.
-- `trusted` — assumed, and listed in the trusted base below.
+- `trusted` — assumed, and an entry in the trusted base below.
 - `unknown` — not established.
 
 The published spec sheet will carry a grade and a referent on every number.
@@ -85,16 +85,8 @@ whether the soft core should run Tock rather than bare metal is an open question
 
 ## Trusted base
 
-Everything here is assumed, not shown. Shrinking this list is the long-term work.
-
-- ECP5 and RP2040/RP2350 silicon, including their hard blocks and MPUs.
-- Yosys, nextpnr-ecp5, Project Trellis.
-- rustc and LLVM.
-- The VexRiscv soft core.
-- Tock's kernel isolation on the Pico.
-- Every AliExpress module, until its incoming-QA record exists.
-- The DPS5005 and OpenDPS, until measured on the bench: the 6–55 V input range and the rule
-  that the input be at least 1.1 × the output (Joy-IT manual and datasheet), and that OpenDPS
-  regulates to its current limit (OpenDPS README). `lab/limits.toml` rests on these.
-- The measuring references themselves (LM4040, crystal) — from authorized distributors, and
-  cross-checked against each other.
+Everything assumed, not shown, is an entry in [`trusted-base.toml`](../trusted-base.toml). A claim
+or a lab fact that rests on one names its id as its `trusted` referent (`trusted = "dps5005"`),
+and one that names no entry is refused: by `crates/records`
+(`a_trusted_referent_names_an_entry_in_the_trusted_base`) and by the warehouse's foreign keys
+(`the_database_refuses_what_the_records_refuse`). Shrinking the list is the long-term work.

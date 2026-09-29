@@ -13,7 +13,7 @@
 #   rule = "..."     held to a rule in crates/lab, which names the values and facts it uses
 # and may add `rests_on`: the facts at the end of this file that the value relies on to do its
 # job. A fact's grade comes from its referent: a `record` of a bench measurement makes it
-# `measured`, an entry in docs/verification.md's trusted base (`trusted`) makes it `trusted`, and
+# `measured`, the id of an entry in trusted-base.toml (`trusted`) makes it `trusted`, and
 # neither leaves it `unknown`. The warehouse gives each value the weakest grade among the facts it
 # rests on, through every value it comes from (gold.limit_grades).
 #
@@ -86,12 +86,12 @@ says = "The DPS5005 needs an input within its range, and at least `ratio` times 
 min_volts = 6.0
 max_volts = 55.0
 ratio = 1.1
-trusted = "The DPS5005 and OpenDPS"
+trusted = "dps5005"
 
 [fact.opendps_current_limit]
 # OpenDPS README, read 2026-09-28.
 says = "OpenDPS regulates its output current to the limit set"
-trusted = "The DPS5005 and OpenDPS"
+trusted = "dps5005"
 
 [fact.bench_setting_error]
 says = "The bench supply's output is within `volts` of its setting"

@@ -21,7 +21,7 @@ made without saying how it is known, and pointing at the thing that shows it:
 | `checked` | a bounded check passed (SBY `bmc`, Kani) — true only up to the stated bound | harness + bound |
 | `tested` | tests passed in simulation or on the host | test name |
 | `measured` | observed on the bench | measurement record id |
-| `trusted` | assumed, and listed in `docs/verification.md`'s trusted base | the list entry |
+| `trusted` | assumed, and an entry in the trusted base, `trusted-base.toml` | the entry's id |
 | `unknown` | not established | — |
 
 An explanation with no referent is written as `unknown`, not as "probably because X".

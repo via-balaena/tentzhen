@@ -24,6 +24,7 @@ flowchart LR
     silver_firmware["silver.firmware"]
     silver_pin["silver.pin"]
     silver_step["silver.step"]
+    silver_trusted_entry["silver.trusted_entry"]
     silver_claim["silver.claim"]
     silver_referent["silver.referent"]
     silver_claim_value["silver.claim_value"]
@@ -275,6 +276,21 @@ Constraints:
 
 Read by: `gold.page_step`.
 
+### `silver.trusted_entry` (table)
+
+The trusted base, from trusted-base.toml: what is assumed, not shown. A trusted referent names an entry by its id.
+
+| column | type | null | about |
+|---|---|---|---|
+| `entry` | VARCHAR | no | Its id. |
+| `entry_no` | INTEGER | no | Its place in the file, from 1. |
+| `assumes` | VARCHAR | no |  |
+| `record` | VARCHAR | no | The file in bronze.record this row came from. |
+
+Constraints:
+
+- `PRIMARY KEY(entry)`
+
 ### `silver.claim` (table)
 
 What a part or a build version claims. Its grades come from its referents, never typed.
@@ -307,13 +323,17 @@ What shows a claim: a proof, a bounded check or a test in simulation; a bench me
 |---|---|---|---|
 | `claim` | VARCHAR | no |  |
 | `kind` | VARCHAR | no |  |
-| `evidence` | VARCHAR | no |  |
+| `evidence` | VARCHAR | yes | The proof, check, test or measurement record, as the claim names it. Nothing checks that it exists. |
+| `trusted` | VARCHAR | yes | For a trusted referent, the entry in the trusted base that assumes the claim. |
 
 Constraints:
 
 - `FOREIGN KEY (claim) REFERENCES silver.claim(claim)`
 - `CHECK((kind IN ('proof', 'check', 'test', 'record', 'trusted')))`
+- `FOREIGN KEY ("trusted") REFERENCES silver.trusted_entry(entry)`
 - `PRIMARY KEY(claim, kind)`
+- `CHECK(((kind = 'trusted') = ("trusted" IS NOT NULL)))`
+- `CHECK(((evidence IS NULL) = ("trusted" IS NOT NULL)))`
 
 Read by: `gold.claim_grades`.
 
@@ -340,13 +360,14 @@ The facts the limits rest on, each with its referents.
 |---|---|---|---|
 | `fact` | VARCHAR | no |  |
 | `says` | VARCHAR | no |  |
-| `trusted` | VARCHAR | yes | An entry in docs/verification.md's trusted base. |
+| `trusted` | VARCHAR | yes | The entry in the trusted base that assumes it. |
 | `measurement` | VARCHAR | yes | A bench measurement record. |
 | `record` | VARCHAR | no | The file in bronze.record this row came from. |
 
 Constraints:
 
 - `PRIMARY KEY(fact)`
+- `FOREIGN KEY ("trusted") REFERENCES silver.trusted_entry(entry)`
 
 Read by: `gold.lab_fact_grades`.
 

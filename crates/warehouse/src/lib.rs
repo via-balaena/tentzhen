@@ -21,6 +21,13 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
             params![s.path, s.text],
         )?;
     }
+    // The trusted base first: claims and lab facts point at its entries.
+    for (i, e) in (1u32..).zip(&cat.trusted_base) {
+        tx.execute(
+            "INSERT INTO silver.trusted_entry VALUES (?, ?, ?, ?)",
+            params![e.id, i, e.assumes, e.record],
+        )?;
+    }
     for p in cat.parts.values() {
         tx.execute(
             "INSERT INTO silver.part VALUES (?, ?, ?, ?, ?, ?)",
@@ -109,12 +116,17 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
     tx.commit()
 }
 
-/// A claim's referents and values, under its citation.
+/// A claim's referents and values, under its citation. A trusted referent is a key into the
+/// trusted base; the others are kept as named.
 fn load_referents(tx: &duckdb::Transaction, claim: &str, c: &Claim) -> duckdb::Result<()> {
-    for (kind, evidence) in c.referents() {
+    for (kind, named) in c.referents() {
+        let (evidence, trusted) = match kind {
+            "trusted" => (None, Some(named)),
+            _ => (Some(named), None),
+        };
         tx.execute(
-            "INSERT INTO silver.referent VALUES (?, ?, ?)",
-            params![claim, kind, evidence],
+            "INSERT INTO silver.referent VALUES (?, ?, ?, ?)",
+            params![claim, kind, evidence, trusted],
         )?;
     }
     for (name, amount) in &c.values {
@@ -178,13 +190,21 @@ mod tests {
     use std::collections::BTreeMap;
     use std::fs;
     use std::path::Path;
-    use tentzhen_records::Source;
+    use tentzhen_records::{Source, TRUSTED_BASE};
 
     fn src(path: &str, text: &str) -> Source {
         Source {
             path: path.into(),
             text: text.into(),
         }
+    }
+
+    /// A trusted base with one entry, `entry`.
+    fn base() -> Source {
+        src(
+            "trusted-base.toml",
+            "[[entry]]\nid = \"entry\"\nassumes = \"x\"\n",
+        )
     }
 
     const PART: &str = "part = \"RP2350\"\nkind = \"chip\"\nis = \"microcontroller\"\n";
@@ -236,7 +256,8 @@ mod tests {
             "SELECT count(*) FROM (SELECT record FROM silver.part \
              UNION ALL SELECT record FROM silver.build_version \
              UNION ALL SELECT record FROM silver.lab_limit \
-             UNION ALL SELECT record FROM silver.lab_fact) s \
+             UNION ALL SELECT record FROM silver.lab_fact \
+             UNION ALL SELECT record FROM silver.trusted_entry) s \
              LEFT JOIN bronze.record r ON r.path = s.record WHERE r.path IS NULL",
         );
         assert_eq!(orphans, 0);
@@ -245,6 +266,22 @@ mod tests {
             "SELECT count(*) FROM bronze.record_hash WHERE regexp_full_match(sha256, '[0-9a-f]{64}')",
         );
         assert_eq!(hashed, one(&conn, "SELECT count(*) FROM bronze.record"));
+    }
+
+    /// Lineage names the file the trusted base was read from, wherever it was.
+    #[test]
+    fn a_trusted_entry_traces_to_the_file_it_came_from() {
+        let base = src(
+            "elsewhere/trusted.toml",
+            "[[entry]]\nid = \"a\"\nassumes = \"x\"\n",
+        );
+        let conn = warehouse(&Catalogue::from_sources(&base, &[], &[]).unwrap());
+        let traced = one(
+            &conn,
+            "SELECT count(*) FROM silver.trusted_entry t JOIN bronze.record r ON r.path = t.record \
+             WHERE t.record = 'elsewhere/trusted.toml'",
+        );
+        assert_eq!(traced, 1);
     }
 
     /// Schema first: a file in the records' folders is loaded, or CI fails; a record is parsed by its
@@ -263,7 +300,7 @@ mod tests {
             }
         }
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let mut files = vec!["DISCLAIMER.md".to_string()];
+        let mut files = vec!["DISCLAIMER.md".to_string(), TRUSTED_BASE.to_string()];
         for dir in ["parts", "builds", "lab"] {
             walk(&root.join(dir), &root, &mut files);
         }
@@ -434,6 +471,7 @@ mod tests {
             "[[uses]]\nbuild = \"probe\"\nversion = 1\nqty = 2\n",
         );
         let cat = Catalogue::from_sources(
+            &base(),
             &[src("parts/rp2350.toml", PART)],
             &[build("probe", PROBE), bench],
         )
@@ -491,7 +529,8 @@ mod tests {
                       [[claim]]\nid = \"d\"\nsays = \"x\"\ntrusted = \"entry\"\n\n\
                       [[claim]]\nid = \"e\"\nsays = \"x\"\n\n\
                       [[claim]]\nid = \"f\"\nsays = \"x\"\ncheck = \"c\"\ntest = \"t\"\n";
-        let conn = warehouse(&Catalogue::from_sources(&[], &[build("probe", claims)]).unwrap());
+        let conn =
+            warehouse(&Catalogue::from_sources(&base(), &[], &[build("probe", claims)]).unwrap());
         let got = grades(&conn);
         assert_eq!(got["a"], g("tested", Some("t"), "measured", Some("lab-1")));
         assert_eq!(
@@ -535,8 +574,12 @@ mod tests {
             "{PART}[[claim]]\nid = \"io-supply\"\nsays = \"x\"\ntrusted = \"entry\"\nvalues = {{ max_volts = 3.63 }}\n"
         );
         let conn = warehouse(
-            &Catalogue::from_sources(&[src("parts/rp2350.toml", &part)], &[build("probe", PROBE)])
-                .unwrap(),
+            &Catalogue::from_sources(
+                &base(),
+                &[src("parts/rp2350.toml", &part)],
+                &[build("probe", PROBE)],
+            )
+            .unwrap(),
         );
         let (claim, sim, bench): (String, String, String) = conn
             .query_row(
@@ -581,8 +624,12 @@ mod tests {
     #[test]
     fn the_database_refuses_what_the_records_refuse() {
         let conn = warehouse(
-            &Catalogue::from_sources(&[src("parts/rp2350.toml", PART)], &[build("probe", PROBE)])
-                .unwrap(),
+            &Catalogue::from_sources(
+                &base(),
+                &[src("parts/rp2350.toml", PART)],
+                &[build("probe", PROBE)],
+            )
+            .unwrap(),
         );
         let both = "INSERT INTO silver.line VALUES ('probe', 1, 9, 'RP2350', 'wire', NULL, 1)";
         refused(
@@ -614,11 +661,45 @@ mod tests {
             refused(conn.execute(&sql, []).map(|_| ()), why);
         }
         let graded = "INSERT INTO silver.claim VALUES ('k5', 'RP2350', NULL, NULL, 1, 'a', 'x'); \
-                      INSERT INTO silver.referent VALUES ('k5', 'tested', 't')";
+                      INSERT INTO silver.referent VALUES ('k5', 'tested', 't', NULL)";
         refused(
             conn.execute_batch(graded),
             "a referent is a kind of evidence, not a grade",
         );
+        for (values, why) in [
+            (
+                "'trusted', NULL, 'nope'",
+                "a trusted referent names an entry in the trusted base",
+            ),
+            ("'trusted', 'entry', NULL", "a trusted referent is a key"),
+            (
+                "'trusted', 'entry', 'entry'",
+                "a trusted referent is a key, not a name too",
+            ),
+            (
+                "'test', NULL, 'entry'",
+                "only a trusted referent names an entry",
+            ),
+            ("'test', NULL, NULL", "a referent names something"),
+        ] {
+            let sql = format!("INSERT INTO silver.referent VALUES ('k5', {values})");
+            refused(conn.execute(&sql, []).map(|_| ()), why);
+        }
+        refused(
+            conn.execute(
+                "INSERT INTO silver.lab_fact VALUES ('f', 'x', 'nope', NULL, 'r')",
+                [],
+            )
+            .map(|_| ()),
+            "a trusted lab fact names an entry in the trusted base",
+        );
+        // Each was refused for what it names: the same rows, naming the entry, are accepted.
+        conn.execute_batch(
+            "INSERT INTO silver.referent VALUES ('k5', 'trusted', NULL, 'entry'); \
+             INSERT INTO silver.referent VALUES ('k5', 'test', 't', NULL); \
+             INSERT INTO silver.lab_fact VALUES ('f', 'x', 'entry', NULL, 'r')",
+        )
+        .unwrap();
         let both =
             "INSERT INTO silver.lab_limit VALUES ('x', 1.0, 'V', 'y', 'policy', 'p', NULL, 'r')";
         refused(

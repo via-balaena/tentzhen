@@ -1,6 +1,7 @@
 //! The catalogue's records: parts and versioned builds, parsed from `parts/` and `builds/` and
 //! checked against the contract every consumer relies on (the site, the warehouse). Both can carry
-//! claims, in one shape: [`Claim`].
+//! claims, in one shape: [`Claim`]. A claim assumed rather than shown names an entry in the trusted
+//! base, `trusted-base.toml`: [`Trusted`].
 
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -136,7 +137,7 @@ pub struct Claim {
     pub test: Option<String>,
     /// A bench measurement record that shows it.
     pub record: Option<String>,
-    /// The entry in docs/verification.md's trusted base that assumes it.
+    /// The id of the entry in the trusted base that assumes it: [`Trusted`].
     pub trusted: Option<String>,
     /// Numbers the claim states. Each key ends in its unit: [`VALUE_UNITS`].
     #[serde(default)]
@@ -163,15 +164,39 @@ impl Claim {
     }
 }
 
+/// Where the trusted base lives, relative to the repo root.
+pub const TRUSTED_BASE: &str = "trusted-base.toml";
+
+/// An entry in the trusted base: something assumed, not shown. A claim or a lab fact that rests on
+/// it names its `id` as its `trusted` referent, and a `trusted` that names no entry is refused.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Trusted {
+    pub id: String,
+    pub assumes: String,
+    /// The file this came from, relative to the repo root. Set on load, never written in a record.
+    #[serde(skip)]
+    pub record: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TrustedBase {
+    #[serde(default)]
+    entry: Vec<Trusted>,
+}
+
+/// An id or a claim's id: lowercase letters, digits and hyphens, and not empty.
+fn plain(t: &str) -> bool {
+    !t.is_empty()
+        && t.chars()
+            .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-')
+}
+
 /// Holds a record's claims to their shape: ids that are unique and plain, nothing empty, and
 /// values that are finite and name their unit.
 fn check_claims(at: &str, claims: &[Claim]) -> Result<(), String> {
     for (i, c) in claims.iter().enumerate() {
-        let plain = |t: &str| {
-            !t.is_empty()
-                && t.chars()
-                    .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-')
-        };
         if !plain(&c.id) {
             return Err(format!(
                 "{at}: claim id {:?} must be lowercase letters, digits and hyphens",
@@ -237,15 +262,19 @@ pub struct Catalogue {
     pub parts: BTreeMap<String, Part>,
     /// Each build's versions, oldest first; `versions[i].version == i + 1`.
     pub builds: BTreeMap<String, Vec<Build>>,
-    /// Every file exactly as read, records then drawings then site documents then the lab's
-    /// limits: the warehouse's bronze layer.
+    /// The trusted base's entries, in the file's order.
+    pub trusted_base: Vec<Trusted>,
+    /// Every file exactly as read, the trusted base then records then drawings then site documents
+    /// then the lab's limits: the warehouse's bronze layer.
     pub sources: Vec<Source>,
-    /// The lab's limits, checked. Set by [`Catalogue::load`]; `from_sources` leaves it empty.
+    /// The lab's limits, checked. Set by [`Catalogue::with_limits`], which [`Catalogue::load`]
+    /// calls; `from_sources` leaves it empty.
     pub limits: Option<tentzhen_lab::Limits>,
 }
 
 impl Catalogue {
     pub fn load(root: &Path) -> Result<Self, String> {
+        let base = read_source(root, &root.join(TRUSTED_BASE))?;
         let mut parts = Vec::new();
         for entry in read_dir_sorted(&root.join("parts"))? {
             if entry.extension().is_some_and(|e| e == "toml") {
@@ -263,7 +292,7 @@ impl Catalogue {
                 }
             }
         }
-        let mut cat = Self::from_sources(&parts, &builds)?;
+        let mut cat = Self::from_sources(&base, &parts, &builds)?;
         let mut drawings = Vec::new();
         for (name, versions) in &cat.builds {
             for b in versions {
@@ -293,11 +322,42 @@ impl Catalogue {
             path: tentzhen_lab::LIMITS.into(),
             text,
         });
-        cat.limits = Some(limits);
-        Ok(cat)
+        cat.with_limits(limits)
     }
 
-    pub fn from_sources(part_sources: &[Source], build_sources: &[Source]) -> Result<Self, String> {
+    /// Adds the lab's limits, refusing a fact trusted to no entry in the trusted base.
+    pub fn with_limits(mut self, limits: tentzhen_lab::Limits) -> Result<Self, String> {
+        self.limits = Some(limits);
+        self.check_trusted()?;
+        Ok(self)
+    }
+
+    pub fn from_sources(
+        base: &Source,
+        part_sources: &[Source],
+        build_sources: &[Source],
+    ) -> Result<Self, String> {
+        let TrustedBase {
+            entry: mut trusted_base,
+        } = toml::from_str(&base.text).map_err(|e| format!("{}: {e}", base.path))?;
+        for e in &mut trusted_base {
+            e.record = base.path.clone();
+        }
+        for (i, e) in trusted_base.iter().enumerate() {
+            if !plain(&e.id) {
+                return Err(format!(
+                    "{}: id {:?} must be lowercase letters, digits and hyphens",
+                    base.path, e.id
+                ));
+            }
+            if trusted_base[..i].iter().any(|d| d.id == e.id) {
+                return Err(format!("{}: id {} is used twice", base.path, e.id));
+            }
+            if e.assumes.is_empty() {
+                return Err(format!("{}: {} assumes nothing", base.path, e.id));
+            }
+        }
+
         let mut parts = BTreeMap::new();
         for s in part_sources {
             let mut p: Part = toml::from_str(&s.text).map_err(|e| format!("{}: {e}", s.path))?;
@@ -345,7 +405,12 @@ impl Catalogue {
         let cat = Catalogue {
             parts,
             builds,
-            sources: part_sources.iter().chain(build_sources).cloned().collect(),
+            trusted_base,
+            sources: std::iter::once(base)
+                .chain(part_sources)
+                .chain(build_sources)
+                .cloned()
+                .collect(),
             limits: None,
         };
         for versions in cat.builds.values() {
@@ -354,7 +419,44 @@ impl Catalogue {
             }
         }
         cat.check_no_cycles()?;
+        cat.check_trusted()?;
         Ok(cat)
+    }
+
+    /// The trusted base's entry with this id.
+    pub fn trusted(&self, id: &str) -> Option<&Trusted> {
+        self.trusted_base.iter().find(|e| e.id == id)
+    }
+
+    /// Every `trusted` referent, on a claim or a lab fact, names an entry in the trusted base.
+    fn check_trusted<'a>(&'a self) -> Result<(), String> {
+        let unknown = |t: Option<&'a str>| t.filter(|t| self.trusted(t).is_none());
+        let claims = self.parts.values().map(|p| (&p.record, &p.claim)).chain(
+            self.builds
+                .values()
+                .flatten()
+                .map(|b| (&b.record, &b.claim)),
+        );
+        for (at, claims) in claims {
+            for c in claims {
+                if let Some(t) = unknown(c.trusted.as_deref()) {
+                    return Err(format!(
+                        "{at}: claim {} is trusted to {t:?}, which is no entry in {TRUSTED_BASE}",
+                        c.id
+                    ));
+                }
+            }
+        }
+        for f in self.limits.iter().flat_map(|l| l.facts()) {
+            if let Some(t) = unknown(f.trusted) {
+                return Err(format!(
+                    "{}: [fact.{}] is trusted to {t:?}, which is no entry in {TRUSTED_BASE}",
+                    tentzhen_lab::LIMITS,
+                    f.id.as_str()
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn check_build(&self, b: &Build) -> Result<(), String> {
@@ -475,6 +577,14 @@ mod tests {
         }
     }
 
+    /// A trusted base with one entry, `entry`.
+    fn base() -> Source {
+        src(
+            "trusted-base.toml",
+            "[[entry]]\nid = \"entry\"\nassumes = \"x\"\n",
+        )
+    }
+
     const PART: &str = "part = \"RP2350\"\nkind = \"chip\"\nis = \"microcontroller\"\n";
 
     fn build(name: &str, v: u32, extra: &str) -> Source {
@@ -509,7 +619,7 @@ mod tests {
     #[test]
     fn no_record_can_type_a_grade() {
         let typed = "[[claim]]\nid = \"a\"\nsays = \"x\"\ngrade = \"proven\"\n";
-        let err = Catalogue::from_sources(&[], &[build("probe", 1, typed)])
+        let err = Catalogue::from_sources(&base(), &[], &[build("probe", 1, typed)])
             .err()
             .unwrap_or_default();
         assert!(err.contains("unknown field `grade`"), "{err}");
@@ -517,16 +627,96 @@ mod tests {
 
     #[test]
     fn a_part_can_carry_claims() {
-        let part = format!("{PART}[[claim]]\nid = \"io\"\nsays = \"x\"\ntrusted = \"t\"\n");
-        let cat = Catalogue::from_sources(&[src("parts/rp2350.toml", &part)], &[]).unwrap();
+        let part = format!("{PART}[[claim]]\nid = \"io\"\nsays = \"x\"\ntrusted = \"entry\"\n");
+        let cat =
+            Catalogue::from_sources(&base(), &[src("parts/rp2350.toml", &part)], &[]).unwrap();
         let c = &cat.parts["RP2350"].claim[0];
-        assert_eq!(c.referents().collect::<Vec<_>>(), [("trusted", "t")]);
+        assert_eq!(c.referents().collect::<Vec<_>>(), [("trusted", "entry")]);
+    }
+
+    #[test]
+    fn a_trusted_referent_names_an_entry_in_the_trusted_base() {
+        let claim = "[[claim]]\nid = \"a\"\nsays = \"x\"\ntrusted = \"nope\"\n";
+        let err = Catalogue::from_sources(&base(), &[], &[build("probe", 1, claim)])
+            .err()
+            .unwrap_or_default();
+        assert!(
+            err.contains("builds/probe/v1.toml: claim a is trusted to \"nope\", which is no entry"),
+            "{err}"
+        );
+        let part = format!("{PART}{claim}");
+        let err = Catalogue::from_sources(&base(), &[src("parts/rp2350.toml", &part)], &[])
+            .err()
+            .unwrap_or_default();
+        assert!(
+            err.contains("parts/rp2350.toml: claim a is trusted to \"nope\""),
+            "{err}"
+        );
+        // A lab fact: the repo's limits, with the first fact's entry renamed.
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let text = fs::read_to_string(root.join(tentzhen_lab::LIMITS)).unwrap();
+        let from = "trusted = \"dps5005\"";
+        assert!(text.contains(from), "{from:?} is not in the limits");
+        let limits = tentzhen_lab::Limits::parse(&text.replacen(from, "trusted = \"nope\"", 1));
+        let err = Catalogue::load(&root)
+            .unwrap()
+            .with_limits(limits.unwrap())
+            .err()
+            .unwrap_or_default();
+        assert!(
+            err.contains("lab/limits.toml: [fact.dps_input] is trusted to \"nope\""),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn the_trusted_base_keeps_its_shape() {
+        let refused = |text: &str, because: &str| {
+            let err = Catalogue::from_sources(&src(TRUSTED_BASE, text), &[], &[])
+                .err()
+                .unwrap_or_default();
+            assert!(err.contains(because), "{because}: {err}");
+        };
+        let entry = |id: &str, assumes: &str| {
+            format!("[[entry]]\nid = \"{id}\"\nassumes = \"{assumes}\"\n")
+        };
+        refused(&entry("Silicon", "x"), "lowercase letters");
+        refused(&entry("", "x"), "lowercase letters");
+        refused(
+            &format!("{}{}", entry("a", "x"), entry("a", "y")),
+            "id a is used twice",
+        );
+        refused(&entry("a", ""), "a assumes nothing");
+        refused("[[entry]]\nid = \"a\"\n", "missing field `assumes`");
+        let two = format!("{}{}", entry("b", "y"), entry("a", "x"));
+        let cat = Catalogue::from_sources(&src(TRUSTED_BASE, &two), &[], &[]).unwrap();
+        let ids: Vec<&str> = cat.trusted_base.iter().map(|e| e.id.as_str()).collect();
+        assert_eq!(ids, ["b", "a"], "entries keep the file's order");
+    }
+
+    /// The trusted base states the DPS5005's numbers in words; lab/limits.toml must carry the same
+    /// ones.
+    #[test]
+    fn the_dps_input_numbers_are_the_trusted_base_s() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let cat = Catalogue::load(&root).unwrap();
+        let f = &cat.limits.as_ref().unwrap().fact.dps_input;
+        let entry = &cat.trusted(f.trusted.as_deref().unwrap()).unwrap().assumes;
+        for said in [
+            format!("{}–{} V", f.min_volts.get(), f.max_volts.get()),
+            format!("{} ×", f.ratio.get()),
+        ] {
+            assert!(
+                entry.contains(&said),
+                "the trusted base does not say {said:?}"
+            );
+        }
     }
 
     #[test]
     fn a_claim_keeps_its_shape() {
         let refused = |claims: &str, because: &str| {
-            let err = Catalogue::from_sources(&[], &[build("probe", 1, claims)])
+            let err = Catalogue::from_sources(&base(), &[], &[build("probe", 1, claims)])
                 .err()
                 .unwrap_or_default();
             assert!(err.contains(because), "{because}: {err}");
@@ -568,7 +758,7 @@ mod tests {
             );
         }
         let part = format!("{PART}{}", claim("id = \"A\"\nsays = \"x\""));
-        let err = Catalogue::from_sources(&[src("parts/rp2350.toml", &part)], &[])
+        let err = Catalogue::from_sources(&base(), &[src("parts/rp2350.toml", &part)], &[])
             .err()
             .unwrap_or_default();
         assert!(
@@ -578,13 +768,13 @@ mod tests {
         let ok = claim(
             "id = \"input-range\"\nsays = \"x\"\nvalues = { min_volts = 6, input_ratio = 1.1 }",
         );
-        assert!(Catalogue::from_sources(&[], &[build("probe", 1, &ok)]).is_ok());
+        assert!(Catalogue::from_sources(&base(), &[], &[build("probe", 1, &ok)]).is_ok());
     }
 
     #[test]
     fn every_table_refuses_a_key_it_does_not_know() {
         let refused = |parts: &[Source], builds: &[Source]| {
-            let err = Catalogue::from_sources(parts, builds)
+            let err = Catalogue::from_sources(&base(), parts, builds)
                 .err()
                 .unwrap_or_default();
             assert!(err.contains("unknown field `extra`"), "{err}");
@@ -593,6 +783,15 @@ mod tests {
             &[src("parts/rp2350.toml", &format!("extra = 1\n{PART}"))],
             &[],
         );
+        for base in [
+            "extra = 1\n",
+            "[[entry]]\nextra = 1\nid = \"a\"\nassumes = \"x\"\n",
+        ] {
+            let err = Catalogue::from_sources(&src(TRUSTED_BASE, base), &[], &[])
+                .err()
+                .unwrap_or_default();
+            assert!(err.contains("unknown field `extra`"), "{err}");
+        }
         let part_claim = format!("{PART}[[claim]]\nextra = 1\nid = \"a\"\nsays = \"s\"\n");
         refused(&[src("parts/rp2350.toml", &part_claim)], &[]);
         let firmware = "name = \"f\"\nlicense = \"MIT\"\nsource = \"s\"\nrelease = \"r\"\nfile = \"f\"\nsha256 = \"0\"\n";
@@ -613,7 +812,7 @@ mod tests {
     #[test]
     fn an_unrecorded_part_is_refused() {
         let b = build("probe", 1, "[[line]]\npart = \"RP9999\"\nqty = 1\n");
-        let err = Catalogue::from_sources(&[src("parts/rp2350.toml", PART)], &[b])
+        let err = Catalogue::from_sources(&base(), &[src("parts/rp2350.toml", PART)], &[b])
             .err()
             .unwrap();
         assert!(err.contains("RP9999"), "{err}");
@@ -623,14 +822,18 @@ mod tests {
     fn a_file_must_sit_at_its_version() {
         let mut b = build("probe", 1, "");
         b.path = "builds/probe/v2.toml".into();
-        assert!(Catalogue::from_sources(&[], &[b]).is_err());
+        assert!(Catalogue::from_sources(&base(), &[], &[b]).is_err());
     }
 
     #[test]
     fn versions_have_no_gaps() {
-        let err = Catalogue::from_sources(&[], &[build("probe", 1, ""), build("probe", 3, "")])
-            .err()
-            .unwrap();
+        let err = Catalogue::from_sources(
+            &base(),
+            &[],
+            &[build("probe", 1, ""), build("probe", 3, "")],
+        )
+        .err()
+        .unwrap();
         assert!(err.contains("v2 is missing"), "{err}");
     }
 
@@ -638,20 +841,22 @@ mod tests {
     fn a_uses_loop_is_refused() {
         let a = build("a", 1, "[[uses]]\nbuild = \"b\"\nversion = 1\n");
         let b = build("b", 1, "[[uses]]\nbuild = \"a\"\nversion = 1\n");
-        let err = Catalogue::from_sources(&[], &[a, b]).err().unwrap();
+        let err = Catalogue::from_sources(&base(), &[], &[a, b])
+            .err()
+            .unwrap();
         assert!(err.contains("uses loop"), "{err}");
     }
 
     #[test]
     fn uses_counts_one_unless_told() {
         let bench = build("bench", 1, "[[uses]]\nbuild = \"probe\"\nversion = 1\n");
-        let cat = Catalogue::from_sources(&[], &[build("probe", 1, ""), bench]).unwrap();
+        let cat = Catalogue::from_sources(&base(), &[], &[build("probe", 1, ""), bench]).unwrap();
         assert_eq!(cat.version("bench", 1).unwrap().uses[0].qty, 1);
     }
 
     #[test]
     fn using_a_missing_version_is_refused() {
         let bench = build("bench", 1, "[[uses]]\nbuild = \"probe\"\nversion = 2\n");
-        assert!(Catalogue::from_sources(&[], &[build("probe", 1, ""), bench]).is_err());
+        assert!(Catalogue::from_sources(&base(), &[], &[build("probe", 1, ""), bench]).is_err());
     }
 }

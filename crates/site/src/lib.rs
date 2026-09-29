@@ -462,6 +462,14 @@ mod tests {
         }
     }
 
+    /// A trusted base with one entry, `entry`.
+    fn base() -> Source {
+        src(
+            "trusted-base.toml",
+            "[[entry]]\nid = \"entry\"\nassumes = \"x\"\n",
+        )
+    }
+
     fn build(name: &str, v: u32, extra: &str) -> Source {
         let changes = if v > 1 {
             "changes = \"swapped the wire\"\n"
@@ -478,7 +486,7 @@ mod tests {
 
     /// The records, through the warehouse, as the site sees them.
     fn site(builds: &[Source]) -> Connection {
-        let cat = Catalogue::from_sources(&[], builds).unwrap();
+        let cat = Catalogue::from_sources(&base(), &[], builds).unwrap();
         let mut conn = Connection::open_in_memory().unwrap();
         tentzhen_warehouse::load(&mut conn, &cat).unwrap();
         conn
