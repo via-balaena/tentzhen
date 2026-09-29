@@ -628,19 +628,20 @@ def street():
 street()
 
 # ---------------- The network on the ground ----------------
-# Every tent is on copper: out of the door, a 45-degree jog, and across to your path, which runs
-# from your feet to the tallest tower's door. The buildings above talk by radio.
-# On the ground the copper is inlaid: flat strips and discs set flush in the concrete, each in a
+# Every tent is on copper, soldered in: its trace runs out from under the door, jogs 45 degrees and
+# tees into your path, which runs from your feet to the tallest tower's door. Radio, and antennas,
+# belong to the buildings above.
+# On the ground the copper is inlaid: flat strips set flush in the concrete, each in a
 # thin dark joint. Polished metal is lit by what it mirrors: far off, at a grazing angle, the lit
 # street; at your feet, the dark sky overhead.
 TENT_LIT = 5.6
 # Dome tents as they stand on Portland sidewalks: two-tone rainflies, some under a blue tarp.
-# (front z, width, height, antenna, body colour, fly colour, tarp). Colours are dimmed for night.
+# (front z, width, height, body colour, fly colour, tarp). Colours are dimmed for night.
 NAVY, GREEN, RED_FLY, GREY_FLY, TARP = '#1c2438', '#3d4d2b', '#662824', '#4c5157', '#27365e'
-TENTS = [(TENT_LIT, 2.3, 1.3, True, NAVY, NAVY, True), (10.4, 2.1, 1.15, False, GREEN, GREY_FLY, False),
-         (13.4, 2.3, 1.25, True, RED_FLY, GREY_FLY, False), (19.6, 1.9, 1.05, False, NAVY, GREY_FLY, False),
-         (22.2, 2.2, 1.2, True, NAVY, NAVY, True), (30.5, 2.0, 1.1, False, GREEN, GREY_FLY, False),
-         (38.0, 2.3, 1.25, True, RED_FLY, GREY_FLY, False)]
+TENTS = [(TENT_LIT, 2.3, 1.3, NAVY, NAVY, True), (10.4, 2.1, 1.15, GREEN, GREY_FLY, False),
+         (13.4, 2.3, 1.25, RED_FLY, GREY_FLY, False), (19.6, 1.9, 1.05, NAVY, GREY_FLY, False),
+         (22.2, 2.2, 1.2, NAVY, NAVY, True), (30.5, 2.0, 1.1, GREEN, GREY_FLY, False),
+         (38.0, 2.3, 1.25, RED_FLY, GREY_FLY, False)]
 assert TENT_STRETCH[0] <= min(t[0] for t in TENTS) and max(t[0] for t in TENTS) + 2.2 <= TENT_STRETCH[1]
 MAIN = [(CAM_X, 2.4), (CAM_X, 640.0)]
 def ribbon(a, b, wd):
@@ -651,22 +652,20 @@ INLAY, INLAY_JOINT = 'url(#inlay)', '#0f1011'
 defs.append(f'<linearGradient id="inlay" gradientUnits="userSpaceOnUse" x1="0" y1="{VPY}" x2="0" y2="{H}">'
             f'<stop offset="0" stop-color="#f2c472"/><stop offset="0.25" stop-color="{COPPER}"/>'
             '<stop offset="1" stop-color="#8c5f2a"/></linearGradient>')
-def strip(points, wd, w):  # w keeps a far strip at least a hairline wide; corners are round
-    segs, corners = list(zip(points, points[1:])), points[1:-1]
-    for fill, k in ((INLAY_JOINT, wd + 0.012), (INLAY, wd)):
-        for a, b in segs:
-            poly(ribbon(a, b, k), fill=fill, stroke=fill if fill == INLAY else 'none', w=w)
-        for x, z in corners:
-            ground_pad(x, z, k, fill, drill=False)
-def inlaid_pad(x, z, r):
-    ground_pad(x, z, r + 0.012, INLAY_JOINT, drill=False)
-    ground_pad(x, z, r, INLAY)
-def trace(points, vias=()):
-    strip(points, 0.06, 0.6)
-    for x, z in vias:
-        inlaid_pad(x, z, 0.2)
+def strips(paths):
+    # (points, half-width, hairline) for each strip. Every joint is laid before any metal, so where
+    # copper meets copper it is one piece: a tent's trace tees into your path with no seam. Corners
+    # are round; the hairline keeps a far strip visible.
+    for fill, extra in ((INLAY_JOINT, 0.012), (INLAY, 0.0)):
+        for points, wd, w in paths:
+            for a, b in zip(points, points[1:]):
+                poly(ribbon(a, b, wd + extra), fill=fill, stroke=fill if fill == INLAY else 'none', w=w)
+            for x, z in points[1:-1]:
+                ground_pad(x, z, wd + extra, fill, drill=False)
 
-strip(MAIN, 0.075, 0.8)
+# every tent: soldered in under its door, a 45-degree jog, and a tee into your path
+strips([(MAIN, 0.075, 0.8)] + [([(-10.9 + wd / 2, z0 + 0.3), (-10.9 + wd / 2, z0), (-10.9 + wd / 2 + 0.6, z0 - 0.6),
+                                 (CAM_X, z0 - 0.6)], 0.06, 0.6) for z0, wd, *_ in TENTS])
 # The lanterns hanging over your path glint in it, one on each wire, receding toward the gate.
 defs.append('<radialGradient id="glint"><stop offset="0" stop-color="#ffe0a8" stop-opacity="0.95"/>'
             '<stop offset="0.45" stop-color="#ff8a3a" stop-opacity="0.55"/>'
@@ -678,9 +677,6 @@ for zl in WIRES:
     yl = wire_y(xl) - 0.46
     ellipse(P(xl, -yl, zl), F * 0.3 / zl, F * 0.3 / zl * 1.4, 'url(#glint)')
 out.append('</g>')
-for z0, wd, *_ in TENTS:  # every tent: out of the door, a 45-degree jog, across to your path
-    xm = -10.9 + wd / 2
-    trace([(xm, z0), (xm + 0.6, z0 - 0.6), (CAM_X, z0 - 0.6)], vias=[(CAM_X, z0 - 0.6)])
 pad(P(CAM_X, 0.0, 640.0), 3.6, COPPER)
 
 # ---------------- Tents along the left wall ----------------
@@ -777,7 +773,7 @@ def home(xm, zc, wd, ln, ht, lamp_at):
     poly([P(lx - 0.045, 0.46, lz), P(lx - 0.03, 0.49, lz), P(lx + 0.03, 0.49, lz), P(lx + 0.045, 0.46, lz)], fill='#2a2c30')
 defs.append(f'<radialGradient id="screenbloom"><stop offset="0" stop-color="{COOL}" stop-opacity="0.5"/>'
             f'<stop offset="1" stop-color="{COOL}" stop-opacity="0"/></radialGradient>')
-def tent(z0, wd, ht, antenna, body, fly, tarp):
+def tent(z0, wd, ht, body, fly, tarp):
     # a half-ellipsoid dome: base ellipse wd x ln, height ht; its front touches z0
     xm, ln = -10.9 + wd / 2, 2.2
     zc = z0 + ln / 2
@@ -869,10 +865,6 @@ def tent(z0, wd, ht, antenna, body, fly, tarp):
     roll = [P(*on_front(xm - dw - 0.1, hd * t)) for t in (0.02, 0.5, 0.92)]
     pline(roll, mix(body, '#000000', 0.3), max(1.4, w * 2.2))
     pline(roll, FABRIC_LIT[body], max(0.6, w * 0.8), extra='opacity="0.5"')
-    if antenna:
-        a, b = P(xm + 0.2, ht * 0.95, zc), P(xm + 0.2, ht * 1.85, zc)
-        line(a, b, COPPER, w); pad(b, F * 0.12 / z0, COPPER)
-    inlaid_pad(xm, z0, 0.2)
 for spec in reversed(TENTS):
     tent(*spec)
 

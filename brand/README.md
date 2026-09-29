@@ -45,27 +45,28 @@ on Portland sidewalks (two-tone rainflies, some under blue tarps), each lit from
 glows in its own colour, with no outlines; the streetlights catch their upper right and each sits in
 its own contact shadow. The nearest, its door rolled wide open, is kept as a home: a rug, a made bed
 with a pillow and a blanket, books, a crate for a desk with a laptop open and a lantern, fairy
-lights along the back wall. The tents are on copper: each door's trace jogs 45° and joins a path
-that starts at your feet and runs down the street, under a gate, to the door of the tallest tower.
-That copper is inlaid flush in the concrete, in thin dark joints, and lit by what it mirrors: dim at
-your feet, bright far off, with a glint of the lantern above it on every wire. The buildings talk by
-radio: an antenna on every roof, faint links along the street, across it and up through the towers.
-Red paper lanterns hang across the street on wires, lit from inside, the ones behind the headline
-unlit. The road is wet asphalt: lights, windows, lanterns and signs reflect in it as streaks,
-stretched toward you, blurred more up and down than across and broken by ripples. The sidewalks are
-opaque grey concrete, cut into slabs, and reflect nothing. One set of lights shades everything
-except the network in the sky: the LED streetlights across the road, the lanterns and signs, each
-tent's lamp and the windows. Surfaces are solid and dimmed toward grey as night dims colour, the sky
-glows toward the horizon, and nearer things cover farther ones. Beyond the gate is a skyline like
-Shenzhen's or Chongqing's: glass towers in layers, paler in the haze, each a solid with the side it
-turns toward you, offices lit in runs along its floors and cut into panes by fins, LED on a few
-crowns. The tallest, where your path ends, tapers to a stepped crown and spire; there is a ribbed
-tower with a rounded top, one with a cupped crown, and twin towers joined high up by a lit
-skybridge. Its colours come from a Chinatown street at night: red lanterns, red sign boards with
-pale-gold characters as on Yaowarat Road, a red lacquer gate, magenta neon on the repair shop, a
-blue parking sign, teal in the window glass, cool white shop light and modern LED streetlights; the
-poles, shutters and building trim stay grey. Copper and yellow belong to the network alone: inlaid
-in the ground, and drawn flat over the sky as antennas, rooftop pads and radio.
+lights along the back wall. The tents are on copper, soldered in with no pad: each trace runs out
+from under the door, jogs 45° and tees into a path that starts at your feet and runs down the
+street, under a gate, to the door of the tallest tower. That copper is inlaid flush in the concrete,
+in thin dark joints, and lit by what it mirrors: dim at your feet, bright far off, with a glint of
+the lantern above it on every wire. The buildings talk by radio: an antenna on every roof, faint
+links along the street, across it and up through the towers. Red paper lanterns hang across the
+street on wires, lit from inside, the ones behind the headline unlit. The road is wet asphalt:
+lights, windows, lanterns and signs reflect in it as streaks, stretched toward you, blurred more up
+and down than across and broken by ripples. The sidewalks are opaque grey concrete, cut into slabs,
+and reflect nothing. One set of lights shades everything except the network in the sky: the LED
+streetlights across the road, the lanterns and signs, each tent's lamp and the windows. Surfaces are
+solid and dimmed toward grey as night dims colour, the sky glows toward the horizon, and nearer
+things cover farther ones. Beyond the gate is a skyline like Shenzhen's or Chongqing's: glass towers
+in layers, paler in the haze, each a solid with the side it turns toward you, offices lit in runs
+along its floors and cut into panes by fins, LED on a few crowns. The tallest, where your path ends,
+tapers to a stepped crown and spire; there is a ribbed tower with a rounded top, one with a cupped
+crown, and twin towers joined high up by a lit skybridge. Its colours come from a Chinatown street
+at night: red lanterns, red sign boards with pale-gold characters as on Yaowarat Road, a red lacquer
+gate, magenta neon on the repair shop, a blue parking sign, teal in the window glass, cool white
+shop light and modern LED streetlights; the poles, shutters and building trim stay grey. Copper and
+yellow belong to the network alone: inlaid in the ground, and drawn flat over the sky as antennas,
+rooftop pads and radio.
 
 - **Perspective breaks the 0°/45°/90° rule**, because it has to. Traces on the ground keep it in
   plan: the tent's trace runs 45° then 0° into a path at 90°.
