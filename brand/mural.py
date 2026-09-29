@@ -30,8 +30,9 @@ METAL, METAL_FAR, ALUMINIUM = '#7a8088', '#555b63', '#8a9098'         # towers, 
 # One night, one set of lights, for everything but the network: LED streetlights along the far kerb
 # (cool, from above and across the street), the lanterns and signs overhead (warm red), each tent's
 # lamp (amber, from inside), and the windows. Every surface is a solid, shaded by those lights and
-# dimmed toward grey the way night dims colour; only a light source is bright. The network is the
-# exception on purpose: flat copper laid over the scene.
+# dimmed toward grey the way night dims colour; only a light source is bright. The network on the
+# ground is copper inlaid in the concrete and lit like the rest; in the sky it is the exception on
+# purpose: flat copper antennas, pads and radio drawn over the scene.
 LEFT_W, CURB_L, CURB_R, RIGHT_W = -11.0, -6.5, 5.5, 10.0  # a 4.5 m sidewalk under you, the road, a 4.5 m one
 
 def P(x, y, z): return (VPX + F * (x - CAM_X) / z, VPY - F * (y - EYE) / z)
@@ -51,7 +52,6 @@ def ellipse(c, rx, ry, fill, extra=''):
     out.append(f'<ellipse cx="{c[0]:.1f}" cy="{c[1]:.1f}" rx="{rx:.2f}" ry="{ry:.2f}" fill="{fill}" {extra}/>')
 def text(c, s, size, fill, extra=''):
     out.append(f'<text x="{c[0]:.1f}" y="{c[1]:.1f}" font-size="{size:.1f}" fill="{fill}" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans SC, PingFang SC, sans-serif" font-weight="500" {extra}>{s}</text>')
-def upside_down(c): return f'transform="matrix(1 0 0 -1 0 {2 * c[1]:.1f})"'
 def pad(c, r, color): circle(c, r, color); circle(c, r * 0.42, DRILL)
 def ground_pad(x, z, r, color, drill=True):
     c = P(x, 0, z); rx = F * r / z; ry = F * EYE * r / (z * z)
@@ -113,23 +113,23 @@ towers = [
     (110, 760, 54, 300, 'flat'), (142, 680, 40, 220, 'flat'),
 ]
 towers.sort(key=lambda t: -t[1])
-def draw_towers(Q):
+def draw_towers():
     rnd = random.Random(3)
     for x, z, w, h, top in towers:
         near = z < 650
         col = METAL if near else METAL_FAR
         x0, x1 = x - w / 2, x + w / 2
-        bl, br = Q(x0, 0, z), Q(x1, 0, z)
+        bl, br = P(x0, 0, z), P(x1, 0, z)
         if top == 'pyramid':
-            shape = [bl, Q(x0 + 1, h * 0.74, z), Q(x, h, z), Q(x1 - 1, h * 0.74, z), br]
+            shape = [bl, P(x0 + 1, h * 0.74, z), P(x, h, z), P(x1 - 1, h * 0.74, z), br]
         elif top == 'chamfer':
             c = w * 0.22
-            shape = [bl, Q(x0, h - c, z), Q(x0 + c, h, z), Q(x1 - c, h, z), Q(x1, h - c, z), br]
+            shape = [bl, P(x0, h - c, z), P(x0 + c, h, z), P(x1 - c, h, z), P(x1, h - c, z), br]
         else:
-            shape = [bl, Q(x0, h, z), Q(x1, h, z), br]
+            shape = [bl, P(x0, h, z), P(x1, h, z), br]
         poly(shape, fill='#131417' if near else '#16161a', stroke=col, w=1.6 if near else 1.2)
         if top == 'spire':
-            a, b = Q(x, h, z), Q(x, h + 40, z)
+            a, b = P(x, h, z), P(x, h + 40, z)
             line(a, b, col, 1.6); pad(b, 3.6, col)
         top_y = h * (0.72 if top == 'pyramid' else 0.93)
         cols = max(2, int(w / 6.5))
@@ -138,18 +138,18 @@ def draw_towers(Q):
             yy = 7.0
             while yy < top_y - 3:
                 bright = rnd.random() < 0.25
-                circle(Q(xx, yy, z), 1.3, HOMELIGHT if bright else '#5aa8a2')
+                circle(P(xx, yy, z), 1.3, HOMELIGHT if bright else '#5aa8a2')
                 yy += 8.0
     # Every rooftop linked to its neighbours by an arc through the sky.
     by_x = sorted(towers, key=lambda t: t[0])
     for (xa, za, _, ha, _), (xb, zb, _, hb, _) in zip(by_x, by_x[1:]):
-        a, b = Q(xa, ha, za), Q(xb, hb, zb)
-        c = Q((xa + xb) / 2, max(ha, hb) + 45, (za + zb) / 2)
+        a, b = P(xa, ha, za), P(xb, hb, zb)
+        c = P((xa + xb) / 2, max(ha, hb) + 45, (za + zb) / 2)
         radio_link(a, b, c)
     for x, z, _, h, _ in towers:
-        pad(Q(x, h, z), 2.4, COPPER)
+        pad(P(x, h, z), 2.4, COPPER)
 
-draw_towers(P)
+draw_towers()
 
 # ---------------- Street facades ----------------
 # The site sets its headline over the top left. At the narrowest desktop width (1280 px) it covers
@@ -253,30 +253,26 @@ ground_pad(2.6, 7.5, 0.55, '#26282c')   # a manhole cover, pad-shaped
 
 REFL_AT = len(out)  # the reflection layer goes here, on the ground
 
-# Everything that stands in or hangs over the street is drawn by a function of the projection Q, so
-# the puddle further down can draw it again, turned over.
-
 # ---------------- A parking sign at the kerb ----------------
 # Portland's magenta "P" on a pole, standing between the tents and the road.
 PZ_SIGN, PX_SIGN = 8.0, CURB_L - 0.4
-def parking_sign(Q=P):
-    line(Q(PX_SIGN, 0, PZ_SIGN), Q(PX_SIGN, 2.9, PZ_SIGN), GREY_D, sw(PZ_SIGN, 0.06, 0.8, 2.4))
+def parking_sign():
+    line(P(PX_SIGN, 0, PZ_SIGN), P(PX_SIGN, 2.9, PZ_SIGN), GREY_D, sw(PZ_SIGN, 0.06, 0.8, 2.4))
     sq = [(PX_SIGN - 0.24, 2.35, PZ_SIGN), (PX_SIGN - 0.24, 2.85, PZ_SIGN), (PX_SIGN + 0.24, 2.85, PZ_SIGN), (PX_SIGN + 0.24, 2.35, PZ_SIGN)]
-    poly([Q(*q) for q in sq], fill='#b0306a', stroke='#d8d8dc', w=sw(PZ_SIGN, 0.02, 0.5, 1.0))
-    c = Q(PX_SIGN, 2.6, PZ_SIGN)
-    text(c, 'P', F * 0.36 / PZ_SIGN, '#f2f2f4', extra=upside_down(c) if Q is not P else '')
+    poly([P(*q) for q in sq], fill='#b0306a', stroke='#d8d8dc', w=sw(PZ_SIGN, 0.02, 0.5, 1.0))
+    text(P(PX_SIGN, 2.6, PZ_SIGN), 'P', F * 0.36 / PZ_SIGN, '#f2f2f4')
 
 # ---------------- Gate ----------------
 GZ = 82
 gc, lacquer, roof = '#c23a2a', '#4a1611', '#241816'  # red lacquer lit at its edges, in shadow between
-def gate(Q=P):
+def gate():
     for xp in (-9.2, 8.6):
-        poly([Q(xp - 0.4, 0, GZ), Q(xp - 0.4, 8.2, GZ), Q(xp + 0.4, 8.2, GZ), Q(xp + 0.4, 0, GZ)], fill=lacquer, stroke=gc, w=1.6)
-    poly([Q(-10.0, 6.4, GZ), Q(-10.0, 7.0, GZ), Q(9.4, 7.0, GZ), Q(9.4, 6.4, GZ)], fill=lacquer, stroke=gc, w=1.4)
-    poly([Q(-10.4, 8.2, GZ), Q(-10.4, 8.8, GZ), Q(9.8, 8.8, GZ), Q(9.8, 8.2, GZ)], fill=lacquer, stroke=gc, w=1.4)
-    poly([Q(-12.0, 9.4, GZ), Q(-11.2, 8.8, GZ), Q(10.6, 8.8, GZ), Q(11.4, 9.4, GZ), Q(8.6, 10.8, GZ), Q(-9.2, 10.8, GZ)], fill=roof, stroke=gc, w=1.6)
-    pad(Q(-12.0, 9.4, GZ), 3.0, gc); pad(Q(11.4, 9.4, GZ), 3.0, gc); pad(Q(-0.3, 10.8, GZ), 3.0, gc)
-    poly([Q(-1.8, 7.2, GZ), Q(-1.8, 8.0, GZ), Q(1.2, 8.0, GZ), Q(1.2, 7.2, GZ)], fill=lacquer, stroke=gc, w=1.2)
+        poly([P(xp - 0.4, 0, GZ), P(xp - 0.4, 8.2, GZ), P(xp + 0.4, 8.2, GZ), P(xp + 0.4, 0, GZ)], fill=lacquer, stroke=gc, w=1.6)
+    poly([P(-10.0, 6.4, GZ), P(-10.0, 7.0, GZ), P(9.4, 7.0, GZ), P(9.4, 6.4, GZ)], fill=lacquer, stroke=gc, w=1.4)
+    poly([P(-10.4, 8.2, GZ), P(-10.4, 8.8, GZ), P(9.8, 8.8, GZ), P(9.8, 8.2, GZ)], fill=lacquer, stroke=gc, w=1.4)
+    poly([P(-12.0, 9.4, GZ), P(-11.2, 8.8, GZ), P(10.6, 8.8, GZ), P(11.4, 9.4, GZ), P(8.6, 10.8, GZ), P(-9.2, 10.8, GZ)], fill=roof, stroke=gc, w=1.6)
+    pad(P(-12.0, 9.4, GZ), 3.0, gc); pad(P(11.4, 9.4, GZ), 3.0, gc); pad(P(-0.3, 10.8, GZ), 3.0, gc)
+    poly([P(-1.8, 7.2, GZ), P(-1.8, 8.0, GZ), P(1.2, 8.0, GZ), P(1.2, 7.2, GZ)], fill=lacquer, stroke=gc, w=1.2)
 
 # ---------------- Streetlights (right curb) ----------------
 # Modern LED streetlights: a grey pole and an arm over the road, a slim head, cool light from an
@@ -285,40 +281,34 @@ defs.append(f'<linearGradient id="cone" x1="0" y1="0" x2="0" y2="1">'
             f'<stop offset="0" stop-color="{COOL}" stop-opacity="0.13"/>'
             f'<stop offset="1" stop-color="{COOL}" stop-opacity="0"/></linearGradient>')
 LAMPS = (22, 42, 64, 96, 150)
-def streetlight(zl, Q=P):
-    seen = Q is P  # the cone and the pool are light in the air and on the ground; a mirror has neither
-    line(Q(5.9, 0, zl), Q(5.9, 6.8, zl), GREY_D, sw(zl, 0.14, 0.8, 3))
-    line(Q(5.9, 6.8, zl), Q(4.95, 6.95, zl), GREY_D, sw(zl, 0.1, 0.8, 2.5))
-    if seen:
-        poly([P(4.15, 6.86, zl), P(4.95, 6.86, zl), P(5.7, 0, zl), P(3.4, 0, zl)], fill='url(#cone)')
-        ellipse(P(4.55, 0, zl), F * 1.3 / zl, F * EYE * 1.3 / zl ** 2, COOL, extra='opacity="0.09"')
-    poly([Q(4.1, 7.02, zl), Q(4.98, 7.02, zl), Q(4.98, 6.88, zl), Q(4.1, 6.88, zl)], fill=SHUTTER, stroke=GREY_D,
+def streetlight(zl):
+    line(P(5.9, 0, zl), P(5.9, 6.8, zl), GREY_D, sw(zl, 0.14, 0.8, 3))
+    line(P(5.9, 6.8, zl), P(4.95, 6.95, zl), GREY_D, sw(zl, 0.1, 0.8, 2.5))
+    poly([P(4.15, 6.86, zl), P(4.95, 6.86, zl), P(5.7, 0, zl), P(3.4, 0, zl)], fill='url(#cone)')
+    ellipse(P(4.55, 0, zl), F * 1.3 / zl, F * EYE * 1.3 / zl ** 2, COOL, extra='opacity="0.09"')
+    poly([P(4.1, 7.02, zl), P(4.98, 7.02, zl), P(4.98, 6.88, zl), P(4.1, 6.88, zl)], fill=SHUTTER, stroke=GREY_D,
          w=sw(zl, 0.03, 0.6, 1.4))
-    line(Q(4.18, 6.87, zl), Q(4.9, 6.87, zl), COOL, max(1.0, F * 0.05 / zl))
-    if seen:
-        streak(4.55, 6.87, zl, 0.7, COOL, 0.35)
+    line(P(4.18, 6.87, zl), P(4.9, 6.87, zl), COOL, max(1.0, F * 0.05 / zl))
+    streak(4.55, 6.87, zl, 0.7, COOL, 0.35)
 
 # ---------------- Blade signs ----------------
 # 茶楼 tea house, 电器维修 appliance repair, 饭店 restaurant, 腾振, 药材 herbal medicine.
 # Most are backlit red boards with pale-gold characters and trim, as on Yaowarat Road; the
 # electronics repair shop is neon.
 BOARD_RED, BOARD_GOLD = '#b8261c', '#f5dca0'
-def sign(xs0, xs1, y0, y1, z, chars, color=None, refl=0.18, Q=P):
+def sign(xs0, xs1, y0, y1, z, chars, color=None, refl=0.18):
     q = [(xs0, y0, z), (xs0, y1, z), (xs1, y1, z), (xs1, y0, z)]
-    mirrored = Q is not P
-    if not mirrored:
-        reflect(q, color or BOARD_RED, refl, stretch=1.4)
+    reflect(q, color or BOARD_RED, refl, stretch=1.4)
     if color is None:  # a board
-        poly([Q(*p) for p in q], fill=BOARD_RED, stroke=BOARD_GOLD, w=sw(z, 0.08, 0.8, 2.2))
+        poly([P(*p) for p in q], fill=BOARD_RED, stroke=BOARD_GOLD, w=sw(z, 0.08, 0.8, 2.2))
         ink = BOARD_GOLD
     else:              # neon
-        poly([Q(*p) for p in q], fill='#160e14', stroke=color, w=sw(z, 0.08, 0.8, 2.2))
+        poly([P(*p) for p in q], fill='#160e14', stroke=color, w=sw(z, 0.08, 0.8, 2.2))
         ink = color
     n = len(chars); step = (y1 - y0) / n
     size = F * min(xs1 - xs0, step) * 0.64 / z
     for i, ch in enumerate(chars):
-        c = Q((xs0 + xs1) / 2, y1 - step * (i + 0.5), z)
-        text(c, ch, size, ink, extra=upside_down(c) if mirrored else '')
+        text(P((xs0 + xs1) / 2, y1 - step * (i + 0.5), z), ch, size, ink)
 SIGNS = [(-10.9, -9.5, 4.6, 9.8, 26, '茶楼'), (8.6, 9.9, 4.2, 10.2, 36, '电器维修', NEON_MAGENTA, 0.35),
          (-10.9, -9.8, 4.6, 9.0, 54, '饭店'), (8.7, 9.9, 4.2, 8.4, 60, '腾振', None, 0.25),
          (8.8, 9.9, 4.4, 8.2, 92, '药材')]
@@ -333,11 +323,11 @@ defs.append('<radialGradient id="lantern" cx="0.5" cy="0.45" r="0.6">'
             '<stop offset="0.8" stop-color="#e0452b"/><stop offset="1" stop-color="#9c2a1a"/></radialGradient>')
 defs.append('<radialGradient id="bloom"><stop offset="0" stop-color="#ff7a3a" stop-opacity="0.35"/>'
             '<stop offset="1" stop-color="#ff7a3a" stop-opacity="0"/></radialGradient>')
-def lantern(x, y, z, Q=P):
-    c, seen = Q(x, y, z), P(x, y, z)
+def lantern(x, y, z):
+    c = P(x, y, z)
     rx, ry = F * 0.26 / z, F * 0.21 / z
     cap_w, cap_h = rx * 0.55, max(0.8, ry * 0.18)
-    if HEADLINE[0] < seen[0] < HEADLINE[2] and HEADLINE[1] < seen[1] < HEADLINE[3]:
+    if HEADLINE[0] < c[0] < HEADLINE[2] and HEADLINE[1] < c[1] < HEADLINE[3]:
         ellipse(c, rx, ry, LANTERN_DARK, extra=f'stroke="#5a2a1c" stroke-width="{max(0.6, rx * 0.08):.2f}"')
         return
     circle(c, rx * 2.6, 'url(#bloom)')
@@ -349,64 +339,40 @@ def lantern(x, y, z, Q=P):
     for dy in (-ry - cap_h / 2, ry + cap_h / 2):
         out.append(f'<rect x="{c[0] - cap_w / 2:.1f}" y="{c[1] + dy - cap_h / 2:.1f}" width="{cap_w:.2f}" '
                    f'height="{cap_h:.2f}" fill="#8c3a1f"/>')
-    if Q is P:
-        streak(x, y, z, 0.4, LANTERN_RED, 0.2)
+    streak(x, y, z, 0.4, LANTERN_RED, 0.2)
 WIRES = (16, 21, 27, 34, 43, 55, 70, 90, 118)
-def lantern_wire(zl, Q=P, box=None):  # box: draw only what lands inside it (x0, y0, x1, y1)
-    def inside(c, r):
-        return box is None or (box[0] - r < c[0] < box[2] + r and box[1] - r < c[1] < box[3] + r)
-    xsamp = [LEFT_W + i * (RIGHT_W - LEFT_W) / 30 for i in range(31)]
+def wire_y(x):  # a wire sags a metre between the walls
     mid, half = (LEFT_W + RIGHT_W) / 2, (RIGHT_W - LEFT_W) / 2
-    ys = [8.4 - 1.0 * (1 - ((xx - mid) / half) ** 2) for xx in xsamp]
-    wire = [Q(xx, yy, zl) for xx, yy in zip(xsamp, ys)]
-    if not any(inside(c, 0) for c in wire):
-        return
-    pline(wire, '#3a2a24', sw(zl, 0.025, 0.5, 1.0))
+    return 8.4 - 1.0 * (1 - ((x - mid) / half) ** 2)
+def lantern_xs():  # a lantern on every other of 31 points along a wire
+    return [LEFT_W + i * (RIGHT_W - LEFT_W) / 30 for i in range(1, 30, 2)]
+def lantern_wire(zl):
+    xsamp = [LEFT_W + i * (RIGHT_W - LEFT_W) / 30 for i in range(31)]
+    ys = [wire_y(xx) for xx in xsamp]
+    pline([P(xx, yy, zl) for xx, yy in zip(xsamp, ys)], '#3a2a24', sw(zl, 0.025, 0.5, 1.0))
     for i in range(1, 30, 2):
         xx, yy = xsamp[i], ys[i]
-        if not inside(Q(xx, yy - 0.46, zl), F * 0.7 / zl):
-            continue
-        line(Q(xx, yy, zl), Q(xx, yy - 0.25, zl), '#5a3a1c', sw(zl, 0.02, 0.4, 0.9))
-        lantern(xx, yy - 0.25 - 0.21, zl, Q)
+        line(P(xx, yy, zl), P(xx, yy - 0.25, zl), '#5a3a1c', sw(zl, 0.02, 0.4, 0.9))
+        lantern(xx, yy - 0.25 - 0.21, zl)
 
 # ---------------- The street, far to near ----------------
 # Gate, streetlights, signs, lantern wires and the parking sign are drawn from the far end toward
 # you, so whatever is nearer covers what is behind it.
-def street(Q=P, box=None):
-    items = [(GZ, lambda: gate(Q)), (PZ_SIGN, lambda: parking_sign(Q))]
-    items += [(zl, lambda zl=zl: streetlight(zl, Q)) for zl in LAMPS]
-    items += [(sg[4], lambda sg=sg: sign(*sg, Q=Q)) for sg in SIGNS]
-    items += [(zl, lambda zl=zl: lantern_wire(zl, Q, box)) for zl in WIRES]
+def street():
+    items = [(GZ, gate), (PZ_SIGN, parking_sign)]
+    items += [(zl, lambda zl=zl: streetlight(zl)) for zl in LAMPS]
+    items += [(sg[4], lambda sg=sg: sign(*sg)) for sg in SIGNS]
+    items += [(zl, lambda zl=zl: lantern_wire(zl)) for zl in WIRES]
     for _, draw in sorted(items, key=lambda it: -it[0]):
         draw()
 street()
 
-# ---------------- A puddle at your feet ----------------
-# Still water is a clean mirror. It holds whatever stands above and beyond it, turned over: the
-# towers, the wall beside you and the street's signs and lanterns, dimmed, with the dark of the sky
-# between them. The concrete around it is darker where it is wet, and it has no drawn edge.
-PX, PZ, PRX, PRZ = -7.6, 3.75, 0.78, 0.85
-def rim(k):
-    return [P(PX + k * PRX * math.cos(t) * (1 + 0.12 * math.sin(3 * t)), 0, PZ + k * PRZ * math.sin(t))
-            for t in [i * math.pi / 24 for i in range(48)]]
-puddle = rim(1.0)
-defs.append('<filter id="damp" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="4"/></filter>')
-poly(rim(1.2), fill='#1b1c1f', extra='filter="url(#damp)"')
-defs.append(f'<clipPath id="puddle"><polygon points="{pts(puddle)}"/></clipPath>')
-poly(puddle, fill='#0f1012')
-MIRROR = lambda x, y, z: P(x, -y, z)
-out.append('<g clip-path="url(#puddle)" opacity="0.6">')
-draw_towers(MIRROR)
-for z0, z1, h in left:
-    poly([MIRROR(LEFT_W, 0, z0), MIRROR(LEFT_W, h, z0), MIRROR(LEFT_W, h, z1), MIRROR(LEFT_W, 0, z1)],
-         fill=FACADE, stroke=GREY_D, w=sw(z0, 0.07, 0.8, 2.2))
-street(MIRROR, box=(min(p[0] for p in puddle), min(p[1] for p in puddle),
-                    max(p[0] for p in puddle), max(p[1] for p in puddle)))
-out.append('</g>')
-
 # ---------------- The network on the ground ----------------
 # Every tent is on copper: out of the door, a 45-degree jog, and across to your path, which runs
 # from your feet to the tallest tower's door. The buildings above talk by radio.
+# On the ground the copper is inlaid: flat strips and discs set flush in the concrete, each in a
+# thin dark joint. Polished metal is lit by what it mirrors: far off, at a grazing angle, the lit
+# street; at your feet, the dark sky overhead.
 TENT_LIT = 5.6
 # Dome tents as they stand on Portland sidewalks: two-tone rainflies, some under a blue tarp.
 # (front z, width, height, antenna, body colour, fly colour, tarp). Colours are dimmed for night.
@@ -420,14 +386,37 @@ def ribbon(a, b, wd):
     (x0, z0), (x1, z1) = a, b
     dx, dz = x1 - x0, z1 - z0; L = math.hypot(dx, dz); nx, nz = -dz / L * wd, dx / L * wd
     return [P(x0 + nx, 0, z0 + nz), P(x1 + nx, 0, z1 + nz), P(x1 - nx, 0, z1 - nz), P(x0 - nx, 0, z0 - nz)]
+INLAY, INLAY_JOINT = 'url(#inlay)', '#0f1011'
+defs.append(f'<linearGradient id="inlay" gradientUnits="userSpaceOnUse" x1="0" y1="{VPY}" x2="0" y2="{H}">'
+            f'<stop offset="0" stop-color="#f2c472"/><stop offset="0.25" stop-color="{COPPER}"/>'
+            '<stop offset="1" stop-color="#8c5f2a"/></linearGradient>')
+def strip(points, wd, w):  # w keeps a far strip at least a hairline wide; corners are round
+    segs, corners = list(zip(points, points[1:])), points[1:-1]
+    for fill, k in ((INLAY_JOINT, wd + 0.012), (INLAY, wd)):
+        for a, b in segs:
+            poly(ribbon(a, b, k), fill=fill, stroke=fill if fill == INLAY else 'none', w=w)
+        for x, z in corners:
+            ground_pad(x, z, k, fill, drill=False)
+def inlaid_pad(x, z, r):
+    ground_pad(x, z, r + 0.012, INLAY_JOINT, drill=False)
+    ground_pad(x, z, r, INLAY)
 def trace(points, vias=()):
-    for a, b in zip(points, points[1:]):
-        poly(ribbon(a, b, 0.06), fill=COPPER, stroke=COPPER, w=0.6)
+    strip(points, 0.06, 0.6)
     for x, z in vias:
-        ground_pad(x, z, 0.2, COPPER)
+        inlaid_pad(x, z, 0.2)
 
-poly(ribbon(MAIN[0], MAIN[1], 0.24), fill=COPPER, extra='opacity="0.12"')
-poly(ribbon(MAIN[0], MAIN[1], 0.075), fill=COPPER, stroke=COPPER, w=0.8)
+strip(MAIN, 0.075, 0.8)
+# The lanterns hanging over your path glint in it, one on each wire, receding toward the gate.
+defs.append('<radialGradient id="glint"><stop offset="0" stop-color="#ffe0a8" stop-opacity="0.95"/>'
+            '<stop offset="0.45" stop-color="#ff8a3a" stop-opacity="0.55"/>'
+            '<stop offset="1" stop-color="#ff8a3a" stop-opacity="0"/></radialGradient>')
+defs.append(f'<clipPath id="main"><polygon points="{pts(ribbon(MAIN[0], MAIN[1], 0.075))}"/></clipPath>')
+out.append('<g clip-path="url(#main)">')
+for zl in WIRES:
+    xl = min(lantern_xs(), key=lambda x: abs(x - CAM_X))
+    yl = wire_y(xl) - 0.46
+    ellipse(P(xl, -yl, zl), F * 0.3 / zl, F * 0.3 / zl * 1.4, 'url(#glint)')
+out.append('</g>')
 for z0, wd, *_ in TENTS:  # every tent: out of the door, a 45-degree jog, across to your path
     xm = -10.9 + wd / 2
     trace([(xm, z0), (xm + 0.6, z0 - 0.6), (CAM_X, z0 - 0.6)], vias=[(CAM_X, z0 - 0.6)])
@@ -537,7 +526,7 @@ def tent(z0, wd, ht, antenna, body, fly, tarp):
     if antenna:
         a, b = P(xm + 0.2, ht * 0.95, zc), P(xm + 0.2, ht * 1.85, zc)
         line(a, b, COPPER, w); pad(b, F * 0.12 / z0, COPPER)
-    ground_pad(xm, z0, 0.2, COPPER)
+    inlaid_pad(xm, z0, 0.2)
 for spec in reversed(TENTS):
     tent(*spec)
 
