@@ -4,333 +4,10 @@
 //! `site/builds/<name>/v<N>/`; `site/builds/<name>/` sends you to the newest. Pages are output,
 //! never edited: the Quality Gate reruns this and fails if `site/` differs.
 
-use serde::Deserialize;
-use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Part {
-    pub part: String,
-    pub kind: Kind,
-    pub is: String,
-    #[serde(default)]
-    pub authorized_only: bool,
-    pub datasheet: Option<String>,
-}
-
-/// What a part is at its lowest level. Commodities (wire, solder) are not parts: a build names
-/// them by their properties on the line itself.
-#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum Kind {
-    Chip,
-    Module,
-    Product,
-}
-
-#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum Status {
-    Draft,
-    Published,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Build {
-    pub build: String,
-    pub version: u32,
-    pub status: Status,
-    pub does: String,
-    /// What changed from the previous version. Required from v2 on.
-    pub changes: Option<String>,
-    pub drawing: Option<String>,
-    #[serde(default)]
-    pub line: Vec<Line>,
-    #[serde(default)]
-    pub uses: Vec<Uses>,
-    pub firmware: Option<Firmware>,
-    #[serde(default)]
-    pub pin: Vec<Pin>,
-    #[serde(default)]
-    pub step: Vec<Step>,
-    #[serde(default)]
-    pub claim: Vec<Claim>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Line {
-    pub part: Option<String>,
-    pub commodity: Option<String>,
-    pub form: Option<String>,
-    pub qty: u32,
-}
-
-/// Another build this one is made from, pinned to a version.
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Uses {
-    pub build: String,
-    pub version: u32,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Firmware {
-    pub name: String,
-    pub license: String,
-    pub source: String,
-    pub release: String,
-    pub file: String,
-    pub sha256: String,
-    pub pin_map: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Pin {
-    pub name: String,
-    pub board_pin: u32,
-    pub net: String,
-    pub required: bool,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Step {
-    pub r#do: String,
-    pub run: Option<String>,
-    pub expect: Option<String>,
-    pub agent: Option<String>,
-}
-
-/// A claim and its referents. The grade shown is derived from these, never typed.
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Claim {
-    pub says: String,
-    pub sim: Option<Sim>,
-    pub irl: Option<Irl>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Sim {
-    pub grade: SimGrade,
-    /// The test, bounded check or proof that shows it.
-    pub by: String,
-}
-
-#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum SimGrade {
-    Tested,
-    Checked,
-    Proven,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Irl {
-    /// The lab measurement record that shows it.
-    pub record: String,
-}
-
-impl Claim {
-    pub fn sim_grade(&self) -> &'static str {
-        match self.sim.as_ref().map(|s| s.grade) {
-            Some(SimGrade::Tested) => "tested",
-            Some(SimGrade::Checked) => "checked",
-            Some(SimGrade::Proven) => "proven",
-            None => "unknown",
-        }
-    }
-
-    pub fn irl_grade(&self) -> &'static str {
-        if self.irl.is_some() {
-            "measured"
-        } else {
-            "unknown"
-        }
-    }
-}
-
-/// A record's path relative to the repo root, and its text.
-pub struct Source {
-    pub path: String,
-    pub text: String,
-}
-
-pub struct Catalogue {
-    pub parts: BTreeMap<String, Part>,
-    /// Each build's versions, oldest first; `versions[i].version == i + 1`.
-    pub builds: BTreeMap<String, Vec<Build>>,
-    /// Drawing SVGs by `<build>/v<N>`, inlined into pages so they draw in the site's fonts.
-    pub drawings: BTreeMap<String, String>,
-}
-
-impl Catalogue {
-    pub fn load(root: &Path) -> Result<Self, String> {
-        let mut parts = Vec::new();
-        for entry in read_dir_sorted(&root.join("parts"))? {
-            if entry.extension().is_some_and(|e| e == "toml") {
-                parts.push(read_source(root, &entry)?);
-            }
-        }
-        let mut builds = Vec::new();
-        for dir in read_dir_sorted(&root.join("builds"))? {
-            if !dir.is_dir() {
-                continue;
-            }
-            for entry in read_dir_sorted(&dir)? {
-                if entry.extension().is_some_and(|e| e == "toml") {
-                    builds.push(read_source(root, &entry)?);
-                }
-            }
-        }
-        let mut cat = Self::from_sources(&parts, &builds)?;
-        for (name, versions) in &cat.builds {
-            for b in versions {
-                if let Some(d) = &b.drawing {
-                    let path = root.join("builds").join(name).join(d);
-                    let svg = fs::read_to_string(&path)
-                        .map_err(|e| format!("{}: {e}", path.display()))?;
-                    cat.drawings.insert(format!("{name}/v{}", b.version), svg);
-                }
-            }
-        }
-        Ok(cat)
-    }
-
-    pub fn from_sources(part_sources: &[Source], build_sources: &[Source]) -> Result<Self, String> {
-        let mut parts = BTreeMap::new();
-        for s in part_sources {
-            let p: Part = toml::from_str(&s.text).map_err(|e| format!("{}: {e}", s.path))?;
-            if parts.contains_key(&p.part) {
-                return Err(format!("{}: part {} is defined twice", s.path, p.part));
-            }
-            parts.insert(p.part.clone(), p);
-        }
-
-        let mut builds: BTreeMap<String, Vec<Build>> = BTreeMap::new();
-        for s in build_sources {
-            let b: Build = toml::from_str(&s.text).map_err(|e| format!("{}: {e}", s.path))?;
-            let expected = format!("builds/{}/v{}.toml", b.build, b.version);
-            if s.path != expected {
-                return Err(format!(
-                    "{}: says build {} v{}, so it belongs at {expected}",
-                    s.path, b.build, b.version
-                ));
-            }
-            builds.entry(b.build.clone()).or_default().push(b);
-        }
-
-        for (name, versions) in &mut builds {
-            versions.sort_by_key(|b| b.version);
-            for (i, b) in versions.iter().enumerate() {
-                let want = u32::try_from(i + 1).map_err(|e| e.to_string())?;
-                if b.version != want {
-                    return Err(format!(
-                        "{name}: versions must run v1, v2, … without gaps; v{want} is missing"
-                    ));
-                }
-                if b.version > 1 && b.changes.is_none() {
-                    return Err(format!(
-                        "{name} v{}: says nothing under `changes`",
-                        b.version
-                    ));
-                }
-            }
-        }
-
-        let cat = Catalogue {
-            parts,
-            builds,
-            drawings: BTreeMap::new(),
-        };
-        for versions in cat.builds.values() {
-            for b in versions {
-                cat.check_build(b)?;
-            }
-        }
-        Ok(cat)
-    }
-
-    fn check_build(&self, b: &Build) -> Result<(), String> {
-        let at = format!("{} v{}", b.build, b.version);
-        for l in &b.line {
-            match (&l.part, &l.commodity) {
-                (Some(p), None) if !self.parts.contains_key(p) => {
-                    return Err(format!("{at}: part {p} has no record in parts/"));
-                }
-                (Some(_), None) | (None, Some(_)) => {}
-                _ => {
-                    return Err(format!(
-                        "{at}: a line names exactly one of `part` or `commodity`"
-                    ));
-                }
-            }
-            if l.qty == 0 {
-                return Err(format!("{at}: a line has qty 0"));
-            }
-        }
-        for u in &b.uses {
-            if u.build == b.build {
-                return Err(format!("{at}: a build cannot use itself"));
-            }
-            if self.version(&u.build, u.version).is_none() {
-                return Err(format!(
-                    "{at}: uses {} v{}, which does not exist",
-                    u.build, u.version
-                ));
-            }
-        }
-        Ok(())
-    }
-
-    pub fn version(&self, name: &str, version: u32) -> Option<&Build> {
-        let i = usize::try_from(version.checked_sub(1)?).ok()?;
-        self.builds.get(name)?.get(i)
-    }
-
-    /// Every build version that uses `name` v`version`.
-    pub fn used_in(&self, name: &str, version: u32) -> Vec<&Build> {
-        self.builds
-            .values()
-            .flatten()
-            .filter(|b| {
-                b.uses
-                    .iter()
-                    .any(|u| u.build == name && u.version == version)
-            })
-            .collect()
-    }
-}
-
-fn read_dir_sorted(dir: &Path) -> Result<Vec<std::path::PathBuf>, String> {
-    let mut out: Vec<_> = fs::read_dir(dir)
-        .map_err(|e| format!("{}: {e}", dir.display()))?
-        .map(|e| e.map(|e| e.path()))
-        .collect::<Result<_, _>>()
-        .map_err(|e| format!("{}: {e}", dir.display()))?;
-    out.sort();
-    Ok(out)
-}
-
-fn read_source(root: &Path, path: &Path) -> Result<Source, String> {
-    let text = fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let rel = path.strip_prefix(root).map_err(|e| e.to_string())?;
-    let rel = rel
-        .components()
-        .map(|c| c.as_os_str().to_string_lossy())
-        .collect::<Vec<_>>()
-        .join("/");
-    Ok(Source { path: rel, text })
-}
+use tentzhen_records::{Build, Catalogue};
 
 fn esc(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
@@ -404,7 +81,7 @@ pub fn render_index(cat: &Catalogue) -> String {
                 "<tr><td><a href=\"{n}/v{v}/index.html\">{n}</a></td><td>v{v} · {s}</td><td>{d}</td></tr>",
                 n = esc(name),
                 v = b.version,
-                s = status_word(b.status),
+                s = b.status.as_str(),
                 d = esc(&b.does)
             );
         }
@@ -422,13 +99,6 @@ pub fn render_latest(name: &str, latest: u32) -> String {
          <p><a href=\"v{latest}/index.html\">{n} v{latest}</a></p>\n</body>\n</html>\n",
         n = esc(name)
     )
-}
-
-fn status_word(s: Status) -> &'static str {
-    match s {
-        Status::Draft => "draft",
-        Status::Published => "published",
-    }
 }
 
 fn chip(grade: &str) -> String {
@@ -461,7 +131,7 @@ pub fn render_version(cat: &Catalogue, b: &Build) -> String {
         h,
         "<p class=\"spec-meta\"><span class=\"state {s}\">v{} · {s}</span><span class=\"versions\">versions{links}</span></p>",
         b.version,
-        s = status_word(b.status)
+        s = b.status.as_str()
     );
     if usize::try_from(b.version).is_ok_and(|v| v < latest) {
         let newest = &versions[latest - 1];
@@ -661,6 +331,7 @@ pub fn write_site(cat: &Catalogue, root: &Path) -> Result<usize, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tentzhen_records::Source;
 
     fn src(path: &str, text: &str) -> Source {
         Source {
@@ -668,8 +339,6 @@ mod tests {
             text: text.into(),
         }
     }
-
-    const PART: &str = "part = \"RP2350\"\nkind = \"chip\"\nis = \"microcontroller\"\n";
 
     fn build(name: &str, v: u32, extra: &str) -> Source {
         let changes = if v > 1 {
@@ -683,57 +352,6 @@ mod tests {
                 "build = \"{name}\"\nversion = {v}\nstatus = \"draft\"\ndoes = \"a thing\"\n{changes}{extra}"
             ),
         )
-    }
-
-    #[test]
-    fn the_repo_records_load() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let cat = Catalogue::load(&root).expect("records load");
-        let probe = cat
-            .version("debug-probe", 1)
-            .expect("debug-probe v1 exists");
-        assert!(
-            probe
-                .line
-                .iter()
-                .any(|l| l.part.as_deref() == Some("RP2350"))
-        );
-    }
-
-    #[test]
-    fn grades_come_from_referents() {
-        let none: Claim = toml::from_str("says = \"x\"").unwrap();
-        assert_eq!((none.sim_grade(), none.irl_grade()), ("unknown", "unknown"));
-        let both: Claim =
-            toml::from_str("says = \"x\"\nsim = { grade = \"checked\", by = \"sby bmc 20\" }\nirl = { record = \"lab-0001\" }").unwrap();
-        assert_eq!(
-            (both.sim_grade(), both.irl_grade()),
-            ("checked", "measured")
-        );
-    }
-
-    #[test]
-    fn an_unrecorded_part_is_refused() {
-        let b = build("probe", 1, "[[line]]\npart = \"RP9999\"\nqty = 1\n");
-        let err = Catalogue::from_sources(&[src("parts/rp2350.toml", PART)], &[b])
-            .err()
-            .unwrap();
-        assert!(err.contains("RP9999"), "{err}");
-    }
-
-    #[test]
-    fn a_file_must_sit_at_its_version() {
-        let mut b = build("probe", 1, "");
-        b.path = "builds/probe/v2.toml".into();
-        assert!(Catalogue::from_sources(&[], &[b]).is_err());
-    }
-
-    #[test]
-    fn versions_have_no_gaps() {
-        let err = Catalogue::from_sources(&[], &[build("probe", 1, ""), build("probe", 3, "")])
-            .err()
-            .unwrap();
-        assert!(err.contains("v2 is missing"), "{err}");
     }
 
     #[test]
@@ -759,11 +377,5 @@ mod tests {
             page.contains("<h2>Used in</h2>") && page.contains("bench v1"),
             "{page}"
         );
-    }
-
-    #[test]
-    fn using_a_missing_version_is_refused() {
-        let bench = build("bench", 1, "[[uses]]\nbuild = \"probe\"\nversion = 2\n");
-        assert!(Catalogue::from_sources(&[], &[build("probe", 1, ""), bench]).is_err());
     }
 }
