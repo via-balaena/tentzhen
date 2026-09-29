@@ -1,0 +1,13 @@
+[package]
+name = "tentzhen-lab"
+version = "0.0.0"
+description = "The lab's safety records for Tentzhen: lab/limits.toml, parsed and checked"
+publish = false
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Nothing but serde and toml: the Pico enforcer's build script is to read the limits through this.
+[dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+toml = "=1.1.6"

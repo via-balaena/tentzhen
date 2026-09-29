@@ -173,6 +173,19 @@ mod tests {
     }
 
     #[test]
+    fn the_lab_limits_have_a_hash() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let conn = warehouse(&Catalogue::load(&root).unwrap());
+        assert_eq!(
+            one(
+                &conn,
+                "SELECT count(*) FROM bronze.record_hash WHERE path = 'lab/limits.toml'"
+            ),
+            1
+        );
+    }
+
+    #[test]
     fn every_version_has_one_page_and_its_drawing() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let conn = warehouse(&Catalogue::load(&root).unwrap());
