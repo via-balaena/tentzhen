@@ -40,9 +40,10 @@ each lit from inside), are on copper: each door's trace jogs 45° and joins a pa
 your feet and runs down the street, under a gate, to the door of the tallest tower. The buildings
 talk by radio: an antenna on every roof, faint links along the street, across it and up through the
 towers. Red paper lanterns hang across the street on wires, lit from inside, the ones behind the
-headline unlit. The street is wet: every light, window, lantern and tent door reflects as a streak,
-stretched toward you, blurred more up and down than across and broken by ripples. A puddle at your
-feet mirrors the towers. Its colours come from a Chinatown street at night: red lanterns, red sign
+headline unlit. The road is wet asphalt: lights, windows, lanterns and signs reflect in it as
+streaks, stretched toward you, blurred more up and down than across and broken by ripples. The
+sidewalks are opaque grey concrete, cut into slabs, and reflect nothing. A puddle at your feet
+mirrors the towers. Its colours come from a Chinatown street at night: red lanterns, red sign
 boards with pale-gold characters as on Yaowarat Road, magenta neon on the repair shop, teal on the
 tents and towers, cool white shop light and modern LED streetlights; the street's buildings and
 poles stay grey. Copper and yellow belong to the network alone: traces, vias, pads, antennas and

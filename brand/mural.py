@@ -27,7 +27,7 @@ LAMPLIGHT = '#ffb35a'                                                # light fro
 HOMELIGHT = '#f0dfb8'                                                # a lamp in a home window
 GREY_D, GREY_DD, FACADE, SHUTTER = '#3a3e44', '#23262a', '#141517', '#2a2d31'  # street buildings, poles
 METAL, METAL_FAR, ALUMINIUM = '#7a8088', '#555b63', '#8a9098'         # towers, window and shop frames
-LEFT_W, CURB_L, CURB_R, RIGHT_W = -11.0, -5.5, 5.5, 10.0
+LEFT_W, CURB_L, CURB_R, RIGHT_W = -11.0, -6.5, 5.5, 10.0  # a 4.5 m sidewalk under you, the road, a 4.5 m one
 
 def P(x, y, z): return (VPX + F * (x - CAM_X) / z, VPY - F * (y - EYE) / z)
 def sw(z, k=0.10, lo=0.8, hi=4.0): return max(lo, min(hi, F * k / z))
@@ -213,10 +213,11 @@ for m in (masts['left'][0], masts['right'][0]):  # the far end of the street up 
     arc(m, (tip, (x, h, z)), lift=40.0)
 
 # ---------------- Ground ----------------
-# Grey concrete sidewalks with expansion joints; the road between them stays dark asphalt, with no
-# line painted along it. The change of surface marks the kerb.
+# Grey concrete sidewalks, opaque and lighter than the road, cut into slabs by dark joints; the road
+# between them is dark wet asphalt, with no line painted along it, and only the road mirrors the
+# lights. The change of surface marks the kerb.
 ZF = 240
-SIDEWALK, JOINT, KERB, KERB_FACE = '#1d1e21', '#28292d', '#34363b', '#2a2c30'
+SIDEWALK, JOINT, KERB, KERB_FACE = '#242528', '#17181a', '#3a3c41', '#2a2c30'
 for x0, x1 in ((LEFT_W, CURB_L), (CURB_R, RIGHT_W)):
     poly([P(x0, 0, 2.4), P(x0, 0, ZF), P(x1, 0, ZF), P(x1, 0, 2.4)], fill=SIDEWALK)
     # square slabs, 1.5 m, jointed across and along
@@ -224,7 +225,7 @@ for x0, x1 in ((LEFT_W, CURB_L), (CURB_R, RIGHT_W)):
     while z < 90:
         line(P(x0, 0, z), P(x1, 0, z), JOINT, sw(z, 0.025, 0.4, 1.2)); z += 1.5
     inner = CURB_L - 0.3 if x1 == CURB_L else CURB_R + 0.3
-    xs = [x for x in (-9.5, -8.0, -6.6, 7.1, 8.6) if min(x0, x1) < x < max(x0, x1)]
+    xs = [x for x in (-9.5, -8.0, 7.1, 8.6) if min(x0, x1) < x < max(x0, x1)]
     for x in xs:
         line(P(x, 0, 2.4), P(x, 0, 90), JOINT, 1.0)
     # the kerbstone along the road edge
@@ -234,8 +235,8 @@ for x0, x1 in ((LEFT_W, CURB_L), (CURB_R, RIGHT_W)):
 poly([P(CURB_R, 0, 3.0), P(CURB_R, 0, ZF), P(CURB_R, -0.15, ZF), P(CURB_R, -0.15, 3.0)], fill=KERB_FACE)
 for xc in (LEFT_W, RIGHT_W):  # where the buildings meet the sidewalk
     line(P(xc, 0, 2.5), P(xc, 0, ZF), GREY_D, 1.4)
-for i in range(11):
-    xs = -5.0 + i * 1.0
+for i in range(12):  # a crosswalk, kerb to kerb
+    xs = CURB_L + 0.25 + i * 1.0
     poly([P(xs, 0, 46), P(xs + 0.5, 0, 46), P(xs + 0.5, 0, 51), P(xs, 0, 51)], fill='#26282c')
 ground_pad(2.6, 7.5, 0.55, '#26282c')   # a manhole cover, pad-shaped
 
@@ -243,7 +244,7 @@ REFL_AT = len(out)  # the reflection layer goes here, on the ground
 
 # ---------------- A parking sign at the kerb ----------------
 # Portland's magenta "P" on a pole, standing between the tents and the road.
-PZ_SIGN, PX_SIGN = 8.0, CURB_L - 1.1
+PZ_SIGN, PX_SIGN = 8.0, CURB_L - 0.4
 line(P(PX_SIGN, 0, PZ_SIGN), P(PX_SIGN, 2.9, PZ_SIGN), GREY_D, sw(PZ_SIGN, 0.06, 0.8, 2.4))
 sq = [(PX_SIGN - 0.24, 2.35, PZ_SIGN), (PX_SIGN - 0.24, 2.85, PZ_SIGN), (PX_SIGN + 0.24, 2.85, PZ_SIGN), (PX_SIGN + 0.24, 2.35, PZ_SIGN)]
 poly([P(*q) for q in sq], fill='#b0306a', stroke='#d8d8dc', w=sw(PZ_SIGN, 0.02, 0.5, 1.0))
@@ -340,7 +341,7 @@ for zl in (16, 21, 27, 34, 43, 55, 70, 90, 118):
         lantern(xx, yy - 0.25 - 0.21, zl)
 
 # ---------------- A puddle at your feet that holds the towers ----------------
-PX, PZ, PRX, PRZ = -7.35, 3.75, 0.95, 0.85
+PX, PZ, PRX, PRZ = -7.6, 3.75, 0.78, 0.85
 puddle = [P(PX + PRX * math.cos(t) * (1 + 0.12 * math.sin(3 * t)), 0, PZ + PRZ * math.sin(t)) for t in [i * math.pi / 24 for i in range(48)]]
 defs.append(f'<clipPath id="puddle"><polygon points="{pts(puddle)}"/></clipPath>')
 poly(puddle, fill='#0c0d0f', stroke='#2a2d31', w=1.2)
@@ -498,7 +499,12 @@ while z < 300:
     z *= 1.07
 defs.append(f'<mask id="ripples" maskUnits="userSpaceOnUse" x="0" y="0" width="{W}" height="{H}">'
             + ''.join(bands) + '</mask>')
-out.insert(REFL_AT, '<g filter="url(#wet)" mask="url(#ripples)">' + ''.join(REFL) + '</g>')
+# the road's surface, seen from the kerb you stand on: the kerb's top edge hides the road's near
+# edge on your side; the far kerb's face drops to it on the other
+road = [P(CURB_L, 0, 1.2), P(CURB_L, 0, ZF), P(CURB_R, -0.15, ZF), P(CURB_R, -0.15, 1.2)]
+defs.append(f'<clipPath id="road"><polygon points="{pts(road)}"/></clipPath>')
+out.insert(REFL_AT, '<g clip-path="url(#road)"><g filter="url(#wet)" mask="url(#ripples)">'
+           + ''.join(REFL) + '</g></g>')
 
 svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">'
        f'<defs>{"".join(defs)}</defs>' + ''.join(out) + '</svg>')
