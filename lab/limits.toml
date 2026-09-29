@@ -7,18 +7,27 @@
 # through the same GitHub account as the person, so a required review could not tell them apart.
 # Nothing drives a supply or a load until the values it needs are set; the load has none yet.
 #
-# Every value says where it comes from. A value taken from the DPS5005's manual or datasheet, or
-# from OpenDPS's README, is `trusted` (docs/verification.md, "Trusted base") until the part is
-# measured on the bench; then its record id goes here. Sources read 2026-09-28.
+# Every value has a basis beside it, as data. It is one of:
+#   policy = "..."   a person's decision, and where it is recorded
+#   same_as = "..."  a copy of another value, which it must equal
+#   rule = "..."     held to a rule in crates/lab, which names the values and facts it uses
+# and may add `rests_on`: the facts at the end of this file that the value relies on to do its
+# job. A fact's grade comes from its referent: a `record` of a bench measurement makes it
+# `measured`, an entry in docs/verification.md's trusted base (`trusted`) makes it `trusted`, and
+# neither leaves it `unknown`. The warehouse gives each value the weakest grade among the facts it
+# rests on, through every value it comes from (gold.limit_grades).
 #
 # crates/lab reads this file and refuses a key it does not know, a value that is not a finite
-# number above zero, a DPS5005 setpoint or current limit above the supply's ceiling, an upstream
-# voltage outside the DPS5005's input rule, and a fuse that is not the next rating above max_amps.
+# number above zero, a value without exactly one basis, a copy that differs from its original, a
+# DPS5005 setpoint or current limit above the supply's ceiling, an upstream voltage outside the
+# DPS5005's input rule, and a fuse that is not the next rating above max_amps.
 
 [pico_3v3]
-# Any Pico or 3.3 V circuit. Source: CLAUDE.md, "Default ceilings: 3.6 V and 200 mA".
+# Any Pico or 3.3 V circuit.
 max_volts = 3.6
 max_amps = 0.200
+basis.max_volts = { policy = "CLAUDE.md, \"Default ceilings: 3.6 V and 200 mA\"" }
+basis.max_amps = { policy = "CLAUDE.md, \"Default ceilings: 3.6 V and 200 mA\"" }
 
 [supply]
 # The programmable supply: bench supply -> DPS5005 running OpenDPS -> Pico enforcer -> output.
@@ -26,17 +35,19 @@ max_amps = 0.200
 max_volts = 3.6
 max_amps = 0.200
 # After a trip, who may turn the output back on: "person" (a physical button on the enforcer) or
-# "agent" (after the trip is logged). Jon decided "agent" on 2026-09-28. The append-only lab log
-# does not exist yet (docs/roadmap.md, Phase 0), so until it does no trip can be logged and the
-# agent cannot re-enable the output.
+# "agent" (after the trip is logged). The append-only lab log does not exist yet (docs/roadmap.md,
+# Phase 0), so until it does no trip can be logged and the agent cannot re-enable the output.
 reenable = "agent"
+basis.max_volts = { same_as = "pico_3v3.max_volts" }
+basis.max_amps = { same_as = "pico_3v3.max_amps" }
+basis.reenable = { policy = "Jon, 2026-09-28" }
 
 [supply.upstream]
-# The bench supply feeding the DPS5005's input.
-# The DPS5005 needs an input of 6-55 V, and at least 1.1 x its output (Joy-IT JT-DPS5005 manual,
-# "Attention!" note, and datasheet: "Input voltage range 6 - 55 V"). For a 3.6 V output that is
-# max(6.0, 1.1 x 3.6 = 3.96) = 6.0 V.
-volts = 6.5  # 6.0 V plus 0.5 V for the bench supply's setting error, unmeasured
+# The bench supply feeding the DPS5005's input: the least input the DPS5005 needs for its highest
+# setpoint, plus the bench supply's setting error. For a 3.6 V output that is
+# max(6.0, 1.1 x 3.6 = 3.96) + 0.5 = 6.5 V.
+volts = 6.5
+basis.volts = { rule = "dps-input", rests_on = ["dps_input", "bench_setting_error"] }
 # This layer does NOT hold the 3.6 V ceiling. Its input must be at least 6.0 V, already above
 # the ceiling, and how high its output can go if the layers above it fail is `unknown`: the
 # 1.1 x rule says what input the DPS5005 needs, not how far it can drive its output. Only the
@@ -51,6 +62,8 @@ volts = 6.5  # 6.0 V plus 0.5 V for the bench supply's setting error, unmeasured
 # S-OVP and S-OCP menus (Joy-IT manual) are gone once OpenDPS is flashed.
 max_setpoint_volts = 3.6
 current_limit_amps = 0.200
+basis.max_setpoint_volts = { same_as = "supply.max_volts" }
+basis.current_limit_amps = { same_as = "supply.max_amps", rests_on = ["opendps_current_limit"] }
 
 [supply.fuse]
 # In the DPS5005's output line. Fast-acting, the next 5 x 20 mm rating above max_amps, from the
@@ -59,3 +72,27 @@ current_limit_amps = 0.200
 size = "5x20 mm"
 rating_amps = 0.250
 speed = "fast"
+basis.size = { policy = "PR #11" }
+basis.rating_amps = { rule = "next-fuse-rating" }
+basis.speed = { policy = "PR #11" }
+
+# ------------------------------------------------------------------------------------------------
+# The facts the values above rest on, each graded by its referent.
+
+[fact.dps_input]
+# Joy-IT JT-DPS5005 manual, "Attention!" note, and datasheet: "Input voltage range 6 - 55 V".
+# Read 2026-09-28.
+says = "The DPS5005 needs an input within its range, and at least `ratio` times its output"
+min_volts = 6.0
+max_volts = 55.0
+ratio = 1.1
+trusted = "The DPS5005 and OpenDPS"
+
+[fact.opendps_current_limit]
+# OpenDPS README, read 2026-09-28.
+says = "OpenDPS regulates its output current to the limit set"
+trusted = "The DPS5005 and OpenDPS"
+
+[fact.bench_setting_error]
+says = "The bench supply's output is within `volts` of its setting"
+volts = 0.5
