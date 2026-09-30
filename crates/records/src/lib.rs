@@ -1,9 +1,11 @@
 //! The catalogue's records: parts and versioned builds, parsed from `parts/` and `builds/` and
 //! checked against the contract every consumer relies on (the site, the warehouse). Both can carry
 //! claims, in one shape: [`Claim`]. A claim assumed rather than shown names an entry in the trusted
-//! base, `trusted-base.toml`: [`Trusted`]. The lab log, every hardware action, is [`log`].
+//! base, `trusted-base.toml`: [`Trusted`]. The lab log, every hardware action, is [`log`], and a
+//! claim's `record` names a measurement record: [`measurement`].
 
 pub mod log;
+pub mod measurement;
 
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -137,7 +139,7 @@ pub struct Claim {
     pub check: Option<String>,
     /// A test that shows it, in simulation or on the host.
     pub test: Option<String>,
-    /// A bench measurement record that shows it.
+    /// The id of the measurement record that shows it on the bench: [`measurement::Measurement`].
     pub record: Option<String>,
     /// The id of the entry in the trusted base that assumes it: [`Trusted`].
     pub trusted: Option<String>,
@@ -147,8 +149,9 @@ pub struct Claim {
 }
 
 /// The unit a claim's value may name, as the last part of its key (`min_volts`, `input_ratio`).
-pub const VALUE_UNITS: [&str; 7] = [
-    "volts", "amps", "ohms", "watts", "hertz", "seconds", "ratio",
+/// `codes` is a raw ADC code, before it is converted.
+pub const VALUE_UNITS: [&str; 8] = [
+    "volts", "amps", "ohms", "watts", "hertz", "seconds", "ratio", "codes",
 ];
 
 impl Claim {
@@ -212,6 +215,13 @@ fn plain(t: &str) -> bool {
     !t.is_empty()
         && t.chars()
             .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-')
+}
+
+/// A sha256 as the records write it: 64 lowercase hex digits.
+fn sha256_shaped(h: &str) -> bool {
+    h.len() == 64
+        && h.chars()
+            .all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c))
 }
 
 /// Holds a record's claims to their shape: ids that are unique and plain, nothing empty, and
@@ -279,7 +289,8 @@ pub struct Catalogue {
     /// The trusted base's entries, in the file's order.
     pub trusted_base: Vec<Trusted>,
     /// Every file exactly as read, the trusted base then records then drawings then site documents
-    /// then the lab's limits then the lab log: the warehouse's bronze layer.
+    /// then the lab's limits then the lab log then the measurement records: the warehouse's bronze
+    /// layer.
     pub sources: Vec<Source>,
     /// The lab's limits, checked. Set by [`Catalogue::with_limits`], which [`Catalogue::load`]
     /// calls; `from_sources` leaves it empty.
@@ -287,6 +298,10 @@ pub struct Catalogue {
     /// The lab log's entries in the log's order, checked and chained. Set by [`Catalogue::with_log`],
     /// which [`Catalogue::load`] calls; `from_sources` leaves it empty.
     pub log: Vec<log::Entry>,
+    /// The measurement records by id, checked against the catalogue and the log. Set by
+    /// [`Catalogue::with_measurements`], which [`Catalogue::load`] calls, and which also holds
+    /// every claim's `record` to them; `from_sources` leaves it empty and checks no `record`.
+    pub measurements: BTreeMap<String, measurement::Measurement>,
 }
 
 impl Catalogue {
@@ -339,7 +354,9 @@ impl Catalogue {
             path: tentzhen_lab::LIMITS.into(),
             text,
         });
-        cat.with_limits(limits)?.with_log(log::read(root)?)
+        cat.with_limits(limits)?
+            .with_log(log::read(root)?)?
+            .with_measurements(measurement::read(root)?)
     }
 
     /// Adds the lab's limits, refusing what [`tentzhen_lab::Limits::check_with_claims`] refuses
@@ -355,6 +372,23 @@ impl Catalogue {
     /// Adds the lab log's files, refusing what [`log::parse`] refuses.
     pub fn with_log(mut self, files: Vec<Source>) -> Result<Self, String> {
         self.log = log::parse(&files)?;
+        self.sources.extend(files);
+        Ok(self)
+    }
+
+    /// Adds the measurement records' files, after the log they cite. Refuses what
+    /// [`measurement::parse`] refuses, a record that names what this catalogue or its log does not
+    /// hold, and a claim whose `record` names no record that measured the claim's subject.
+    pub fn with_measurements(mut self, files: Vec<Source>) -> Result<Self, String> {
+        for s in &files {
+            let m = measurement::parse(s)?;
+            m.check_in(&self)?;
+            if self.measurements.contains_key(&m.id) {
+                return Err(format!("{}: record {} is given twice", s.path, m.id));
+            }
+            self.measurements.insert(m.id.clone(), m);
+        }
+        self.check_records()?;
         self.sources.extend(files);
         Ok(self)
     }
@@ -440,6 +474,7 @@ impl Catalogue {
                 .collect(),
             limits: None,
             log: Vec::new(),
+            measurements: BTreeMap::new(),
         };
         for versions in cat.builds.values() {
             for b in versions {
@@ -483,6 +518,45 @@ impl Catalogue {
                 if let Some(t) = unknown(c.trusted.as_deref()) {
                     return Err(format!(
                         "{at}: claim {} is trusted to {t:?}, which is no entry in {TRUSTED_BASE}",
+                        c.id
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Every claim's `record` referent names a measurement record, which lists the claim's subject
+    /// among the devices it measured.
+    fn check_records(&self) -> Result<(), String> {
+        let claims = self
+            .parts
+            .values()
+            .map(|p| (&p.record, p.part.clone(), &p.claim))
+            .chain(
+                self.builds
+                    .values()
+                    .flatten()
+                    .map(|b| (&b.record, format!("{}/v{}", b.build, b.version), &b.claim)),
+            );
+        for (at, subject, claims) in claims {
+            for c in claims {
+                let Some(r) = &c.record else { continue };
+                let Some(m) = self.measurements.get(r) else {
+                    return Err(format!(
+                        "{at}: claim {} cites record {r:?}, which is no file in {}",
+                        c.id,
+                        measurement::RECORDS
+                    ));
+                };
+                if !m
+                    .device
+                    .iter()
+                    .any(|d| d.subject().as_deref() == Some(subject.as_str()))
+                {
+                    return Err(format!(
+                        "{at}: claim {} cites record {r}, which does not list {subject} among the \
+                         devices it measured",
                         c.id
                     ));
                 }
@@ -577,6 +651,26 @@ impl Catalogue {
     }
 }
 
+/// The files in a folder of the records under `root`, sorted, less its README: none if the folder
+/// does not exist yet. The folder holds no folders.
+fn read_folder(root: &Path, folder: &str) -> Result<Vec<Source>, String> {
+    let dir = root.join(folder);
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut files = Vec::new();
+    for path in read_dir_sorted(&dir)? {
+        if path.ends_with("README.md") {
+            continue;
+        }
+        if path.is_dir() {
+            return Err(format!("{}: {folder} holds only files", path.display()));
+        }
+        files.push(read_source(root, &path)?);
+    }
+    Ok(files)
+}
+
 fn read_dir_sorted(dir: &Path) -> Result<Vec<std::path::PathBuf>, String> {
     let mut out: Vec<_> = fs::read_dir(dir)
         .map_err(|e| format!("{}: {e}", dir.display()))?
@@ -646,6 +740,81 @@ mod tests {
                 .iter()
                 .any(|l| l.part.as_deref() == Some("RP2350"))
         );
+    }
+
+    /// Copies a file, or a folder and everything in it.
+    fn copy(from: &Path, to: &Path) {
+        if from.is_dir() {
+            for entry in fs::read_dir(from).unwrap() {
+                let entry = entry.unwrap();
+                copy(&entry.path(), &to.join(entry.file_name()));
+            }
+        } else {
+            fs::create_dir_all(to.parent().unwrap()).unwrap();
+            fs::copy(from, to).unwrap();
+        }
+    }
+
+    /// `load` reads the lab log and the measurement records from disk, and holds a claim's `record`
+    /// to them: a copy of the repo's records, in a folder of its own, with a claim that cites one.
+    #[test]
+    fn load_holds_claims_to_the_records_on_disk() {
+        let root =
+            std::env::temp_dir().join(format!("tentzhen-records-{}-load", std::process::id()));
+        if root.exists() {
+            fs::remove_dir_all(&root).unwrap();
+        }
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        for path in [
+            TRUSTED_BASE,
+            "DISCLAIMER.md",
+            "parts",
+            "builds",
+            tentzhen_lab::LIMITS,
+        ] {
+            copy(&repo.join(path), &root.join(path));
+        }
+        let rp2350 = root.join("parts/rp2350.toml");
+        let text = fs::read_to_string(&rp2350).unwrap();
+        let claim = "\n[[claim]]\nid = \"draw\"\nsays = \"x\"\nrecord = \"2026-09-21-draw\"\n";
+        fs::write(&rp2350, format!("{text}{claim}")).unwrap();
+        let err = Catalogue::load(&root).err().unwrap_or_default();
+        assert!(
+            err.contains(
+                "claim draw cites record \"2026-09-21-draw\", which is no file in lab/records"
+            ),
+            "{err}"
+        );
+        let seen = log::append(
+            &root,
+            std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_790_000_000),
+            "person:jon",
+            "board.look",
+            BTreeMap::new(),
+            BTreeMap::from([("seen".into(), log::Datum::Flag(true))]),
+        )
+        .unwrap();
+        let path = format!("{}/2026-09-21-draw.toml", measurement::RECORDS);
+        fs::create_dir_all(root.join(measurement::RECORDS)).unwrap();
+        fs::write(
+            root.join(&path),
+            format!(
+                "measures = \"x\"\nsetup = \"x\"\nlog = {{ first = \"{0}\", last = \"{0}\" }}\n\n\
+                 [[device]]\npart = \"RP2350\"\n\n[results]\nseen = true\n",
+                seen.sha256
+            ),
+        )
+        .unwrap();
+        let cat = Catalogue::load(&root).unwrap();
+        assert_eq!(cat.log.len(), 1);
+        assert_eq!(cat.measurements["2026-09-21-draw"].log.first, seen.sha256);
+        for file in [path.as_str(), "lab/log/2026-09-21.jsonl"] {
+            assert!(
+                cat.sources.iter().any(|s| s.path == file),
+                "{file} is in bronze"
+            );
+        }
+        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

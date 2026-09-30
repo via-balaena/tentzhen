@@ -13,7 +13,8 @@ Every claim about Tentzhen carries one of these, plus a referent (see `CLAUDE.md
 - `checked` — a bounded check passed (SymbiYosys `bmc`, Kani). True up to the stated bound and
   no further.
 - `tested` — tests passed in simulation or on the host.
-- `measured` — observed on the bench, with a measurement record.
+- `measured` — observed on the bench, with a measurement record: `lab/records/<id>.toml`, which
+  the claim names as its `record` (`crates/records/src/measurement.rs`).
 - `trusted` — assumed, and an entry in the trusted base below.
 - `unknown` — not established.
 

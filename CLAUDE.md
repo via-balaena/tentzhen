@@ -81,7 +81,8 @@ skyline, which the Quality Gate checks against the committed SVGs.
 - One repo for the whole bench. Planned layout in `docs/roadmap.md`, Phase 0.
 - Measurements: SI units in data; raw ADC codes stored alongside converted values.
 - Every experiment gets a record: hardware revision, gateware hash, firmware hash, toolchain
-  versions, setup notes, results.
+  versions, setup notes, results. It is `lab/records/<id>.toml`, read by
+  `crates/records/src/measurement.rs`.
 - KiCad symbols carry an `LCSC Part #` field (the field JLCPCB fabrication plugins read).
 - `main` takes changes only through a PR that passes the Quality Gate
   (`.github/workflows/quality-gate.yml`), with signed commits and linear history; the

@@ -12,7 +12,7 @@
 //! Every field is what its writer says, `by` included. The log is signed only as a commit is, and
 //! an agent that can commit on the writer's machine signs with the same key as the person.
 
-use crate::{Source, VALUE_UNITS, plain, read_dir_sorted, read_source, snake, unit_of};
+use crate::{Source, VALUE_UNITS, plain, read_folder, sha256_shaped, snake, unit_of};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -59,8 +59,8 @@ impl Entry {
     }
 }
 
-/// A parameter or a result. A number's key ends in its unit ([`VALUE_UNITS`]); a key that does
-/// not holds a word or a yes/no.
+/// A parameter or a result, here or in a measurement record. A number's key ends in its unit
+/// ([`VALUE_UNITS`]); a key that does not holds a word or a yes/no.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Datum {
@@ -89,21 +89,7 @@ impl Datum {
 
 /// The log's files under `root`, oldest day first: none if it has no log yet.
 pub fn read(root: &Path) -> Result<Vec<Source>, String> {
-    let dir = root.join(LOG);
-    if !dir.exists() {
-        return Ok(Vec::new());
-    }
-    let mut files = Vec::new();
-    for path in read_dir_sorted(&dir)? {
-        if path.ends_with("README.md") {
-            continue;
-        }
-        if path.is_dir() {
-            return Err(format!("{}: the log holds only day files", path.display()));
-        }
-        files.push(read_source(root, &path)?);
-    }
-    Ok(files)
+    read_folder(root, LOG)
 }
 
 /// Parses the log's files, oldest day first whatever order they come in, and holds every entry to
@@ -249,13 +235,18 @@ fn real_time(at: &str) -> bool {
     shaped && (1..=12).contains(&mo) && (1..=days).contains(&d) && h < 24 && mi < 60 && s < 60
 }
 
+/// Whether `day` is a real day, written `2026-10-14`.
+pub(crate) fn real_day(day: &str) -> bool {
+    real_time(&format!("{day}T00:00:00Z"))
+}
+
 /// The day a log file is for, from its name: `lab/log/2026-10-14.jsonl` is for `2026-10-14`.
 fn day_of_file(path: &str) -> Option<&str> {
     let day = path
         .strip_prefix(LOG)?
         .strip_prefix('/')?
         .strip_suffix(".jsonl")?;
-    real_time(&format!("{day}T00:00:00Z")).then_some(day)
+    real_day(day).then_some(day)
 }
 
 pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
@@ -352,12 +343,7 @@ fn check_entry(place: &str, day: &str, e: &Entry) -> Result<(), String> {
     if e.result.is_empty() {
         return Err(format!("{place}: the result is empty; say what happened"));
     }
-    let hex = |h: &str| {
-        h.len() == 64
-            && h.chars()
-                .all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c))
-    };
-    if !hex(&e.limits_sha256) {
+    if !sha256_shaped(&e.limits_sha256) {
         return Err(format!(
             "{place}: limits_sha256 must be a sha256 in lowercase hex"
         ));
@@ -366,7 +352,11 @@ fn check_entry(place: &str, day: &str, e: &Entry) -> Result<(), String> {
 }
 
 /// Holds params or results to their keys: a number's key ends in its unit, and only a number's.
-fn check_data(place: &str, side: &str, data: &BTreeMap<String, Datum>) -> Result<(), String> {
+pub(crate) fn check_data(
+    place: &str,
+    side: &str,
+    data: &BTreeMap<String, Datum>,
+) -> Result<(), String> {
     for (key, d) in data {
         if !snake(key) {
             return Err(format!(
