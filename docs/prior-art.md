@@ -25,13 +25,18 @@ of record. Each part exists on its own, and several were built in 2026.
 
 - **Instruments from cheap parts** are well trodden. What is new is the evidence behind them.
 - **Grading claims** has close relatives in test-equipment spec sheets and in metrology, where a
-  maker or a lab asserts how a number is known. We found none where the grade is derived from
-  evidence a tool checks.
-- **Safety below the agent** has a name, runtime assurance, and a literature. Every system we
-  found that lets an AI drive lab hardware enforces its limits in host software. One paper asks
-  for verified firmware below the agent and has no code.
+  maker or a lab asserts how a number is known. Tools that derive a grade from evidence and fail
+  when it is missing exist for software; we found none for hardware specs.
+- **Safety below the agent** has a name, runtime assurance, and a literature. Of the systems we
+  found that let an AI drive lab hardware and say where their limits are enforced, each enforces
+  them in host software, or in an instrument's firmware whose limits the same link can rewrite.
+  One paper asks for verified firmware below the agent and has no code.
 - **Lab records** each exist: hash-chained logs, flash gates for agents, measurement records. We
   found none that ties them to claims.
+- **In Chinese,** there are many more open instruments, supplies and loads, several with one unit's
+  accuracy measured and published, and agents on instruments from RIGOL and others. The pattern is
+  the same: no evidence behind each number, and every limit in the software or firmware being
+  commanded.
 
 ## Instruments from cheap parts
 
@@ -100,7 +105,75 @@ source).
 
 ## Chinese-language sources
 
-To be filled from the search in Chinese.
+Searched in Chinese on 2026-09-30: OSHWHub (立创开源硬件平台, JLC's open-hardware platform,
+through its own API), Gitee, GitHub, and Bilibili video titles. CSDN, Zhihu, elecfans, EEWorld,
+21ic and Baidu blocked the search, so reviews posted there were not seen.
+
+**Instruments.** Nothing found pairs the AD9226 with a Colorlight board and LiteX. On OSHWHub,
+"AD9226" returns one project, a sensor board, and "ECP5 示波器", "LiteX" and "Colorlight" return
+none.
+
+| project | what it is | shared with Tentzhen | different | source |
+|---|---|---|---|---|
+| LogicPi dual-channel FPGA oscilloscope (逻辑派双通道数字示波器, greentor) | a Gowin FPGA on JLC's own board, an 8-bit AD9288 at 100 MS/s, a DAC output | FPGA capture, a generator channel, calibration per range | its calibration table is set by hand for each unit; a standalone screen, not a networked host; LGPL-3.0 | oshwhub.com/greentor |
+| Muse Lab (wuxx) | the Colorlight i5, i9 and i9plus pinouts, LiteX demos; sells the boards | **our FPGA board** | – | github.com/wuxx/Colorlight-FPGA-Projects, Apache-2.0, **re-read** |
+| Sipeed SLogic | a logic analyser; its driver for ngscopeclient was being written in September 2026 | host software we might share | – | github.com/sipeed |
+| DreamSourceLab DSView | open software for their analysers and scopes | – | last commit 2024-11-05 | github.com/DreamSourceLab/DSView |
+
+**Supplies and loads.** Several open projects publish measured accuracy, each from one unit.
+None found publishes variation across units or checks cheap modules on arrival, and every safety
+limit read lives in the same firmware that is being commanded.
+
+| project | shared with Tentzhen | different | source |
+|---|---|---|---|
+| ESP32 electronic load 2.0 (ESP32电子负载仪2.0) | **the same MOSFET, op amp and MCP4725 control as our load**; notes that the MCP4725 cannot output 0 V | measures with an INA226; GPL-3.0 | oshwhub.com/FJ956391150 |
+| S-ELO electronic load (climbsnail) | publishes its accuracy before and after calibration, with a calibration helper board | firmware limits; GPL-3.0 | oshwhub.com/climbsnail |
+| XS1 mini load (flyn) | measured its DAC's drift with supply voltage and corrected it | CC BY-NC-SA 3.0 | oshwhub.com/flyn |
+| RT300-MKV supply (XACT) | one unit's ripple, setting error and trip time published; Modbus "for automated testing" | limits in the module's own firmware; CC BY-NC-SA 4.0 | oshwhub.com/XACT |
+| Power Ultra supply | one unit checked against a calibrated 5½-digit meter | CC BY-NC-SA 4.0 | oshwhub.com/eda_jfdyucwo |
+
+Many of the most-viewed supplies and loads are licensed CC BY-NC-SA, which forbids commercial use:
+read the licence before reusing a design.
+
+**The DPS5005's own protection can be rewritten over its link.** A community Modbus library for the
+DPS5005 reads and writes its over-voltage and over-current settings (registers `0x52` and `0x53`),
+and a register map of Riden's RD6006 lists the same settings (registers 82 and 83). Whatever holds
+the link can raise them, so they are not a limit below the agent. Whether the module accepts every
+such write has not been tried here. Sources: github.com/lambcutlet/DPS5005_pyGUI and
+github.com/Baldanos/rd6006, both **re-read**.
+
+**Agents on instruments.**
+
+| system | where its limits are enforced | source |
+|---|---|---|
+| RIGOL UVerse and its agent, Tron (普源精电, launched 2026-07-30, in beta in mainland China) | the host: reads and setting changes run directly; high-voltage output, reset and firmware updates ask first, and the user may answer "永久同意", permanent consent for that workspace | docs.openuverse.com, **re-read** |
+| UNI-T 优利德 "小优" | a voice assistant inside the oscilloscope's firmware; its limits are not documented | uni-trend.com.cn |
+| alwaysmy/instrumentControl | an MCP server for eight instruments, including a Beijing Dahua DH1766 supply: a blocklist of commands, confirmation gates and a JSONL audit log on the host; its tools can set the supply's over-voltage limit; its own audit is candid about what was not tried on hardware; no licence | github.com/alwaysmy/instrumentControl |
+| WaveBench | host gates: an operation contract, read-only mode, and a preflight check against limits in `wavebench.toml`; MIT | github.com/Scaxlibur/WaveBench |
+| ChemAgents (中国科大, USTC's robotic chemist) | a prompt of expert rules before the robot's code runs; no layer of limits visible | github.com/pic-ai-robotic-chemistry/ChemAgents |
+| Uni-Lab-OS (深势科技 and Peking University) | host drivers; GPL-3.0 | github.com/deepmodeling/Uni-Lab-OS |
+
+**Evidence and verification.**
+
+| item | what it shows | source |
+|---|---|---|
+| Siglent (鼎阳) datasheets | every number is 技术指标 (guaranteed, measurement uncertainty included), 典型值 (typical: 80% of units at about 25 °C, not guaranteed) or 标称值 (nominal: the design value) | siglent.com datasheets |
+| RIGOL (普源) performance-verification guide | for each spec, a limit, a procedure, the reference instrument, and a record table with a pass column, filled in by hand | supportcn.rigol.com, DS1000Z-E guide |
+| GB/T 6592-2010 | China's adoption of IEC 60359, the standard for expressing the performance of measuring equipment, which that vocabulary comes from; only its catalogue entry was readable | std.samr.gov.cn |
+| rIC3 (Institute of Software, Chinese Academy of Sciences) | a hardware model checker in Rust; upstream SymbiYosys lists it as an engine for both `bmc` and `prove` | github.com/gipsyh/rIC3, BSD-3, and YosysHQ/sby #367, **re-read** |
+| 一生一芯 (ysyx), a national chip-design course | teaches SymbiYosys, bounded against unbounded checks, and injecting a bug to show a check can fail; its prose also calls a passed bounded check a proof, the difference our grades keep | ysyx.oscc.cc |
+| XiangShan (香山) Deterload | Nix, so two builds of a workload come out identical | github.com/OpenXiangShan/Deterload |
+| Asterinas vostd | Verus proofs in CI, with proofs an LLM helped write labelled `AI-assist` | github.com/asterinas/vostd |
+| 数码之家 (mydigit) reviews | cheap meters and supplies measured against their claims, often without naming the reference instrument | mydigit.cn |
+| OSHWHub's CW32 voltmeter course | a two-point calibration against a TL431, with the error table from before calibration published | oshwhub.com/geng_yan_wang |
+| PanGucheng/ISE_prj | a diagnostics plan for ADS1115 and MCP4725 boards whose rules are close to ours: every measured value is entered by a person, and a changing ADC code is not accuracy unless the input and the reference were measured | github.com/PanGucheng/ISE_prj |
+
+**Standards.** A draft national standard on lab safety monitoring from the Ministry of Emergency
+Management (《实验室安全监测与智能管控通用要求》, comments closed 2026-08-07) sets a boundary
+between people and AI, cuts power through smart breakers on serious events, and hashes each batch
+of data with SHA-256. The Cyberspace Administration's opinion on AI agents (May 2026) asks for
+"规则内嵌、行为围栏", rules built in and fences around behaviour. Neither was found to ask for
+limits held below the agent in verified firmware (read through summaries).
 
 ## What we take from it
 
@@ -110,8 +183,11 @@ Each is a candidate, to be proposed where it lands:
    reference monitor (`architecture.md`; plan step 9).
 2. **An agent clearing a trip departs from ISO 13849-1's manual reset.** It is Jon's choice
    (2026-09-30); `lab/limits.toml` should say it departs, and from what.
-3. **Speak the spec-sheet language readers know.** Map the grades onto "meas.", "typ." and "nom.",
-   and add what Tentzhen lacks: a claim that holds across many units, not one unit measured.
+3. **Speak the spec-sheet language readers know.** Map the grades onto IEC 60359's vocabulary
+   (GB/T 6592 in China), which makers use: guaranteed, typical, nominal, and Rohde & Schwarz's
+   "meas.". Add what Tentzhen lacks: a claim that holds across many units, not one unit measured.
+   A verification procedure per spec, as RIGOL publishes, is what a measurement record per spec
+   could look like.
 4. **Record a measurement as a calibration certificate does:** value, expanded uncertainty,
    coverage factor, and how the meter's calibration is traced.
 5. **Anchor the lab log's head outside the repo** with an RFC 3161 timestamp, so a rewrite of the
@@ -119,11 +195,14 @@ Each is a candidate, to be proposed where it lands:
 6. **Keep the list of what an agent may do out of the agent's reach,** as agentic-hil does:
    `lab/targets.toml` is a file an agent can edit.
 7. **Check sigrok's driver for the DPS5005's stock firmware** before flashing OpenDPS, which
-   changes the module's flash protection (plan step 10).
+   changes the module's flash protection (plan step 10). Either way the stock firmware's own
+   protection can be rewritten over its link, so the enforcer stays.
 8. **A link from a claim to a record could store the record's sha256,** as Doorstop does, so an
    edited record flags its claims.
 9. **Emit an RO-Crate Process Run Crate for each measurement record,** and name measurement fields
    as OpenHTF does, so other tools can read them.
+10. **Try rIC3 as the `prove` engine** for the first formal core (`roadmap.md`, Phase 0), pinned to
+    one version, as `proven` requires.
 
 ## Building blocks we use
 
@@ -134,13 +213,19 @@ Each is a candidate, to be proposed where it lands:
 | Tock | the enforcer's OS; upstream supports the RP2350, and Jon's `via-balaena/tock` branches add drivers | `verification.md`, "Tock" (planned) |
 | Kani | the enforcer's checks | `firmware/enforcer` (PR #29) |
 | DuckDB | the warehouse | `crates/warehouse` |
+| Muse Lab's Colorlight pinouts | the digitizer's FPGA board | `scope.md` (planned) |
+| machcnz's AD9226 module notes | the module's clipping defect and its fix | `scope.md` |
 | OpenDPS | the DPS5005's firmware | `lab/limits.toml`, `parts/dps5005.toml` |
 | Raspberry Pi debugprobe | the debug probe's firmware | `builds/debug-probe/v1.toml` |
 | jlcparts | part data without an LCSC key | `roadmap.md` (planned) |
 
 ## People worth writing to
 
-The authors of the closest work: agentic-hil and LabMCP (agents on benches), Duke's ARTIQ group
-and Safe-SDL's authors (safety below the agent), the authors of Self-Verifying Measurement Records
-(evidence on every number), and M-Labs (Sinara's evidence-footnoted datasheets). And the projects
-we build on, upstream first when we find a bug.
+The authors of the closest work: agentic-hil and LabMCP (agents on benches), Duke's ARTIQ group and
+Safe-SDL's authors (safety below the agent), the authors of Self-Verifying Measurement Records
+(evidence on every number), and M-Labs (Sinara's evidence-footnoted datasheets). In China: Muse Lab
+(our FPGA board), greentor (LogicPi's analog front end), the ESP32 load's author (our load's
+topology), the S-ELO and XS1 authors (calibrating every unit), RIGOL's UVerse team (agents on
+instruments, with confirmation on the host), the authors of instrumentControl and WaveBench, rIC3's
+authors, the 一生一芯 course, and the reviewers at 数码之家. And the projects we build on, upstream first
+when we find a bug.
