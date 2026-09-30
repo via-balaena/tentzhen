@@ -1,7 +1,9 @@
 //! The catalogue's records: parts and versioned builds, parsed from `parts/` and `builds/` and
 //! checked against the contract every consumer relies on (the site, the warehouse). Both can carry
 //! claims, in one shape: [`Claim`]. A claim assumed rather than shown names an entry in the trusted
-//! base, `trusted-base.toml`: [`Trusted`].
+//! base, `trusted-base.toml`: [`Trusted`]. The lab log, every hardware action, is [`log`].
+
+pub mod log;
 
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -186,6 +188,25 @@ struct TrustedBase {
     entry: Vec<Trusted>,
 }
 
+/// A key in snake case: lowercase words joined by underscores, starting with a letter.
+fn snake(key: &str) -> bool {
+    key.starts_with(|ch: char| ch.is_ascii_lowercase())
+        && key.split('_').all(|word| !word.is_empty())
+        && key
+            .chars()
+            .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_')
+}
+
+/// The unit a key names as its last word (`min_volts`, `input_ratio`), if it is one of
+/// [`VALUE_UNITS`].
+fn unit_of(key: &str) -> Option<&'static str> {
+    let (_, last) = key.rsplit_once('_')?;
+    VALUE_UNITS
+        .into_iter()
+        .find(|unit| *unit == last)
+        .filter(|_| snake(key))
+}
+
 /// An id or a claim's id: lowercase letters, digits and hyphens, and not empty.
 fn plain(t: &str) -> bool {
     !t.is_empty()
@@ -210,14 +231,7 @@ fn check_claims(at: &str, claims: &[Claim]) -> Result<(), String> {
             return Err(format!("{at}: claim {} has an empty string", c.id));
         }
         for (key, v) in &c.values {
-            let unit = key.rsplit('_').next().unwrap_or_default();
-            let named = key.contains('_')
-                && key.starts_with(|ch: char| ch.is_ascii_lowercase())
-                && key.split('_').all(|word| !word.is_empty())
-                && key
-                    .chars()
-                    .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_');
-            if !named || !VALUE_UNITS.contains(&unit) {
+            if unit_of(key).is_none() {
                 return Err(format!(
                     "{at}: claim {} value {key} must end in its unit, one of {}",
                     c.id,
@@ -265,11 +279,14 @@ pub struct Catalogue {
     /// The trusted base's entries, in the file's order.
     pub trusted_base: Vec<Trusted>,
     /// Every file exactly as read, the trusted base then records then drawings then site documents
-    /// then the lab's limits: the warehouse's bronze layer.
+    /// then the lab's limits then the lab log: the warehouse's bronze layer.
     pub sources: Vec<Source>,
     /// The lab's limits, checked. Set by [`Catalogue::with_limits`], which [`Catalogue::load`]
     /// calls; `from_sources` leaves it empty.
     pub limits: Option<tentzhen_lab::Limits>,
+    /// The lab log's entries, oldest first, checked and chained. Set by [`Catalogue::with_log`],
+    /// which [`Catalogue::load`] calls; `from_sources` leaves it empty.
+    pub log: Vec<log::Entry>,
 }
 
 impl Catalogue {
@@ -322,7 +339,7 @@ impl Catalogue {
             path: tentzhen_lab::LIMITS.into(),
             text,
         });
-        cat.with_limits(limits)
+        cat.with_limits(limits)?.with_log(log::read(root)?)
     }
 
     /// Adds the lab's limits, refusing what [`tentzhen_lab::Limits::check_with_claims`] refuses
@@ -332,6 +349,13 @@ impl Catalogue {
             .check_with_claims(|c| self.claim(c).map(|c| &c.values))
             .map_err(|e| format!("{}: {e}", tentzhen_lab::LIMITS))?;
         self.limits = Some(limits);
+        Ok(self)
+    }
+
+    /// Adds the lab log's files, refusing what [`log::parse`] refuses.
+    pub fn with_log(mut self, files: Vec<Source>) -> Result<Self, String> {
+        self.log = log::parse(&files)?;
+        self.sources.extend(files);
         Ok(self)
     }
 
@@ -415,6 +439,7 @@ impl Catalogue {
                 .cloned()
                 .collect(),
             limits: None,
+            log: Vec::new(),
         };
         for versions in cat.builds.values() {
             for b in versions {

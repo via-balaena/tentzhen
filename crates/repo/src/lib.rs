@@ -182,13 +182,14 @@ mod tests {
         assert_eq!(runtime_dependencies("lab"), ["serde", "toml"]);
     }
 
-    /// Reading the records is parsing and checking; the database comes after, in the warehouse.
+    /// Reading the records is parsing and checking; the database comes after, in the warehouse. The
+    /// lab log is JSON, chained by sha256.
     #[test]
     fn parsing_records_needs_no_database() {
         assert!(runtime_dependencies("warehouse").contains(&"duckdb".to_string()));
         assert_eq!(
             runtime_dependencies("records"),
-            ["serde", "tentzhen-lab", "toml"]
+            ["serde", "serde_json", "sha2", "tentzhen-lab", "toml"]
         );
     }
 }
