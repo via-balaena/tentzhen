@@ -5,6 +5,7 @@
 mod tests {
     use std::fs;
     use std::path::{Path, PathBuf};
+    use std::process::Command;
     use toml::{Table, Value};
 
     fn root() -> PathBuf {
@@ -134,6 +135,79 @@ mod tests {
             tests >= 10 && paths >= 10,
             "found {tests} tests and {paths} paths"
         );
+    }
+
+    /// The Quality Gate's step "The lab log only grows": its script, less the fetch, run by `bash -e`
+    /// as GitHub runs the gate's steps (each step's log says `shell: /usr/bin/bash -e {0}`), against
+    /// a scratch repo whose main holds a day of the log. It passes what adds to the log and fails
+    /// what changes it.
+    #[test]
+    fn the_lab_log_step_passes_only_an_append() {
+        let workflow =
+            fs::read_to_string(root().join(".github/workflows/quality-gate.yml")).unwrap();
+        let (_, step) = workflow
+            .split_once("- name: The lab log only grows")
+            .expect("the Quality Gate has the step");
+        let indent = " ".repeat(10);
+        let script: Vec<&str> = step
+            .lines()
+            .skip_while(|l| l.trim() != "run: |")
+            .skip(1)
+            .take_while(|l| l.starts_with(&indent))
+            .map(|l| &l[indent.len()..])
+            .filter(|l| !l.starts_with("git fetch"))
+            .collect();
+        assert!(script.len() > 3, "{script:?}");
+        let script = script.join("\n");
+
+        let dir = std::env::temp_dir().join(format!("tentzhen-step-{}", std::process::id()));
+        if dir.exists() {
+            fs::remove_dir_all(&dir).unwrap();
+        }
+        fs::create_dir_all(dir.join("lab/log")).unwrap();
+        let git = |args: &[&str]| {
+            let ok = Command::new("git")
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(["-c", "commit.gpgsign=false"])
+                .args(args)
+                .current_dir(&dir)
+                .status()
+                .unwrap()
+                .success();
+            assert!(ok, "git {args:?}");
+        };
+        git(&["init", "-q", "-b", "main"]);
+        let day = dir.join("lab/log/2026-09-30.jsonl");
+        fs::write(&day, "one\ntwo\n").unwrap();
+        git(&["add", "-A"]);
+        git(&["commit", "-q", "--no-verify", "-m", "main"]);
+        let passes = |change: &dyn Fn()| {
+            change();
+            let ok = Command::new("bash")
+                .args(["-e", "-c", &script])
+                .env("BASE", "main")
+                .current_dir(&dir)
+                .output()
+                .unwrap()
+                .status
+                .success();
+            git(&["checkout", "-q", "--", "."]);
+            git(&["clean", "-q", "-f", "-d"]);
+            ok
+        };
+        let write = |path: &Path, text: &str| fs::write(path, text).unwrap();
+        assert!(passes(&|| {}), "nothing changed");
+        assert!(
+            passes(&|| write(&day, "one\ntwo\nthree\n")),
+            "an entry added"
+        );
+        let next = dir.join("lab/log/2026-10-01.jsonl");
+        assert!(passes(&|| write(&next, "a\n")), "a new day");
+        assert!(!passes(&|| write(&day, "one!\ntwo\n")), "an entry changed");
+        assert!(!passes(&|| write(&day, "one\n")), "an entry cut");
+        assert!(!passes(&|| write(&day, "one\ntwo")), "a newline cut");
+        assert!(!passes(&|| fs::remove_file(&day).unwrap()), "a day removed");
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     /// Whether a dependency names exactly one version. None when its version is kept elsewhere: a

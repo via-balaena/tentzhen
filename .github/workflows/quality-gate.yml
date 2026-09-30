@@ -65,3 +65,18 @@ jobs:
               exit 1
             fi
           done
+      - name: The lab log only grows
+        # Each of main's log files must be the start of the same file here: entries are added at
+        # the end, never changed, moved or removed (crates/records/src/log.rs). On every run but a
+        # push to main, as above.
+        if: github.event_name != 'push'
+        env:
+          BASE: origin/main
+        run: |
+          git fetch -q --depth=1 origin main
+          for f in $(git ls-tree -r --name-only "$BASE" -- lab/log | grep -E '^lab/log/[^/]+\.jsonl$'); do
+            if [ ! -f "$f" ] || ! cmp -s -n "$(git cat-file -s "$BASE:$f")" <(git show "$BASE:$f") "$f"; then
+              echo "::error file=$f::$f is the lab log, which only grows: add entries at its end and change none"
+              exit 1
+            fi
+          done
