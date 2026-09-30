@@ -7,8 +7,10 @@
 //! Each entry names the sha256 of the line before it, so an entry edited, dropped or moved breaks
 //! the chain at the entry after it, and [`parse`] refuses the log. The chain cannot see a change to
 //! the last entry, entries cut from the end, or a chain rewritten from an edit on: the Quality
-//! Gate's step "The lab log only grows" refuses a change to main's log that is not an append. The
-//! log is signed only as a commit is: `main` takes signed commits.
+//! Gate's step "The lab log only grows" refuses a change to main's log that is not an append.
+//!
+//! Every field is what its writer says, `by` included. The log is signed only as a commit is, and
+//! an agent that can commit on the writer's machine signs with the same key as the person.
 
 use crate::{Source, VALUE_UNITS, plain, read_dir_sorted, read_source, snake, unit_of};
 use serde::{Deserialize, Serialize};

@@ -67,9 +67,11 @@ test and path it names up to the proposal below must exist.
 - **`record` referents resolve to nothing.** A claim can name a measurement record, but no format
   or store for records exists yet: step 5b. The lab log they are to cite has a format, a loader
   and a writer, and no entries, since nothing has touched hardware.
-- **The lab log is signed only when committed.** Until then an entry is as trustworthy as the
-  machine that wrote it, and an agent there could rewrite what is not yet on `main`. Nothing
-  checks that an entry's `limits_sha256` names a version of `lab/limits.toml`.
+- **A lab-log entry is only as trustworthy as the machine that wrote it.** Every field is what its
+  writer says, `by` included. Commits are signed, but an agent that can commit there signs with the
+  person's key: Claude's commits on this repo carry Jon's signature. What `main` adds is that an
+  entry cannot change once merged. Nothing checks that an entry's `limits_sha256` names a version
+  of `lab/limits.toml`.
 - **The Pico voltage ceiling rests on the RP2350 alone** (`RP2350#io-supply`), 230 mV under its
   rated and absolute maximum of 3.63 V. No claim covers another part on the supply, and
   `pico_3v3.max_amps` rests on nothing (`gold.limit_grades`).

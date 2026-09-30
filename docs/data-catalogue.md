@@ -432,7 +432,7 @@ Constraints:
 
 ### `silver.lab_log_entry` (table)
 
-Each hardware action in the lab log, oldest first. Each entry names the sha256 of the line before it.
+Each hardware action in the lab log, numbered in the log's order. Each entry names the sha256 of the line before it.
 
 | column | type | null | about |
 |---|---|---|---|

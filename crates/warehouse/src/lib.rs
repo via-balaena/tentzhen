@@ -186,7 +186,7 @@ fn load_limits(tx: &duckdb::Transaction, limits: &Limits) -> duckdb::Result<()> 
     Ok(())
 }
 
-/// The lab log, oldest entry first, so each entry's prev names one already loaded.
+/// The lab log in its order, so each entry's prev names one already loaded.
 fn load_log(tx: &duckdb::Transaction, log: &[Entry]) -> duckdb::Result<()> {
     for e in log {
         let (kind, name) = e.actor();

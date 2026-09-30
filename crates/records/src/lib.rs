@@ -284,7 +284,7 @@ pub struct Catalogue {
     /// The lab's limits, checked. Set by [`Catalogue::with_limits`], which [`Catalogue::load`]
     /// calls; `from_sources` leaves it empty.
     pub limits: Option<tentzhen_lab::Limits>,
-    /// The lab log's entries, oldest first, checked and chained. Set by [`Catalogue::with_log`],
+    /// The lab log's entries in the log's order, checked and chained. Set by [`Catalogue::with_log`],
     /// which [`Catalogue::load`] calls; `from_sources` leaves it empty.
     pub log: Vec<log::Entry>,
 }

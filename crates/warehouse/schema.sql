@@ -239,7 +239,7 @@ CREATE TABLE silver.lab_log_entry (
     record        TEXT NOT NULL,
     CHECK ((seq = 1) = (prev IS NULL))
 );
-COMMENT ON TABLE silver.lab_log_entry IS 'Each hardware action in the lab log, oldest first. Each entry names the sha256 of the line before it.';
+COMMENT ON TABLE silver.lab_log_entry IS 'Each hardware action in the lab log, numbered in the log''s order. Each entry names the sha256 of the line before it.';
 COMMENT ON COLUMN silver.lab_log_entry.seq IS 'Its place in the log, from 1.';
 COMMENT ON COLUMN silver.lab_log_entry.logged_at IS 'The entry''s `at`, in UTC.';
 COMMENT ON COLUMN silver.lab_log_entry.by_kind IS 'Who acted, from the entry''s `by`: a person or an agent.';
