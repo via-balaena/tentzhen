@@ -14,7 +14,7 @@ never_a_lab_target = "An agent that can flash it can change the limits it holds.
 #   AO3401A gate -- 100 kOhm -- SUPPLY, so the switch is open unless its gate is pulled down
 #   AO3401A gate -- AO3400A drain; AO3400A source -- GND
 #   EN, the AO3400A's gate: 1 kOhm from GP20, 4.7 kOhm to GND, the TLV3011B's OUT, and GP21
-#   TLV3011B: V+ to 3V3, V- to GND, REF to IN+, IN- from SUPPLY -- 18.2 kOhm -- IN- -- 10 kOhm -- GND
+#   TLV3011B: V+ to 3V3, V- to GND, REF to IN+; SUPPLY -- 18.2 kOhm -- IN- -- 10 kOhm -- GND
 #   INA239: VS to 3V3, VBUS to SUPPLY, SPI to SPI0 below, ALERT not connected
 #   DPS5005 serial header to UART1 below; the button from GP22 to GND
 #   100 nF from 3V3 to GND beside the INA239 and beside the TLV3011B

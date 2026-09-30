@@ -41,9 +41,11 @@
 #   arrives, and if every board of a kind reports the same one, an entry lists them all.
 # - A listing never covers irreversible settings (OTP, eFuses, secure-boot keys, flash protection
 #   bits): each needs a person's approval (CLAUDE.md).
-# - The Pico enforcer is never a target: an agent that can flash it can raise its limits. The
-#   enforcer's build is to add the check. This list cannot stop a flash, since nothing between an
-#   agent and a USB port reads it, so the enforcer's design has to.
+# - The Pico enforcer is never a target: an agent that can flash it can raise its limits.
+#   builds/enforcer says so (never_a_lab_target), and crates/records refuses a target listed as it
+#   or as a build that uses it, but a board listed as a bare RP2350 part cannot be told from it.
+#   This list cannot stop a flash, since nothing between an agent and a USB port reads it, so the
+#   enforcer's design has to (plan step 9).
 # - Only a person adds an entry, and every load of code is logged as a firmware.flash. Like the
 #   log's, each field here is its writer's word, and an agent's commits here carry the person's
 #   signature (docs/architecture.md).
