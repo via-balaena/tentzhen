@@ -16,8 +16,8 @@
 //! Each flash is logged as [`FLASH`], naming in its params the target, the serial read from the
 //! board and the image's sha256. [`Catalogue::with_log`] refuses a flash whose target is not on the
 //! list that day, whose serial is not the target's, or whose image is not the firmware the target's
-//! build version pins. So a target a flash names stays on the list as it was, and leaves it by
-//! `retired`.
+//! build version pins. So a target a flash names stays on the list with the serial it gave:
+//! removing it, or changing its serial, refuses that flash. It stops being a target by `retired`.
 //!
 //! Like the log's, every field is its writer's word, `approved_by` included.
 

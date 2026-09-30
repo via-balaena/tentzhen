@@ -25,8 +25,8 @@
 #
 # crates/records refuses a flash whose target is not on this list that day, whose serial is not the
 # target's, or whose image is not the firmware the target's build version pins. So a target that a
-# flash names stays here as it was, and leaves by `retired`. The log keeps a flash this list
-# refuses, and the records stop loading until a person decides what follows.
+# flash names stays here with the serial it gave, and stops being a target by `retired`. The log
+# keeps a flash this list refuses, and the records stop loading until a person decides what follows.
 #
 # Not held by anything:
 # - A listing never covers irreversible settings (OTP, eFuses, secure-boot keys, flash protection

@@ -43,7 +43,7 @@ flowchart LR
 | A raw ADC code in a record's results (`input_codes`) sits beside the value converted from it (`input_volts`). Nothing holds the reverse, that a value read from an ADC keeps its code: `unknown`. | `a_raw_code_sits_beside_its_converted_value` |
 | A merged measurement record never changes. | the Quality Gate's step "A measurement record never changes", which `the_record_step_passes_only_a_new_record` runs against a scratch repo |
 | A lab target is one board: a part or a build version with a record, giving a serial no other target gives, listed on a person's decision, and retired only after the day it was listed. | `a_lab_target_keeps_its_shape` and `a_lab_target_names_a_board_the_catalogue_holds` in `crates/records`, and the warehouse's keys and checks on `silver.lab_target` (`the_database_refuses_what_the_records_refuse`) |
-| Each flash in the lab log, `firmware.flash`, names a target on the lab-target list that day, the serial read from the board, which is the target's, and the image's sha256, which is the firmware the target's build version pins if it pins one. So a target a flash names stays on the list as it was. The log keeps a flash the list refuses, and the records stop loading. | `a_flash_is_held_to_the_lab_target_list` and `load_holds_claims_to_the_records_on_disk` in `crates/records`. The warehouse has no key from a flash to its target. |
+| Each flash in the lab log, `firmware.flash`, names a target on the lab-target list that day, the serial read from the board, which is the target's, and the image's sha256, which is the firmware the target's build version pins if it pins one. So a target a flash names stays on the list with the serial it gave. The log keeps a flash the list refuses, and the records stop loading. | `a_flash_is_held_to_the_lab_target_list` and `load_holds_claims_to_the_records_on_disk` in `crates/records`. The warehouse has no key from a flash to its target. |
 | An agent flashes only a listed board, and logs every load of code as a flash. The Pico enforcer is never a target, and a listing never covers irreversible settings. | nothing: `unknown`. Nothing between an agent and a USB port reads the list. The enforcer's build is to add a check that it is not listed. |
 | A grade comes from its referents, never typed. | `no_record_can_type_a_grade`, `grades_derive_from_referents`, `every_limit_gets_the_weakest_grade_of_its_claims` |
 | A limit rests only on claims that exist, and a rule reads numbers only from the claims its value rests on, so its grade covers them. | `a_value_rests_on_claims_that_exist` and `a_rule_reads_only_the_claims_its_value_rests_on` in `crates/lab`, `the_limits_are_held_to_the_claims_they_cite` in `crates/records`, and the warehouse's foreign key to `silver.claim` (`the_database_refuses_what_the_records_refuse`) |
@@ -163,6 +163,6 @@ Each step is one PR, done when its check passes:
 6. **The lab-target list** (`roadmap.md`, Phase 0): the boards an agent may flash without asking,
    one entry per physical board, in `lab/targets.toml`, with nothing listed yet. A board listed as
    a build version takes only the firmware that version pins; one listed as a part takes any
-   image. Done when a flash naming a board that is not listed is refused, and a test holds each
-   rule. Done: `a_lab_target_keeps_its_shape`, `a_lab_target_names_a_board_the_catalogue_holds`,
-   `a_flash_is_held_to_the_lab_target_list`.
+   image. Done when a flash naming a board that is not listed is refused, and each rule is held by
+   a test or written as `unknown`. Done: `a_lab_target_keeps_its_shape`,
+   `a_lab_target_names_a_board_the_catalogue_holds`, `a_flash_is_held_to_the_lab_target_list`.
