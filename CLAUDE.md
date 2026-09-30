@@ -46,7 +46,8 @@ Always:
 - Keep mains voltage out of scope entirely. No designs or instructions involving mains wiring.
 - Safety limits are enforced BELOW the layer an AI agent controls — in the Pico enforcer, not
   only in host software — so no agent can talk its way past them.
-- Log every hardware action (what, when, parameters, result) to the lab's append-only log.
+- Log every hardware action (what, when, parameters, result) to the lab's append-only log,
+  `lab/log/`, with `cargo run -p tentzhen -- log append`.
 
 ## LCSC and JLCPCB data
 

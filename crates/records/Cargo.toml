@@ -1,7 +1,7 @@
 [package]
 name = "tentzhen-records"
 version = "0.0.0"
-description = "Parts and versioned build records for the Tentzhen catalogue, and the checks they must pass"
+description = "Parts and versioned build records for the Tentzhen catalogue, the lab log, and the checks they must pass"
 publish = false
 edition.workspace = true
 license.workspace = true
@@ -10,4 +10,6 @@ repository.workspace = true
 [dependencies]
 tentzhen-lab = { path = "../lab" }
 serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+sha2 = "=0.11.0"
 toml = "=1.1.6"

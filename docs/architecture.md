@@ -13,10 +13,10 @@ flowchart LR
   warehouse["warehouse<br/>crates/warehouse<br/>bronze, silver, gold"]
   site(["crates/site"])
   enforcer(["Pico enforcer<br/>(planned)"])
-  lablog(["lab log<br/>(planned)"])
+  host(["crates/tentzhen<br/>log append"])
   records --> schemas --> warehouse -- gold only --> site
   schemas -. crates/lab alone .-> enforcer
-  lablog -.-> warehouse
+  host -- the lab log --> records
 ```
 
 | layer | where | what it is |
@@ -25,6 +25,7 @@ flowchart LR
 | schemas and loaders | `crates/records`, `crates/lab` | Typed schemas that refuse what they don't know, and the checks the records' own rules call for. |
 | warehouse | `crates/warehouse`, described in `docs/data-catalogue.md` | Bronze holds each file as read, silver holds typed rows the database constrains, and gold holds views that answer questions. It can be deleted at any time. |
 | readers | `crates/site` today | They read gold. The Pico enforcer is to read the limits through `crates/lab` alone, so the safety path never depends on the database. |
+| host tools | `crates/tentzhen` | Commands for the bench. `tentzhen log append` writes an entry to the lab log through `crates/records`, chained to the entry before it. |
 
 ## Rules
 
@@ -33,7 +34,10 @@ flowchart LR
 | Schema first: every file in `parts/`, `builds/` and `lab/` is loaded into the warehouse, and so are `trusted-base.toml` and `DISCLAIMER.md`, or CI fails. A record is parsed by its schema on the way in; a drawing is kept as it is. A folder's README is not a record. | `every_file_in_the_records_folders_is_loaded` |
 | Every schema refuses a key it doesn't know. | `every_table_refuses_a_key_it_does_not_know`, in `crates/records` and in `crates/lab` |
 | A rule a record states in a comment is a check or a test. | the tests in `crates/lab` and `crates/records`, for `lab/limits.toml`. Nothing holds this for new files: `unknown`. |
-| Every file the warehouse loads is in bronze with its sha256, and every silver row traces to one. | `every_row_traces_to_the_bytes_it_came_from`, for the four silver tables with a `record` column; the rest reference one of those by foreign key, directly or through another table. |
+| Every file the warehouse loads is in bronze with its sha256, and every silver row traces to one. | `every_row_traces_to_the_bytes_it_came_from`, for the five silver tables with a `record` column; the rest reference one of those by foreign key, directly or through another table. |
+| Each lab-log entry names the sha256 of the line before it, so an entry edited, dropped or moved is refused. The chain cannot see a change to the last entry, entries cut from the end, or a chain rewritten from an edit on: the next rule covers those on `main`. | `an_edited_dropped_or_moved_entry_breaks_the_chain` in `crates/records`, and the warehouse's keys on `silver.lab_log_entry` (`the_database_refuses_what_the_records_refuse`) |
+| `main`'s lab log only grows: each of its files is the start of the same file in a PR. | the Quality Gate's step "The lab log only grows", which `the_lab_log_step_passes_only_an_append` runs against a scratch repo |
+| Two writers on one machine cannot chain to the same entry. | `appends_from_many_threads_keep_one_chain` |
 | A grade comes from its referents, never typed. | `no_record_can_type_a_grade`, `grades_derive_from_referents`, `every_limit_gets_the_weakest_grade_of_its_claims` |
 | A limit rests only on claims that exist, and a rule reads numbers only from the claims its value rests on, so its grade covers them. | `a_value_rests_on_claims_that_exist` and `a_rule_reads_only_the_claims_its_value_rests_on` in `crates/lab`, `the_limits_are_held_to_the_claims_they_cite` in `crates/records`, and the warehouse's foreign key to `silver.claim` (`the_database_refuses_what_the_records_refuse`) |
 | A limit with an `at_most` is no more than the number it names, a value of a claim the limit rests on. | `a_value_stays_at_most_the_number_it_names` in `crates/lab`, `the_limits_are_held_to_the_claims_they_cite` in `crates/records`, and the warehouse's foreign keys from `silver.lab_limit_at_most` (`the_database_refuses_what_the_records_refuse`) |
@@ -61,8 +65,13 @@ test and path it names up to the proposal below must exist.
 - **The trusted base is data,** in `trusted-base.toml`: each entry has an id, and a `trusted`
   referent is that id, held by a foreign key.
 - **`record` referents resolve to nothing.** A claim can name a measurement record, but no format
-  or store for records exists yet. That's the lab log in `roadmap.md`,
-  Phase 0.
+  or store for records exists yet: step 5b. The lab log they are to cite has a format, a loader
+  and a writer, and no entries, since nothing has touched hardware.
+- **A lab-log entry is only as trustworthy as the machine that wrote it.** Every field is what its
+  writer says, `by` included. Commits are signed, but an agent that can commit there signs with the
+  person's key: Claude's commits on this repo carry Jon's signature. What `main` adds is that an
+  entry cannot change once merged. Nothing checks that an entry's `limits_sha256` names a version
+  of `lab/limits.toml`.
 - **The Pico voltage ceiling rests on the RP2350 alone** (`RP2350#io-supply`), 230 mV under its
   rated and absolute maximum of 3.63 V. No claim covers another part on the supply, and
   `pico_3v3.max_amps` rests on nothing (`gold.limit_grades`).
@@ -126,4 +135,11 @@ Each step is one PR, done when its check passes:
    `parts/rp2350.toml`. Done when `pico_3v3.max_volts` rests on it. Done, and bounded by it:
    `RP2350#io-supply`, `at_most`, `a_value_stays_at_most_the_number_it_names`.
 5. **Measurement records** with the lab log (`roadmap.md`, Phase 0). Done when a `record` referent
-   is a foreign key.
+   is a foreign key. Two PRs, the log first, since a record cites the entries it came from:
+   - **5a. The lab log:** one JSON line per hardware action in `lab/log/<yyyy-mm-dd>.jsonl`, each
+     naming the sha256 of the line before it, written by `tentzhen log append`. Done when an entry
+     edited, dropped or moved is refused, and so is a change to `main`'s log that is not an
+     append. Done: `an_edited_dropped_or_moved_entry_breaks_the_chain`,
+     `the_lab_log_step_passes_only_an_append`.
+   - **5b. Measurement records:** one file per experiment, each citing the log entries it came
+     from.

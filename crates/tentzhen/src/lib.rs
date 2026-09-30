@@ -1,3 +1,3 @@
 //! Host tools for Tentzhen, a bench of open, verifiable, low-cost electronics instruments.
 //!
-//! This release is a placeholder and contains no functionality yet.
+//! The tools are commands of the `tentzhen` binary; this library holds nothing yet.

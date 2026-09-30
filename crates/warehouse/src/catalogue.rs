@@ -185,10 +185,19 @@ pub fn render(conn: &Connection, relations: &[Relation]) -> duckdb::Result<Strin
         "SELECT column_name, data_type, is_nullable, coalesce(comment, '')
          FROM duckdb_columns() WHERE schema_name || '.' || table_name = ? ORDER BY column_index",
     )?;
+    // DuckDB gives a table's foreign key to itself no text (silver.lab_log_entry's prev), so that
+    // one is written from its columns, as DuckDB writes the others.
     let mut constraints = conn.prepare(
-        "SELECT constraint_text FROM duckdb_constraints()
-         WHERE schema_name || '.' || table_name = ? AND constraint_type <> 'NOT NULL'
-         GROUP BY constraint_text ORDER BY min(constraint_index), constraint_text",
+        "SELECT shown FROM (
+             SELECT constraint_index,
+                    CASE WHEN constraint_type = 'FOREIGN KEY' AND constraint_text = ''
+                         THEN 'FOREIGN KEY (' || array_to_string(constraint_column_names, ', ')
+                              || ') REFERENCES ' || schema_name || '.' || referenced_table
+                              || '(' || array_to_string(referenced_column_names, ', ') || ')'
+                         ELSE constraint_text END AS shown
+             FROM duckdb_constraints()
+             WHERE schema_name || '.' || table_name = ? AND constraint_type <> 'NOT NULL')
+         GROUP BY shown ORDER BY min(constraint_index), shown",
     )?;
     for layer in ["bronze", "silver", "gold"] {
         let _ = writeln!(w, "\n## {layer}");

@@ -1,9 +1,10 @@
-//! Loads the catalogue's records and the lab's limits into DuckDB: bronze (the files as read),
+//! Loads the catalogue's records, the lab's limits and the lab log into DuckDB: bronze (the files as read),
 //! silver (typed rows the database itself constrains) and gold (views). The schema is
 //! `schema.sql`; this only fills it.
 
 use duckdb::{Connection, params};
 use tentzhen_lab::{LIMITS, Limits, Value};
+use tentzhen_records::log::{Datum, Entry};
 use tentzhen_records::{Catalogue, Claim};
 
 pub mod catalogue;
@@ -113,6 +114,7 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
     if let Some(limits) = &cat.limits {
         load_limits(&tx, limits)?;
     }
+    load_log(&tx, &cat.log)?;
     tx.commit()
 }
 
@@ -184,13 +186,49 @@ fn load_limits(tx: &duckdb::Transaction, limits: &Limits) -> duckdb::Result<()> 
     Ok(())
 }
 
+/// The lab log in its order, so each entry's prev names one already loaded.
+fn load_log(tx: &duckdb::Transaction, log: &[Entry]) -> duckdb::Result<()> {
+    for e in log {
+        let (kind, name) = e.actor();
+        tx.execute(
+            "INSERT INTO silver.lab_log_entry VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            params![
+                e.seq,
+                e.at,
+                kind,
+                name,
+                e.what,
+                e.limits_sha256,
+                e.sha256,
+                e.prev,
+                e.record
+            ],
+        )?;
+        for (side, data) in [("params", &e.params), ("result", &e.result)] {
+            for (key, d) in data {
+                let (amount, text, flag) = match d {
+                    Datum::Number(n) => (Some(*n), None, None),
+                    Datum::Text(t) => (None, Some(t.as_str()), None),
+                    Datum::Flag(f) => (None, None, Some(*f)),
+                };
+                tx.execute(
+                    "INSERT INTO silver.lab_log_value VALUES (?, ?, ?, ?, ?, ?)",
+                    params![e.seq, side, key, amount, text, flag],
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
     use std::fs;
     use std::path::Path;
-    use tentzhen_records::{Source, TRUSTED_BASE};
+    use std::time::{Duration, UNIX_EPOCH};
+    use tentzhen_records::{Source, TRUSTED_BASE, log};
 
     fn src(path: &str, text: &str) -> Source {
         Source {
@@ -256,7 +294,8 @@ mod tests {
             "SELECT count(*) FROM (SELECT record FROM silver.part \
              UNION ALL SELECT record FROM silver.build_version \
              UNION ALL SELECT record FROM silver.lab_limit \
-             UNION ALL SELECT record FROM silver.trusted_entry) s \
+             UNION ALL SELECT record FROM silver.trusted_entry \
+             UNION ALL SELECT record FROM silver.lab_log_entry) s \
              LEFT JOIN bronze.record r ON r.path = s.record WHERE r.path IS NULL",
         );
         assert_eq!(orphans, 0);
@@ -314,6 +353,104 @@ mod tests {
                 .unwrap();
             assert_eq!(n, 1, "{f} sits with the records, but nothing loads it");
         }
+    }
+
+    /// A lab log of three entries over two days, written as `tentzhen log append` writes them, in
+    /// a folder of its own named for `test`.
+    fn lab_log(test: &str) -> Vec<Source> {
+        let root =
+            std::env::temp_dir().join(format!("tentzhen-warehouse-{}-{test}", std::process::id()));
+        if root.exists() {
+            fs::remove_dir_all(&root).unwrap();
+        }
+        fs::create_dir_all(root.join("lab")).unwrap();
+        fs::write(root.join(LIMITS), "limits").unwrap();
+        let at = |secs| UNIX_EPOCH + Duration::from_secs(secs);
+        let one = |key: &str, d| BTreeMap::from([(key.to_string(), d)]);
+        let none = BTreeMap::new;
+        for (secs, by, what, params, result) in [
+            (
+                1_790_000_000,
+                "person:jon",
+                "supply.set",
+                one("set_volts", log::Datum::Number(3.3)),
+                one("done", log::Datum::Flag(true)),
+            ),
+            (
+                1_790_000_060,
+                "agent:claude",
+                "supply.read",
+                none(),
+                one("read_volts", log::Datum::Number(3.29)),
+            ),
+            (
+                1_790_100_000,
+                "person:jon",
+                "supply.off",
+                none(),
+                one("note", log::Datum::Text("done for the day".into())),
+            ),
+        ] {
+            log::append(&root, at(secs), by, what, params, result).unwrap();
+        }
+        let files = log::read(&root).unwrap();
+        fs::remove_dir_all(&root).unwrap();
+        files
+    }
+
+    #[test]
+    fn the_lab_log_loads_in_order() {
+        let cat = Catalogue::from_sources(&base(), &[], &[])
+            .unwrap()
+            .with_log(lab_log("order"))
+            .unwrap();
+        let conn = warehouse(&cat);
+        assert_eq!(one(&conn, "SELECT count(*) FROM silver.lab_log_entry"), 3);
+        assert_eq!(
+            one(
+                &conn,
+                "SELECT count(*) FROM silver.lab_log_entry e \
+                 JOIN silver.lab_log_entry p ON e.prev = p.sha256 AND e.seq = p.seq + 1"
+            ),
+            2,
+            "each entry after the first names the one before it"
+        );
+        assert_eq!(
+            one(
+                &conn,
+                "SELECT count(*) FROM silver.lab_log_entry e JOIN bronze.record r ON r.path = e.record"
+            ),
+            3
+        );
+        assert_eq!(
+            one(
+                &conn,
+                "SELECT count(*) FROM bronze.record WHERE path LIKE 'lab/log/%'"
+            ),
+            2
+        );
+        let who: (String, String, String) = conn
+            .query_row(
+                "SELECT logged_at::VARCHAR, by_kind, by_name FROM silver.lab_log_entry WHERE seq = 2",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            who,
+            (
+                "2026-09-21 14:14:20".into(),
+                "agent".into(),
+                "claude".into()
+            )
+        );
+        let kinds = |col: &str| {
+            one(
+                &conn,
+                &format!("SELECT count(*) FROM silver.lab_log_value WHERE {col} IS NOT NULL"),
+            )
+        };
+        assert_eq!([kinds("amount"), kinds("text"), kinds("flag")], [2, 1, 1]);
     }
 
     #[test]
@@ -426,6 +563,11 @@ mod tests {
         assert!(
             committed == catalogue::generate(&root).unwrap(),
             "{} is stale: run `cargo run -p tentzhen-warehouse -- catalogue`",
+            catalogue::PATH
+        );
+        assert!(
+            !committed.contains("\n- ``\n"),
+            "{} lists a constraint with no text",
             catalogue::PATH
         );
     }
@@ -793,5 +935,61 @@ mod tests {
             let sql = format!("INSERT INTO silver.lab_limit VALUES ('x', {values}, 'r')");
             refused(conn.execute(&sql, []).map(|_| ()), why);
         }
+        // The lab log: one chain from one first entry, that never forks.
+        let sha = |c: char| format!("'{}'", c.to_string().repeat(64));
+        let entry = |seq: u32, own: char, prev: &str, by: &str| {
+            format!(
+                "INSERT INTO silver.lab_log_entry VALUES ({seq}, '2026-10-14 10:00:00', '{by}', \
+                 'jon', 'supply.set', {}, {}, {prev}, 'r')",
+                sha('a'),
+                sha(own)
+            )
+        };
+        conn.execute_batch(&entry(1, 'b', "NULL", "person"))
+            .unwrap();
+        for (sql, why) in [
+            (
+                entry(2, 'c', &sha('f'), "person"),
+                "a prev names an entry in the log",
+            ),
+            (
+                entry(2, 'c', "NULL", "person"),
+                "only the first entry names no prev",
+            ),
+            (
+                entry(2, 'c', &sha('b'), "robot"),
+                "a person or an agent acts",
+            ),
+        ] {
+            refused(conn.execute_batch(&sql), why);
+        }
+        conn.execute_batch(&entry(2, 'c', &sha('b'), "agent"))
+            .unwrap();
+        refused(
+            conn.execute_batch(&entry(3, 'd', &sha('b'), "person")),
+            "the log cannot fork: no two entries name the same prev",
+        );
+        conn.execute_batch(&entry(3, 'd', &sha('c'), "person"))
+            .unwrap();
+        let value = |values: &str| format!("INSERT INTO silver.lab_log_value VALUES ({values})");
+        for (values, why) in [
+            (
+                "2, 'result', 'x', 1.0, 'y', NULL",
+                "a value is a number, a word or a yes/no, not two",
+            ),
+            ("2, 'result', 'x', NULL, NULL, NULL", "a value is something"),
+            (
+                "2, 'other', 'x', 1.0, NULL, NULL",
+                "a value is a param or a result",
+            ),
+            (
+                "9, 'result', 'x', 1.0, NULL, NULL",
+                "a value belongs to an entry",
+            ),
+        ] {
+            refused(conn.execute_batch(&value(values)), why);
+        }
+        conn.execute_batch(&value("2, 'result', 'x', 1.0, NULL, NULL"))
+            .unwrap();
     }
 }
