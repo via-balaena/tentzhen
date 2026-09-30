@@ -26,7 +26,6 @@ flowchart LR
     silver_step["silver.step"]
     silver_trusted_entry["silver.trusted_entry"]
     silver_claim["silver.claim"]
-    silver_referent["silver.referent"]
     silver_claim_value["silver.claim_value"]
     silver_lab_limit["silver.lab_limit"]
     silver_lab_limit_input["silver.lab_limit_input"]
@@ -34,6 +33,11 @@ flowchart LR
     silver_lab_limit_at_most["silver.lab_limit_at_most"]
     silver_lab_log_entry["silver.lab_log_entry"]
     silver_lab_log_value["silver.lab_log_value"]
+    silver_measurement["silver.measurement"]
+    silver_measurement_device["silver.measurement_device"]
+    silver_measurement_tool["silver.measurement_tool"]
+    silver_measurement_value["silver.measurement_value"]
+    silver_referent["silver.referent"]
   end
   subgraph gold
     gold_latest["gold.latest"]
@@ -93,7 +97,7 @@ flowchart LR
 
 ### `bronze.record` (table)
 
-Every file the loader read, exactly as read: records, drawings, site documents and the lab's limits.
+Every file the loader read, exactly as read: records, drawings, site documents, the lab's limits, the lab log and measurement records.
 
 | column | type | null | about |
 |---|---|---|---|
@@ -312,28 +316,8 @@ Constraints:
 - `FOREIGN KEY (build, "version") REFERENCES silver.build_version(build, "version")`
 - `CHECK(((part IS NULL) != (build IS NULL)))`
 - `CHECK(((build IS NULL) = ("version" IS NULL)))`
-
-Read by: `gold.claim_grades`.
-
-### `silver.referent` (table)
-
-What shows a claim: a proof, a bounded check or a test in simulation; a bench measurement record; or an entry in the trusted base.
-
-| column | type | null | about |
-|---|---|---|---|
-| `claim` | VARCHAR | no |  |
-| `kind` | VARCHAR | no |  |
-| `evidence` | VARCHAR | yes | The proof, check, test or measurement record, as the claim names it. Nothing checks that it exists. |
-| `trusted` | VARCHAR | yes | For a trusted referent, the entry in the trusted base that assumes the claim. |
-
-Constraints:
-
-- `FOREIGN KEY (claim) REFERENCES silver.claim(claim)`
-- `CHECK((kind IN ('proof', 'check', 'test', 'record', 'trusted')))`
-- `FOREIGN KEY ("trusted") REFERENCES silver.trusted_entry(entry)`
-- `PRIMARY KEY(claim, kind)`
-- `CHECK(((kind = 'trusted') = ("trusted" IS NOT NULL)))`
-- `CHECK(((evidence IS NULL) = ("trusted" IS NOT NULL)))`
+- `UNIQUE(claim, part)`
+- `UNIQUE(claim, build, "version")`
 
 Read by: `gold.claim_grades`.
 
@@ -477,6 +461,116 @@ Constraints:
 - `CHECK((side IN ('params', 'result')))`
 - `PRIMARY KEY(seq, side, "name")`
 - `CHECK((((CAST((amount IS NOT NULL) AS INTEGER) + CAST(("text" IS NOT NULL) AS INTEGER)) + CAST((flag IS NOT NULL) AS INTEGER)) = 1))`
+
+### `silver.measurement` (table)
+
+Each measurement record: one experiment on the bench, and the lab-log entries it came from. A claim's record referent names one.
+
+| column | type | null | about |
+|---|---|---|---|
+| `measurement` | VARCHAR | no | Its id, the file's name: <yyyy-mm-dd>-<words>, the UTC day of its first log entry. |
+| `measures` | VARCHAR | no | What was measured. |
+| `setup` | VARCHAR | no | How it was wired and set. |
+| `log_first` | VARCHAR | no | Its first lab-log entry, by the sha256 of its line. |
+| `log_last` | VARCHAR | no | Its last lab-log entry, by the sha256 of its line. crates/records holds it at or after the first. |
+| `record` | VARCHAR | no | The file in bronze.record this row came from. |
+
+Constraints:
+
+- `PRIMARY KEY(measurement)`
+- `FOREIGN KEY (log_first) REFERENCES silver.lab_log_entry(sha256)`
+- `FOREIGN KEY (log_last) REFERENCES silver.lab_log_entry(sha256)`
+
+### `silver.measurement_device` (table)
+
+What each experiment measured (device) and what read it (meter): a part or a build version, with the hashes of the code it ran.
+
+| column | type | null | about |
+|---|---|---|---|
+| `measurement` | VARCHAR | no |  |
+| `role` | VARCHAR | no |  |
+| `device_no` | INTEGER | no | Its place among the record's devices, or its meters, from 1. |
+| `part` | VARCHAR | yes |  |
+| `build` | VARCHAR | yes |  |
+| `version` | INTEGER | yes |  |
+| `revision` | VARCHAR | yes | A part's hardware revision, as marked on it. A build's is its version. |
+| `firmware_sha256` | VARCHAR | yes |  |
+| `gateware_sha256` | VARCHAR | yes |  |
+| `accuracy` | VARCHAR | yes | A meter's: the claim on its own record that gives its accuracy. |
+
+Constraints:
+
+- `FOREIGN KEY (measurement) REFERENCES silver.measurement(measurement)`
+- `CHECK(("role" IN ('device', 'meter')))`
+- `FOREIGN KEY (part) REFERENCES silver.part(part)`
+- `CHECK(regexp_full_match(firmware_sha256, '[0-9a-f]{64}'))`
+- `CHECK(regexp_full_match(gateware_sha256, '[0-9a-f]{64}'))`
+- `PRIMARY KEY(measurement, "role", device_no)`
+- `FOREIGN KEY (build, "version") REFERENCES silver.build_version(build, "version")`
+- `FOREIGN KEY (accuracy, part) REFERENCES silver.claim(claim, part)`
+- `FOREIGN KEY (accuracy, build, "version") REFERENCES silver.claim(claim, build, "version")`
+- `CHECK(((part IS NULL) != (build IS NULL)))`
+- `CHECK(((build IS NULL) = ("version" IS NULL)))`
+- `CHECK(((revision IS NULL) OR (part IS NOT NULL)))`
+- `CHECK((("role" = 'meter') = (accuracy IS NOT NULL)))`
+
+### `silver.measurement_tool` (table)
+
+The tools each experiment used, and their versions.
+
+| column | type | null | about |
+|---|---|---|---|
+| `measurement` | VARCHAR | no |  |
+| `tool` | VARCHAR | no |  |
+| `version` | VARCHAR | no |  |
+
+Constraints:
+
+- `FOREIGN KEY (measurement) REFERENCES silver.measurement(measurement)`
+- `PRIMARY KEY(measurement, tool)`
+
+### `silver.measurement_value` (table)
+
+What each experiment found: each a number, a word or a yes/no.
+
+| column | type | null | about |
+|---|---|---|---|
+| `measurement` | VARCHAR | no |  |
+| `name` | VARCHAR | no | A number's name ends in its unit: input_volts. A raw ADC code, input_codes, sits beside the value converted from it; crates/records holds that. |
+| `amount` | DOUBLE | yes |  |
+| `text` | VARCHAR | yes |  |
+| `flag` | BOOLEAN | yes |  |
+
+Constraints:
+
+- `FOREIGN KEY (measurement) REFERENCES silver.measurement(measurement)`
+- `PRIMARY KEY(measurement, "name")`
+- `CHECK((((CAST((amount IS NOT NULL) AS INTEGER) + CAST(("text" IS NOT NULL) AS INTEGER)) + CAST((flag IS NOT NULL) AS INTEGER)) = 1))`
+
+### `silver.referent` (table)
+
+What shows a claim: a proof, a bounded check or a test in simulation; a bench measurement record; or an entry in the trusted base.
+
+| column | type | null | about |
+|---|---|---|---|
+| `claim` | VARCHAR | no |  |
+| `kind` | VARCHAR | no |  |
+| `evidence` | VARCHAR | yes | The proof, check or test, as the claim names it. Nothing checks that it exists. |
+| `trusted` | VARCHAR | yes | For a trusted referent, the entry in the trusted base that assumes the claim. |
+| `measurement` | VARCHAR | yes | For a record referent, the measurement record that shows the claim. crates/records holds that the record measured the claim's subject. |
+
+Constraints:
+
+- `FOREIGN KEY (claim) REFERENCES silver.claim(claim)`
+- `CHECK((kind IN ('proof', 'check', 'test', 'record', 'trusted')))`
+- `FOREIGN KEY ("trusted") REFERENCES silver.trusted_entry(entry)`
+- `FOREIGN KEY (measurement) REFERENCES silver.measurement(measurement)`
+- `PRIMARY KEY(claim, kind)`
+- `CHECK(((kind = 'trusted') = ("trusted" IS NOT NULL)))`
+- `CHECK(((kind = 'record') = (measurement IS NOT NULL)))`
+- `CHECK(((evidence IS NULL) = (kind IN ('trusted', 'record'))))`
+
+Read by: `gold.claim_grades`.
 
 ## gold
 

@@ -20,7 +20,7 @@ CREATE TABLE bronze.record (
     path TEXT PRIMARY KEY,
     body TEXT NOT NULL
 );
-COMMENT ON TABLE bronze.record IS 'Every file the loader read, exactly as read: records, drawings, site documents and the lab''s limits.';
+COMMENT ON TABLE bronze.record IS 'Every file the loader read, exactly as read: records, drawings, site documents, the lab''s limits, the lab log and measurement records.';
 COMMENT ON COLUMN bronze.record.path IS 'The file''s path, relative to the repo root.';
 
 CREATE VIEW bronze.record_hash AS
@@ -151,24 +151,14 @@ CREATE TABLE silver.claim (
     says     TEXT NOT NULL,
     FOREIGN KEY (build, version) REFERENCES silver.build_version (build, version),
     CHECK ((part IS NULL) <> (build IS NULL)),
-    CHECK ((build IS NULL) = (version IS NULL))
+    CHECK ((build IS NULL) = (version IS NULL)),
+    -- Keys for a meter's accuracy, which must be a claim on the meter's own record.
+    UNIQUE (claim, part),
+    UNIQUE (claim, build, version)
 );
 COMMENT ON TABLE silver.claim IS 'What a part or a build version claims. Its grades come from its referents, never typed.';
 COMMENT ON COLUMN silver.claim.claim IS 'How it is cited: <part>#<id>, or <build>/v<n>#<id>.';
 COMMENT ON COLUMN silver.claim.claim_no IS 'Its place in its record, from 1.';
-
-CREATE TABLE silver.referent (
-    claim    TEXT NOT NULL REFERENCES silver.claim (claim),
-    kind     TEXT NOT NULL CHECK (kind IN ('proof', 'check', 'test', 'record', 'trusted')),
-    evidence TEXT,
-    trusted  TEXT REFERENCES silver.trusted_entry (entry),
-    PRIMARY KEY (claim, kind),
-    CHECK ((kind = 'trusted') = (trusted IS NOT NULL)),
-    CHECK ((evidence IS NULL) = (trusted IS NOT NULL))
-);
-COMMENT ON TABLE silver.referent IS 'What shows a claim: a proof, a bounded check or a test in simulation; a bench measurement record; or an entry in the trusted base.';
-COMMENT ON COLUMN silver.referent.evidence IS 'The proof, check, test or measurement record, as the claim names it. Nothing checks that it exists.';
-COMMENT ON COLUMN silver.referent.trusted IS 'For a trusted referent, the entry in the trusted base that assumes the claim.';
 
 CREATE TABLE silver.claim_value (
     claim  TEXT NOT NULL REFERENCES silver.claim (claim),
@@ -262,6 +252,91 @@ CREATE TABLE silver.lab_log_value (
 COMMENT ON TABLE silver.lab_log_value IS 'What each action was asked to do (params) and what happened (result): each a number, a word or a yes/no.';
 COMMENT ON COLUMN silver.lab_log_value.name IS 'A number''s name ends in its unit: set_volts.';
 
+-- ---------------------------------------------------------------- silver: measurement records
+-- From lab/records/<id>.toml, which crates/records has checked against the catalogue and the log.
+
+CREATE TABLE silver.measurement (
+    measurement TEXT PRIMARY KEY,
+    measures    TEXT NOT NULL,
+    setup       TEXT NOT NULL,
+    log_first   TEXT NOT NULL REFERENCES silver.lab_log_entry (sha256),
+    log_last    TEXT NOT NULL REFERENCES silver.lab_log_entry (sha256),
+    record      TEXT NOT NULL
+);
+COMMENT ON TABLE silver.measurement IS 'Each measurement record: one experiment on the bench, and the lab-log entries it came from. A claim''s record referent names one.';
+COMMENT ON COLUMN silver.measurement.measurement IS 'Its id, the file''s name: <yyyy-mm-dd>-<words>, the UTC day of its first log entry.';
+COMMENT ON COLUMN silver.measurement.measures IS 'What was measured.';
+COMMENT ON COLUMN silver.measurement.setup IS 'How it was wired and set.';
+COMMENT ON COLUMN silver.measurement.log_first IS 'Its first lab-log entry, by the sha256 of its line.';
+COMMENT ON COLUMN silver.measurement.log_last IS 'Its last lab-log entry, by the sha256 of its line. crates/records holds it at or after the first.';
+COMMENT ON COLUMN silver.measurement.record IS 'The file in bronze.record this row came from.';
+
+-- DuckDB skips a foreign key when any of its columns is NULL, so each of the two accuracy keys
+-- below binds only the kind of record the device is: a part, or a build version.
+CREATE TABLE silver.measurement_device (
+    measurement     TEXT NOT NULL REFERENCES silver.measurement (measurement),
+    role            TEXT NOT NULL CHECK (role IN ('device', 'meter')),
+    device_no       INTEGER NOT NULL,
+    part            TEXT REFERENCES silver.part (part),
+    build           TEXT,
+    version         INTEGER,
+    revision        TEXT,
+    firmware_sha256 TEXT CHECK (regexp_full_match(firmware_sha256, '[0-9a-f]{64}')),
+    gateware_sha256 TEXT CHECK (regexp_full_match(gateware_sha256, '[0-9a-f]{64}')),
+    accuracy        TEXT,
+    PRIMARY KEY (measurement, role, device_no),
+    FOREIGN KEY (build, version) REFERENCES silver.build_version (build, version),
+    FOREIGN KEY (accuracy, part) REFERENCES silver.claim (claim, part),
+    FOREIGN KEY (accuracy, build, version) REFERENCES silver.claim (claim, build, version),
+    CHECK ((part IS NULL) <> (build IS NULL)),
+    CHECK ((build IS NULL) = (version IS NULL)),
+    CHECK (revision IS NULL OR part IS NOT NULL),
+    CHECK ((role = 'meter') = (accuracy IS NOT NULL))
+);
+COMMENT ON TABLE silver.measurement_device IS 'What each experiment measured (device) and what read it (meter): a part or a build version, with the hashes of the code it ran.';
+COMMENT ON COLUMN silver.measurement_device.device_no IS 'Its place among the record''s devices, or its meters, from 1.';
+COMMENT ON COLUMN silver.measurement_device.revision IS 'A part''s hardware revision, as marked on it. A build''s is its version.';
+COMMENT ON COLUMN silver.measurement_device.accuracy IS 'A meter''s: the claim on its own record that gives its accuracy.';
+
+CREATE TABLE silver.measurement_tool (
+    measurement TEXT NOT NULL REFERENCES silver.measurement (measurement),
+    tool        TEXT NOT NULL,
+    version     TEXT NOT NULL,
+    PRIMARY KEY (measurement, tool)
+);
+COMMENT ON TABLE silver.measurement_tool IS 'The tools each experiment used, and their versions.';
+
+CREATE TABLE silver.measurement_value (
+    measurement TEXT NOT NULL REFERENCES silver.measurement (measurement),
+    name        TEXT NOT NULL,
+    amount      DOUBLE,
+    text        TEXT,
+    flag        BOOLEAN,
+    PRIMARY KEY (measurement, name),
+    CHECK ((amount IS NOT NULL)::INTEGER + (text IS NOT NULL)::INTEGER + (flag IS NOT NULL)::INTEGER = 1)
+);
+COMMENT ON TABLE silver.measurement_value IS 'What each experiment found: each a number, a word or a yes/no.';
+COMMENT ON COLUMN silver.measurement_value.name IS 'A number''s name ends in its unit: input_volts. A raw ADC code, input_codes, sits beside the value converted from it; crates/records holds that.';
+
+-- ---------------------------------------------------------------- silver: what shows a claim
+-- After the measurement records, which a record referent names.
+
+CREATE TABLE silver.referent (
+    claim       TEXT NOT NULL REFERENCES silver.claim (claim),
+    kind        TEXT NOT NULL CHECK (kind IN ('proof', 'check', 'test', 'record', 'trusted')),
+    evidence    TEXT,
+    trusted     TEXT REFERENCES silver.trusted_entry (entry),
+    measurement TEXT REFERENCES silver.measurement (measurement),
+    PRIMARY KEY (claim, kind),
+    CHECK ((kind = 'trusted') = (trusted IS NOT NULL)),
+    CHECK ((kind = 'record') = (measurement IS NOT NULL)),
+    CHECK ((evidence IS NULL) = (kind IN ('trusted', 'record')))
+);
+COMMENT ON TABLE silver.referent IS 'What shows a claim: a proof, a bounded check or a test in simulation; a bench measurement record; or an entry in the trusted base.';
+COMMENT ON COLUMN silver.referent.evidence IS 'The proof, check or test, as the claim names it. Nothing checks that it exists.';
+COMMENT ON COLUMN silver.referent.trusted IS 'For a trusted referent, the entry in the trusted base that assumes the claim.';
+COMMENT ON COLUMN silver.referent.measurement IS 'For a record referent, the measurement record that shows the claim. crates/records holds that the record measured the claim''s subject.';
+
 -- ---------------------------------------------------------------- gold
 
 CREATE VIEW gold.latest AS
@@ -274,7 +349,7 @@ WITH r AS (
            max(evidence) FILTER (WHERE kind = 'proof')   AS proof,
            max(evidence) FILTER (WHERE kind = 'check')   AS "check",
            max(evidence) FILTER (WHERE kind = 'test')    AS test,
-           max(evidence) FILTER (WHERE kind = 'record')  AS record,
+           max(measurement) FILTER (WHERE kind = 'record') AS record,
            max(trusted)  FILTER (WHERE kind = 'trusted') AS trusted
     FROM silver.referent GROUP BY claim
 )

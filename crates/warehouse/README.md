@@ -37,5 +37,14 @@ The lab log (`lab/log/`) is checked by `crates/records`, its chain included, the
 hardware action in `silver.lab_log_entry`, and what it was asked and what happened in
 `silver.lab_log_value`.
 
+A measurement record (`lab/records/<id>.toml`) is checked by `crates/records` against the
+catalogue and the log, then loaded into `silver.measurement` and its `_device`, `_tool` and
+`_value` tables. A claim's `record` referent is a key into `silver.measurement`, and the claims
+measured on the bench are:
+
+```sql
+SELECT claim, bench_evidence FROM gold.claim_grades WHERE bench_grade = 'measured';
+```
+
 Data we may not share stays out: LCSC and JLCPCB data is joined in locally, per user, never
 loaded here (`docs/sourcing.md`).

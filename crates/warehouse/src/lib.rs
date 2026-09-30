@@ -1,10 +1,11 @@
-//! Loads the catalogue's records, the lab's limits and the lab log into DuckDB: bronze (the files as read),
-//! silver (typed rows the database itself constrains) and gold (views). The schema is
-//! `schema.sql`; this only fills it.
+//! Loads the catalogue's records, the lab's limits, the lab log and the measurement records into
+//! DuckDB: bronze (the files as read), silver (typed rows the database itself constrains) and gold
+//! (views). The schema is `schema.sql`; this only fills it.
 
 use duckdb::{Connection, params};
 use tentzhen_lab::{LIMITS, Limits, Value};
 use tentzhen_records::log::{Datum, Entry};
+use tentzhen_records::measurement::Measurement;
 use tentzhen_records::{Catalogue, Claim};
 
 pub mod catalogue;
@@ -42,6 +43,8 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
             ],
         )?;
     }
+    // Each claim under its citation; their referents go in last, once what they name is loaded.
+    let mut claims: Vec<(String, &Claim)> = Vec::new();
     for p in cat.parts.values() {
         for (i, c) in (1u32..).zip(&p.claim) {
             let claim = format!("{}#{}", p.part, c.id);
@@ -49,7 +52,8 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
                 "INSERT INTO silver.claim VALUES (?, ?, NULL, NULL, ?, ?, ?)",
                 params![claim, p.part, i, c.id, c.says],
             )?;
-            load_referents(&tx, &claim, c)?;
+            load_values(&tx, &claim, c)?;
+            claims.push((claim, c));
         }
     }
     // Every version first: lines, uses and claims point at them.
@@ -108,29 +112,42 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
                 "INSERT INTO silver.claim VALUES (?, NULL, ?, ?, ?, ?, ?)",
                 params![claim, key.0, key.1, i, c.id, c.says],
             )?;
-            load_referents(&tx, &claim, c)?;
+            load_values(&tx, &claim, c)?;
+            claims.push((claim, c));
         }
     }
     if let Some(limits) = &cat.limits {
         load_limits(&tx, limits)?;
     }
     load_log(&tx, &cat.log)?;
+    for m in cat.measurements.values() {
+        load_measurement(&tx, m)?;
+    }
+    for (claim, c) in &claims {
+        load_referents(&tx, claim, c)?;
+    }
     tx.commit()
 }
 
-/// A claim's referents and values, under its citation. A trusted referent is a key into the
-/// trusted base; the others are kept as named.
+/// A claim's referents, under its citation. A trusted referent is a key into the trusted base and a
+/// record referent a key into the measurement records; the others are kept as named.
 fn load_referents(tx: &duckdb::Transaction, claim: &str, c: &Claim) -> duckdb::Result<()> {
     for (kind, named) in c.referents() {
-        let (evidence, trusted) = match kind {
-            "trusted" => (None, Some(named)),
-            _ => (Some(named), None),
+        let (evidence, trusted, measurement) = match kind {
+            "trusted" => (None, Some(named), None),
+            "record" => (None, None, Some(named)),
+            _ => (Some(named), None, None),
         };
         tx.execute(
-            "INSERT INTO silver.referent VALUES (?, ?, ?, ?)",
-            params![claim, kind, evidence, trusted],
+            "INSERT INTO silver.referent VALUES (?, ?, ?, ?, ?)",
+            params![claim, kind, evidence, trusted, measurement],
         )?;
     }
+    Ok(())
+}
+
+/// The numbers a claim states, under its citation.
+fn load_values(tx: &duckdb::Transaction, claim: &str, c: &Claim) -> duckdb::Result<()> {
     for (name, amount) in &c.values {
         tx.execute(
             "INSERT INTO silver.claim_value VALUES (?, ?, ?)",
@@ -206,17 +223,63 @@ fn load_log(tx: &duckdb::Transaction, log: &[Entry]) -> duckdb::Result<()> {
         )?;
         for (side, data) in [("params", &e.params), ("result", &e.result)] {
             for (key, d) in data {
-                let (amount, text, flag) = match d {
-                    Datum::Number(n) => (Some(*n), None, None),
-                    Datum::Text(t) => (None, Some(t.as_str()), None),
-                    Datum::Flag(f) => (None, None, Some(*f)),
-                };
+                let (amount, text, flag) = columns(d);
                 tx.execute(
                     "INSERT INTO silver.lab_log_value VALUES (?, ?, ?, ?, ?, ?)",
                     params![e.seq, side, key, amount, text, flag],
                 )?;
             }
         }
+    }
+    Ok(())
+}
+
+/// A value as its three columns, of which it fills one: a number, a word or a yes/no.
+fn columns(d: &Datum) -> (Option<f64>, Option<&str>, Option<bool>) {
+    match d {
+        Datum::Number(n) => (Some(*n), None, None),
+        Datum::Text(t) => (None, Some(t.as_str()), None),
+        Datum::Flag(f) => (None, None, Some(*f)),
+    }
+}
+
+/// A measurement record, after the log entries, parts and builds it names.
+fn load_measurement(tx: &duckdb::Transaction, m: &Measurement) -> duckdb::Result<()> {
+    tx.execute(
+        "INSERT INTO silver.measurement VALUES (?, ?, ?, ?, ?, ?)",
+        params![m.id, m.measures, m.setup, m.log.first, m.log.last, m.record],
+    )?;
+    for (role, devices) in [("device", &m.device), ("meter", &m.meter)] {
+        for (i, d) in (1u32..).zip(devices) {
+            tx.execute(
+                "INSERT INTO silver.measurement_device VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                params![
+                    m.id,
+                    role,
+                    i,
+                    d.part,
+                    d.build,
+                    d.version,
+                    d.revision,
+                    d.firmware_sha256,
+                    d.gateware_sha256,
+                    d.accuracy
+                ],
+            )?;
+        }
+    }
+    for (tool, version) in &m.toolchain {
+        tx.execute(
+            "INSERT INTO silver.measurement_tool VALUES (?, ?, ?)",
+            params![m.id, tool, version],
+        )?;
+    }
+    for (name, d) in &m.results {
+        let (amount, text, flag) = columns(d);
+        tx.execute(
+            "INSERT INTO silver.measurement_value VALUES (?, ?, ?, ?, ?)",
+            params![m.id, name, amount, text, flag],
+        )?;
     }
     Ok(())
 }
@@ -295,7 +358,8 @@ mod tests {
              UNION ALL SELECT record FROM silver.build_version \
              UNION ALL SELECT record FROM silver.lab_limit \
              UNION ALL SELECT record FROM silver.trusted_entry \
-             UNION ALL SELECT record FROM silver.lab_log_entry) s \
+             UNION ALL SELECT record FROM silver.lab_log_entry \
+             UNION ALL SELECT record FROM silver.measurement) s \
              LEFT JOIN bronze.record r ON r.path = s.record WHERE r.path IS NULL",
         );
         assert_eq!(orphans, 0);
@@ -396,6 +460,91 @@ mod tests {
         let files = log::read(&root).unwrap();
         fs::remove_dir_all(&root).unwrap();
         files
+    }
+
+    /// `cat` with the lab log of [`lab_log`], and a measurement record under each of `ids` of build
+    /// probe v1 over the log's first two entries: seen, with no meter.
+    fn measured(cat: Catalogue, test: &str, ids: &[&str]) -> Catalogue {
+        let cat = cat.with_log(lab_log(test)).unwrap();
+        let (first, last) = (cat.log[0].sha256.clone(), cat.log[1].sha256.clone());
+        let records = ids
+            .iter()
+            .map(|id| {
+                src(
+                    &format!("lab/records/{id}.toml"),
+                    &format!(
+                        "measures = \"x\"\nsetup = \"x\"\nlog = {{ first = \"{first}\", last = \"{last}\" }}\n\n\
+                         [[device]]\nbuild = \"probe\"\nversion = 1\n\n[results]\nseen = true\n"
+                    ),
+                )
+            })
+            .collect();
+        cat.with_measurements(records).unwrap()
+    }
+
+    #[test]
+    fn a_measurement_record_loads_with_the_claim_it_shows() {
+        let dmm = "part = \"DMM\"\nkind = \"product\"\nis = \"multimeter\"\n\n\
+                   [[claim]]\nid = \"dc-volts\"\nsays = \"x\"\ntrusted = \"entry\"\n";
+        let claim = "[[claim]]\nid = \"draws\"\nsays = \"x\"\nrecord = \"2026-09-21-draw\"\n";
+        let cat = Catalogue::from_sources(
+            &base(),
+            &[src("parts/dmm.toml", dmm), src("parts/rp2350.toml", PART)],
+            &[build("probe", claim)],
+        )
+        .unwrap()
+        .with_log(lab_log("measurement"))
+        .unwrap();
+        let (first, last) = (cat.log[0].sha256.clone(), cat.log[2].sha256.clone());
+        let record = format!(
+            "measures = \"x\"\nsetup = \"x\"\nlog = {{ first = \"{first}\", last = \"{last}\" }}\n\
+             toolchain = {{ probe-rs = \"0.29.1\" }}\n\n\
+             [[device]]\nbuild = \"probe\"\nversion = 1\nfirmware_sha256 = \"{}\"\n\n\
+             [[device]]\npart = \"RP2350\"\nrevision = \"B2\"\n\n\
+             [[meter]]\npart = \"DMM\"\naccuracy = \"DMM#dc-volts\"\n\n\
+             [results]\ninput_volts = 3.3\ninput_codes = 4095\nenumerates = true\nproduct = \"x\"\n",
+            "b".repeat(64)
+        );
+        let path = "lab/records/2026-09-21-draw.toml";
+        let cat = cat.with_measurements(vec![src(path, &record)]).unwrap();
+        let conn = warehouse(&cat);
+        assert_eq!(
+            one(
+                &conn,
+                "SELECT count(*) FROM silver.measurement m \
+                 JOIN silver.lab_log_entry f ON f.sha256 = m.log_first AND f.seq = 1 \
+                 JOIN silver.lab_log_entry l ON l.sha256 = m.log_last AND l.seq = 3 \
+                 JOIN bronze.record r ON r.path = m.record \
+                 WHERE m.measurement = '2026-09-21-draw'"
+            ),
+            1,
+            "it names its log entries and traces to its file"
+        );
+        let rows = |sql: &str| one(&conn, &format!("SELECT count(*) FROM {sql}"));
+        assert_eq!(
+            [
+                rows("silver.measurement_device WHERE role = 'device'"),
+                rows(
+                    "silver.measurement_device WHERE role = 'meter' AND accuracy = 'DMM#dc-volts'"
+                ),
+                rows("silver.measurement_device WHERE revision = 'B2' AND part = 'RP2350'"),
+                rows("silver.measurement_tool WHERE tool = 'probe-rs' AND version = '0.29.1'"),
+            ],
+            [2, 1, 1, 1]
+        );
+        let kinds = |col: &str| rows(&format!("silver.measurement_value WHERE {col} IS NOT NULL"));
+        assert_eq!([kinds("amount"), kinds("text"), kinds("flag")], [2, 1, 1]);
+        let (grade, by): (String, String) = conn
+            .query_row(
+                "SELECT bench_grade, bench_evidence FROM gold.claim_grades WHERE claim = 'probe/v1#draws'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            (grade.as_str(), by.as_str()),
+            ("measured", "2026-09-21-draw")
+        );
     }
 
     #[test]
@@ -690,16 +839,23 @@ mod tests {
 
     #[test]
     fn grades_derive_from_referents() {
-        let claims = "[[claim]]\nid = \"a\"\nsays = \"x\"\ntest = \"t\"\nrecord = \"lab-1\"\n\n\
+        let claims = "[[claim]]\nid = \"a\"\nsays = \"x\"\ntest = \"t\"\nrecord = \"2026-09-21-lab-1\"\n\n\
                       [[claim]]\nid = \"b\"\nsays = \"x\"\nproof = \"p\"\ncheck = \"c\"\ntest = \"t\"\n\n\
-                      [[claim]]\nid = \"c\"\nsays = \"x\"\ntrusted = \"entry\"\nrecord = \"lab-2\"\n\n\
+                      [[claim]]\nid = \"c\"\nsays = \"x\"\ntrusted = \"entry\"\nrecord = \"2026-09-21-lab-2\"\n\n\
                       [[claim]]\nid = \"d\"\nsays = \"x\"\ntrusted = \"entry\"\n\n\
                       [[claim]]\nid = \"e\"\nsays = \"x\"\n\n\
                       [[claim]]\nid = \"f\"\nsays = \"x\"\ncheck = \"c\"\ntest = \"t\"\n";
-        let conn =
-            warehouse(&Catalogue::from_sources(&base(), &[], &[build("probe", claims)]).unwrap());
+        let cat = Catalogue::from_sources(&base(), &[], &[build("probe", claims)]).unwrap();
+        let conn = warehouse(&measured(
+            cat,
+            "grades",
+            &["2026-09-21-lab-1", "2026-09-21-lab-2"],
+        ));
         let got = grades(&conn);
-        assert_eq!(got["a"], g("tested", Some("t"), "measured", Some("lab-1")));
+        assert_eq!(
+            got["a"],
+            g("tested", Some("t"), "measured", Some("2026-09-21-lab-1"))
+        );
         assert_eq!(
             got["b"],
             g("proven", Some("p"), "unknown", None),
@@ -707,7 +863,7 @@ mod tests {
         );
         assert_eq!(
             got["c"],
-            g("unknown", None, "measured", Some("lab-2")),
+            g("unknown", None, "measured", Some("2026-09-21-lab-2")),
             "measured beats trusted"
         );
         assert_eq!(got["d"], g("unknown", None, "trusted", Some("entry")));
@@ -828,26 +984,34 @@ mod tests {
             refused(conn.execute(&sql, []).map(|_| ()), why);
         }
         let graded = "INSERT INTO silver.claim VALUES ('k5', 'RP2350', NULL, NULL, 1, 'a', 'x'); \
-                      INSERT INTO silver.referent VALUES ('k5', 'tested', 't', NULL)";
+                      INSERT INTO silver.referent VALUES ('k5', 'tested', 't', NULL, NULL)";
         refused(
             conn.execute_batch(graded),
             "a referent is a kind of evidence, not a grade",
         );
         for (values, why) in [
             (
-                "'trusted', NULL, 'nope'",
+                "'trusted', NULL, 'nope', NULL",
                 "a trusted referent names an entry in the trusted base",
             ),
-            ("'trusted', 'entry', NULL", "a trusted referent is a key"),
             (
-                "'trusted', 'entry', 'entry'",
+                "'trusted', 'entry', NULL, NULL",
+                "a trusted referent is a key",
+            ),
+            (
+                "'trusted', 'entry', 'entry', NULL",
                 "a trusted referent is a key, not a name too",
             ),
             (
-                "'test', NULL, 'entry'",
+                "'test', NULL, 'entry', NULL",
                 "only a trusted referent names an entry",
             ),
-            ("'test', NULL, NULL", "a referent names something"),
+            ("'test', NULL, NULL, NULL", "a referent names something"),
+            (
+                "'record', NULL, NULL, 'nope'",
+                "a record referent names a measurement record",
+            ),
+            ("'record', 'm1', NULL, NULL", "a record referent is a key"),
         ] {
             let sql = format!("INSERT INTO silver.referent VALUES ('k5', {values})");
             refused(conn.execute(&sql, []).map(|_| ()), why);
@@ -868,8 +1032,8 @@ mod tests {
         // Each was refused for what it names: rows for the same claim and limit naming what
         // exists are accepted.
         conn.execute_batch(
-            "INSERT INTO silver.referent VALUES ('k5', 'trusted', NULL, 'entry'); \
-             INSERT INTO silver.referent VALUES ('k5', 'test', 't', NULL); \
+            "INSERT INTO silver.referent VALUES ('k5', 'trusted', NULL, 'entry', NULL); \
+             INSERT INTO silver.referent VALUES ('k5', 'test', 't', NULL, NULL); \
              INSERT INTO silver.lab_limit_rests_on VALUES ('held', 'k5')",
         )
         .unwrap();
@@ -991,5 +1155,107 @@ mod tests {
         }
         conn.execute_batch(&value("2, 'result', 'x', 1.0, NULL, NULL"))
             .unwrap();
+        // Measurement records: over entries in the log, of parts and builds that exist, each
+        // meter's accuracy a claim on its own record, and cited by record referents.
+        let measurement = |name: &str, first: &str| {
+            format!(
+                "INSERT INTO silver.measurement VALUES ('{name}', 'x', 'x', {first}, {}, 'r')",
+                sha('c')
+            )
+        };
+        refused(
+            conn.execute_batch(&measurement("m0", &sha('f'))),
+            "a record's log entries are in the log",
+        );
+        conn.execute_batch(&measurement("m1", &sha('b'))).unwrap();
+        conn.execute_batch("INSERT INTO silver.claim VALUES ('k8', NULL, 'probe', 1, 1, 'c', 'x')")
+            .unwrap();
+        let device =
+            |values: &str| format!("INSERT INTO silver.measurement_device VALUES ('m1', {values})");
+        for (values, why) in [
+            (
+                "'device', 1, 'RP2350', 'probe', 1, NULL, NULL, NULL, NULL",
+                "a device is a part or a build, not both",
+            ),
+            (
+                "'device', 1, NULL, 'probe', NULL, NULL, NULL, NULL, NULL",
+                "a build names its version",
+            ),
+            (
+                "'device', 1, 'RP9999', NULL, NULL, NULL, NULL, NULL, NULL",
+                "a device's part has a record",
+            ),
+            (
+                "'device', 1, NULL, 'probe', 9, NULL, NULL, NULL, NULL",
+                "a device's build version exists",
+            ),
+            (
+                "'device', 1, NULL, 'probe', 1, 'B', NULL, NULL, NULL",
+                "a build's revision is its version",
+            ),
+            (
+                "'device', 1, 'RP2350', NULL, NULL, NULL, 'abc', NULL, NULL",
+                "a firmware hash is a sha256",
+            ),
+            (
+                "'device', 1, 'RP2350', NULL, NULL, NULL, NULL, NULL, 'k5'",
+                "a device measured has no accuracy",
+            ),
+            (
+                "'meter', 1, 'RP2350', NULL, NULL, NULL, NULL, NULL, NULL",
+                "a meter names its accuracy",
+            ),
+            (
+                "'meter', 1, 'RP2350', NULL, NULL, NULL, NULL, NULL, 'k8'",
+                "a part's accuracy is a claim on that part",
+            ),
+            (
+                "'meter', 1, NULL, 'probe', 1, NULL, NULL, NULL, 'k5'",
+                "a build's accuracy is a claim on that build version",
+            ),
+            (
+                "'meter', 1, 'RP2350', NULL, NULL, NULL, NULL, NULL, 'nope'",
+                "an accuracy is a claim",
+            ),
+        ] {
+            refused(conn.execute_batch(&device(values)), why);
+        }
+        conn.execute_batch(&format!(
+            "{}; {}; {}",
+            device("'device', 1, 'RP2350', NULL, NULL, 'B2', NULL, NULL, NULL"),
+            device("'meter', 1, 'RP2350', NULL, NULL, NULL, NULL, NULL, 'k5'"),
+            device("'meter', 2, NULL, 'probe', 1, NULL, NULL, NULL, 'k8'"),
+        ))
+        .unwrap();
+        for (sql, why) in [
+            (
+                "INSERT INTO silver.measurement_value VALUES ('m1', 'x', 1.0, NULL, true)",
+                "a result is a number, a word or a yes/no, not two",
+            ),
+            (
+                "INSERT INTO silver.measurement_value VALUES ('m9', 'x', 1.0, NULL, NULL)",
+                "a result belongs to a record",
+            ),
+            (
+                "INSERT INTO silver.measurement_tool VALUES ('m9', 'probe-rs', '0.29.1')",
+                "a tool belongs to a record",
+            ),
+            (
+                "INSERT INTO silver.referent VALUES ('k7', 'record', 'm1', NULL, 'm1')",
+                "a record referent is a key, not a name too",
+            ),
+            (
+                "INSERT INTO silver.referent VALUES ('k7', 'test', 't', NULL, 'm1')",
+                "only a record referent names a measurement record",
+            ),
+        ] {
+            refused(conn.execute_batch(sql), why);
+        }
+        conn.execute_batch(
+            "INSERT INTO silver.measurement_value VALUES ('m1', 'x', 1.0, NULL, NULL); \
+             INSERT INTO silver.measurement_tool VALUES ('m1', 'probe-rs', '0.29.1'); \
+             INSERT INTO silver.referent VALUES ('k7', 'record', NULL, NULL, 'm1')",
+        )
+        .unwrap();
     }
 }
