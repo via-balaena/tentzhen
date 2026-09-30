@@ -14,7 +14,7 @@
 //! revision = "<as marked on the board>"
 //! firmware_sha256 = "<the sha256 of the image it runs>"
 //!
-//! [[meter]]                     # what read it, and the claim on its record that gives its accuracy
+//! [[meter]]                     # what read it, and the claim on its record giving its accuracy
 //! part = "<the meter's part>"
 //! accuracy = "<the meter's part>#<claim id>"
 //!
@@ -81,7 +81,8 @@ pub struct Device {
     pub version: Option<u32>,
     /// A part's hardware revision, as marked on it. A build's is its version.
     pub revision: Option<String>,
-    /// The sha256 of the firmware it ran, if it runs any.
+    /// The sha256 of the firmware it ran, if it runs any. A build version that pins its firmware
+    /// ran that firmware, or it was not that version.
     pub firmware_sha256: Option<String>,
     /// The sha256 of the gateware it ran, if it runs any.
     pub gateware_sha256: Option<String>,
@@ -222,9 +223,9 @@ fn check_device(at: &str, role: &str, d: &Device) -> Result<(), String> {
 }
 
 impl Measurement {
-    /// Holds what it names to `cat`: each device's and meter's record, each meter's accuracy as a
-    /// claim on its own record, and its first and last log entries, in order, the first on the
-    /// day its id starts with.
+    /// Holds what it names to `cat`: each device's and meter's record, the firmware a build version
+    /// pins, each meter's accuracy as a claim on its own record, and its first and last log
+    /// entries, in order, the first on the day its id starts with.
     pub(crate) fn check_in(&self, cat: &Catalogue) -> Result<(), String> {
         let at = &self.record;
         let roles = self.device.iter().map(|d| ("device", d));
@@ -238,6 +239,20 @@ impl Measurement {
             if !known {
                 return Err(format!(
                     "{at}: {role} {subject} has no record in parts/ or builds/"
+                ));
+            }
+            // A build version pins its firmware: running other firmware, it is not that version.
+            let pinned = match (&d.build, d.version) {
+                (Some(b), Some(v)) => cat.version(b, v).and_then(|bv| bv.firmware.as_ref()),
+                _ => None,
+            };
+            if let Some(f) = pinned
+                && d.firmware_sha256.as_deref() != Some(f.sha256.as_str())
+            {
+                return Err(format!(
+                    "{at}: {role} {subject} pins its firmware, so its firmware_sha256 is that \
+                     firmware's, {}",
+                    f.sha256
                 ));
             }
             if let Some(acc) = &d.accuracy {
@@ -524,8 +539,8 @@ mod tests {
             .collect()
     }
 
-    /// A catalogue with a meter part, the RP2350 and a probe build, each with a claim, and a lab
-    /// log of three entries.
+    /// A catalogue with a meter part, the RP2350 and a probe build that pins its firmware, each
+    /// with a claim, and a lab log of three entries.
     fn catalogue() -> Catalogue {
         citing("", "")
     }
@@ -556,8 +571,13 @@ mod tests {
             "part = \"RP2350\"\nkind = \"chip\"\nis = \"microcontroller\"\n{}{on_rp2350}",
             claim("io")
         );
+        let firmware = format!(
+            "\n[firmware]\nname = \"f\"\nlicense = \"MIT\"\nsource = \"s\"\nrelease = \"r\"\n\
+             file = \"f\"\nsha256 = \"{}\"\n",
+            "b".repeat(64)
+        );
         let probe = format!(
-            "build = \"probe\"\nversion = 1\nstatus = \"draft\"\ndoes = \"a thing\"\n{}{on_probe}",
+            "build = \"probe\"\nversion = 1\nstatus = \"draft\"\ndoes = \"a thing\"\n{firmware}{}{on_probe}",
             claim("reads")
         );
         Catalogue::from_sources(
@@ -649,11 +669,21 @@ mod tests {
                 .contains("record 2026-10-14-probe-draw is given twice")
         );
         // A meter may be a build, with its accuracy on that build version; one entry is a span.
+        // A build version is the firmware it pins, too.
+        let pin = format!("firmware_sha256 = \"{}\"\n", "b".repeat(64));
+        let pins = "device probe/v1 pins its firmware, so its firmware_sha256 is that firmware's";
+        refused(PATH, edit(&pin, &pin.replace('b', "c")), pins);
+        refused(PATH, edit(&pin, ""), pins);
         let built = edit(
             "part = \"DMM\"\naccuracy = \"DMM#dc-volts\"",
-            "build = \"probe\"\nversion = 1\naccuracy = \"probe/v1#reads\"",
+            &format!("build = \"probe\"\nversion = 1\naccuracy = \"probe/v1#reads\"\n{pin}"),
         );
         assert!(with(PATH, &built).is_ok(), "a build as a meter");
+        let meter = "accuracy = \"probe/v1#reads\"\n";
+        let unpinned = built.replace(&format!("{meter}{pin}"), meter);
+        assert_ne!(unpinned, built);
+        let err = with(PATH, &unpinned).err().unwrap_or_default();
+        assert!(err.contains("meter probe/v1 pins its firmware"), "{err}");
         // The log rewritten under the record, from its first entry on: each line after the edit
         // names the new line before it, so the log loads, and the record's entries are gone.
         let mut rewritten = lab_log(3);
