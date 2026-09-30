@@ -137,17 +137,13 @@ mod tests {
         );
     }
 
-    /// The Quality Gate's step "The lab log only grows": its script, less the fetch, run by `bash -e`
-    /// as GitHub runs the gate's steps (each step's log says `shell: /usr/bin/bash -e {0}`), against
-    /// a scratch repo whose main holds a day of the log. It passes what adds to the log and fails
-    /// what changes it.
-    #[test]
-    fn the_lab_log_step_passes_only_an_append() {
+    /// The script of the Quality Gate's step `name`, less its fetch.
+    fn gate_step(name: &str) -> String {
         let workflow =
             fs::read_to_string(root().join(".github/workflows/quality-gate.yml")).unwrap();
         let (_, step) = workflow
-            .split_once("- name: The lab log only grows")
-            .expect("the Quality Gate has the step");
+            .split_once(&format!("- name: {name}\n"))
+            .unwrap_or_else(|| panic!("the Quality Gate has no step {name:?}"));
         let indent = " ".repeat(10);
         let script: Vec<&str> = step
             .lines()
@@ -158,69 +154,148 @@ mod tests {
             .filter(|l| !l.starts_with("git fetch"))
             .collect();
         assert!(script.len() > 3, "{script:?}");
-        let script = script.join("\n");
+        script.join("\n")
+    }
 
-        let dir = std::env::temp_dir().join(format!("tentzhen-step-{}", std::process::id()));
-        if dir.exists() {
-            fs::remove_dir_all(&dir).unwrap();
+    /// A scratch git repo to run a step of the Quality Gate in, as GitHub runs the gate's steps:
+    /// by `bash -e` (each step's log says `shell: /usr/bin/bash -e {0}`), with main as the base.
+    struct Scratch {
+        dir: PathBuf,
+        script: String,
+    }
+
+    impl Scratch {
+        fn new(test: &str, step: &str) -> Self {
+            let dir =
+                std::env::temp_dir().join(format!("tentzhen-step-{}-{test}", std::process::id()));
+            if dir.exists() {
+                fs::remove_dir_all(&dir).unwrap();
+            }
+            fs::create_dir_all(&dir).unwrap();
+            let repo = Scratch {
+                dir,
+                script: gate_step(step),
+            };
+            repo.git(&["init", "-q", "-b", "main"]);
+            repo.write("lab/limits.toml", "limits");
+            repo.commit("main");
+            repo
         }
-        fs::create_dir_all(dir.join("lab/log")).unwrap();
-        let git = |args: &[&str]| {
+
+        fn git(&self, args: &[&str]) {
             let ok = Command::new("git")
                 .args(["-c", "user.name=t", "-c", "user.email=t@t"])
                 .args(["-c", "commit.gpgsign=false"])
                 .args(args)
-                .current_dir(&dir)
+                .current_dir(&self.dir)
                 .status()
                 .unwrap()
                 .success();
             assert!(ok, "git {args:?}");
-        };
-        git(&["init", "-q", "-b", "main"]);
-        fs::write(dir.join("lab/limits.toml"), "limits").unwrap();
-        git(&["add", "-A"]);
-        git(&["commit", "-q", "--no-verify", "-m", "main without a log"]);
-        let passes = |change: &dyn Fn()| {
-            change();
+        }
+
+        fn write(&self, path: &str, text: &str) {
+            let path = self.dir.join(path);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, text).unwrap();
+        }
+
+        fn remove(&self, path: &str) {
+            fs::remove_file(self.dir.join(path)).unwrap();
+        }
+
+        /// Commits everything to main.
+        fn commit(&self, message: &str) {
+            self.git(&["add", "-A"]);
+            self.git(&["commit", "-q", "--no-verify", "-m", message]);
+        }
+
+        /// Whether the step passes with `change` made to the working tree, which is then undone.
+        fn passes(&self, change: impl FnOnce(&Self)) -> bool {
+            change(self);
             let ok = Command::new("bash")
-                .args(["-e", "-c", &script])
+                .args(["-e", "-c", &self.script])
                 .env("BASE", "main")
-                .current_dir(&dir)
+                .current_dir(&self.dir)
                 .output()
                 .unwrap()
                 .status
                 .success();
-            git(&["checkout", "-q", "--", "."]);
-            git(&["clean", "-q", "-f", "-d"]);
+            self.git(&["checkout", "-q", "--", "."]);
+            self.git(&["clean", "-q", "-f", "-d"]);
             ok
-        };
-        let write = |path: &Path, text: &str| {
-            fs::create_dir_all(path.parent().unwrap()).unwrap();
-            fs::write(path, text).unwrap();
-        };
-        let day = dir.join("lab/log/2026-09-30.jsonl");
-        assert!(passes(&|| write(&day, "one\n")), "main has no log yet");
-        write(&day, "one\ntwo\n");
-        git(&["add", "-A"]);
-        git(&[
-            "commit",
-            "-q",
-            "--no-verify",
-            "-m",
-            "main with a day of the log",
-        ]);
-        assert!(passes(&|| {}), "nothing changed");
+        }
+    }
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.dir);
+        }
+    }
+
+    /// The Quality Gate's step "The lab log only grows", against a main that holds a day of the
+    /// log: it passes what adds to the log and fails what changes it.
+    #[test]
+    fn the_lab_log_step_passes_only_an_append() {
+        let repo = Scratch::new("log", "The lab log only grows");
+        let day = "lab/log/2026-09-30.jsonl";
         assert!(
-            passes(&|| write(&day, "one\ntwo\nthree\n")),
+            repo.passes(|r| r.write(day, "one\n")),
+            "main has no log yet"
+        );
+        repo.write(day, "one\ntwo\n");
+        repo.commit("main with a day of the log");
+        assert!(repo.passes(|_| {}), "nothing changed");
+        assert!(
+            repo.passes(|r| r.write(day, "one\ntwo\nthree\n")),
             "an entry added"
         );
-        let next = dir.join("lab/log/2026-10-01.jsonl");
-        assert!(passes(&|| write(&next, "a\n")), "a new day");
-        assert!(!passes(&|| write(&day, "one!\ntwo\n")), "an entry changed");
-        assert!(!passes(&|| write(&day, "one\n")), "an entry cut");
-        assert!(!passes(&|| write(&day, "one\ntwo")), "a newline cut");
-        assert!(!passes(&|| fs::remove_file(&day).unwrap()), "a day removed");
-        fs::remove_dir_all(&dir).unwrap();
+        assert!(
+            repo.passes(|r| r.write("lab/log/2026-10-01.jsonl", "a\n")),
+            "a new day"
+        );
+        assert!(
+            !repo.passes(|r| r.write(day, "one!\ntwo\n")),
+            "an entry changed"
+        );
+        assert!(!repo.passes(|r| r.write(day, "one\n")), "an entry cut");
+        assert!(!repo.passes(|r| r.write(day, "one\ntwo")), "a newline cut");
+        assert!(!repo.passes(|r| r.remove(day)), "a day removed");
+    }
+
+    /// The Quality Gate's step "A measurement record never changes", against a main that holds a
+    /// record: it passes a new record and fails any change to one on main.
+    #[test]
+    fn the_record_step_passes_only_a_new_record() {
+        let repo = Scratch::new("records", "A measurement record never changes");
+        let record = "lab/records/2026-09-30-draw.toml";
+        assert!(
+            repo.passes(|r| r.write(record, "a = 1\n")),
+            "main has no records yet"
+        );
+        repo.write(record, "a = 1\n");
+        repo.commit("main with a record");
+        assert!(repo.passes(|_| {}), "nothing changed");
+        assert!(
+            repo.passes(|r| r.write("lab/records/2026-10-01-draw.toml", "a = 2\n")),
+            "a new record"
+        );
+        for (changed, why) in [
+            ("a = 2\n", "a value changed"),
+            ("a = 1\nb = 2\n", "a line added"),
+            ("a = 1", "a newline cut"),
+            ("a = 1\r\n", "a line ending changed"),
+        ] {
+            assert!(!repo.passes(|r| r.write(record, changed)), "{why}");
+        }
+        assert!(!repo.passes(|r| r.remove(record)), "a record removed");
+        assert!(
+            !repo.passes(|r| {
+                r.remove(record);
+                r.write("lab/records/2026-09-30-drew.toml", "a = 1\n");
+            }),
+            "a record renamed"
+        );
     }
 
     /// Whether a dependency names exactly one version. None when its version is kept elsewhere: a
