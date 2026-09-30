@@ -46,8 +46,9 @@ basis.max_amps = { policy = "CLAUDE.md, \"Default ceilings: 3.4 V and 200 mA\"" 
 max_volts = 3.4
 max_amps = 0.200
 # After a trip, who may turn the output back on: "person" (a physical button on the enforcer) or
-# "agent" (after the trip is logged). The append-only lab log does not exist yet (docs/roadmap.md,
-# Phase 0), so until it does no trip can be logged and the agent cannot re-enable the output.
+# "agent" (after the trip is logged). The lab log (lab/log/) can record a trip, but the host writes
+# it, so an agent could log one itself. Whether that is enough is for the enforcer to settle, and
+# until it does the agent cannot re-enable the output.
 reenable = "agent"
 basis.max_volts = { same_as = "pico_3v3.max_volts" }
 basis.max_amps = { same_as = "pico_3v3.max_amps" }
