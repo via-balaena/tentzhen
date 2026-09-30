@@ -45,11 +45,14 @@ flowchart LR
 | A merged measurement record never changes. | the Quality Gate's step "A measurement record never changes", which `the_record_step_passes_only_a_new_record` runs against a scratch repo |
 | A lab target is one board: a part or a build version with a record, giving a serial no other target gives, naming a person as `approved_by`, and retired only after the day it was listed. | `a_lab_target_keeps_its_shape` and `a_lab_target_names_a_board_the_catalogue_holds` in `crates/records`, and the warehouse's keys and checks on `silver.lab_target` (`the_database_refuses_what_the_records_refuse`) |
 | Each flash in the lab log, `firmware.flash`, names the target, the serial read from the board and the image's sha256. Unless its params name the person who approved it in the session (`approved_by`), as CLAUDE.md allows for a board that is not listed, the target is on the lab-target list that day, the serial is the target's, and the image is the firmware the target's build version pins if it pins one. So a target such a flash names stays on the list with the serial it gave. The log keeps a flash the list refuses, and the records stop loading. | `a_flash_is_held_to_the_lab_target_list` and `load_holds_claims_to_the_records_on_disk` in `crates/records`. The warehouse has no key from a flash to its target. |
-| An agent flashes only a listed board or one a person approved, and logs every load of code as a flash. The Pico enforcer is never a target, a listing never covers irreversible settings, and a serial names one board. | nothing: `unknown`. Nothing between an agent and a USB port reads the list. The enforcer's build is to add a check that it is not listed. How each kind of board reports a serial is unknown until one arrives. |
+| A build version that is never a lab target says why, and a lab target listed as it, or as a build that uses it, is refused. `builds/enforcer` says so. | `a_build_that_is_never_a_lab_target_says_why` and `a_lab_target_names_a_board_the_catalogue_holds` in `crates/records`. The warehouse keeps the reason and refuses an empty one, not the target (`the_database_refuses_what_the_records_refuse`). |
+| An agent flashes only a listed board or one a person approved, and logs every load of code as a flash. The Pico enforcer is never a target, a listing never covers irreversible settings, and a serial names one board. | nothing: `unknown`. Nothing between an agent and a USB port reads the list. A target listed as a bare `RP2350` part cannot be told from the enforcer's. How each kind of board reports a serial is unknown until one arrives. |
 | The enforcer compiles in `lab/limits.toml`'s supply limits exactly, as whole millivolts and milliamps, with the file's sha256. A value between two millivolts or milliamps is refused, not rounded. | `the_enforcer_s_limits_are_whole_millivolts_and_milliamps` in `crates/lab`, and `the_enforcer_compiles_in_the_limits_file` |
 | The enforcer's rules, for any limits: a setpoint or current limit above `[supply.dps]`'s is refused, not clamped, and a refused input changes nothing; a reading above `[supply]`'s ceilings, a failed read, or a tick with no reading since the tick before trips the output, in any state; the output turns on only by `On`, from off, once a setpoint has been let through; a trip ends only by the button or, under `reenable = "agent"`, the host's clear, and either leaves the output off. | Kani, for one input from any state, reachable or not, so after every sequence of inputs, in the Quality Gate's step "Kani checks the enforcer's rules": `nothing_above_the_limits_reaches_the_dps`, `a_refused_input_changes_nothing`, `a_bad_reading_or_a_silent_tick_trips_the_output_at_once`, `the_output_turns_on_only_by_on_from_off_with_a_setpoint`, `only_the_button_or_an_agent_s_clear_ends_a_trip`; `every_function_in_proofs_is_a_kani_harness` holds that each is marked for Kani to run. On examples: `a_setpoint_above_the_limits_is_refused_not_clamped`, `a_bad_reading_or_a_silent_tick_trips_the_output`, `under_person_only_the_button_ends_a_trip`, `under_agent_a_clear_ends_a_trip_and_leaves_the_output_off` |
 | The enforcer needs no standard library and nothing at run time, and reads the limits through `crates/lab` alone. | the Quality Gate's step "The enforcer builds for the RP2350, with no standard library", and `the_enforcer_depends_on_nothing_at_run_time` |
-| The enforcer holds the limits on the bench: it is given every input, and the output switch follows it. | nothing: `unknown`. It runs on no hardware. The Tock firmware that is to feed it and the switch it is to drive are not built, and how long a trip takes and how far off its readings are have not been measured. |
+| The numbers the enforcer's hardware claims state follow from its parts' claims and `lab/limits.toml`, and its hardware cut stays under the RP2350's absolute maximum. | `the_enforcer_s_numbers_follow_from_its_parts` |
+| The enforcer holds the limits on the bench: it is given every input, and the output switch follows it. | nothing: `unknown`. It runs on no hardware. Its board (`builds/enforcer`) is a draft nobody has built, the Tock firmware that is to feed it is not written, and how long a trip takes and how far off its readings are have not been measured. |
+| A claim's `check` names a Kani harness that exists, at the Kani version the Quality Gate installs, with its bound; a `test` names a test that exists, and a `proof` a file. | `a_code_referent_names_code_that_exists` |
 | A grade comes from its referents, never typed. | `no_record_can_type_a_grade`, `grades_derive_from_referents`, `every_limit_gets_the_weakest_grade_of_its_claims` |
 | A limit rests only on claims that exist, and a rule reads numbers only from the claims its value rests on, so its grade covers them. | `a_value_rests_on_claims_that_exist` and `a_rule_reads_only_the_claims_its_value_rests_on` in `crates/lab`, `the_limits_are_held_to_the_claims_they_cite` in `crates/records`, and the warehouse's foreign key to `silver.claim` (`the_database_refuses_what_the_records_refuse`) |
 | A limit with an `at_most` is no more than the number it names, a value of a claim the limit rests on. | `a_value_stays_at_most_the_number_it_names` in `crates/lab`, `the_limits_are_held_to_the_claims_they_cite` in `crates/records`, and the warehouse's foreign keys from `silver.lab_limit_at_most` (`the_database_refuses_what_the_records_refuse`) |
@@ -59,7 +62,7 @@ flowchart LR
 | Every table and view says what it is, and the catalogue is generated. | `every_table_and_view_says_what_it_is`, `the_catalogue_is_current` |
 | The lab crate needs only serde and toml. | `the_lab_crate_needs_only_serde_and_toml` |
 | Parsing records needs no database. | `parsing_records_needs_no_database` |
-| Every dependency is pinned to one version. | `every_dependency_is_pinned`, for each crate's own; the rest by `Cargo.lock`, which CI builds with `--locked`; the compiler by `rust-toolchain.toml`. The workflow's actions are pinned by commit and Kani by the version its step installs, and nothing checks either: `unknown`. |
+| Every dependency is pinned to one version. | `every_dependency_is_pinned`, for each crate's own; the rest by `Cargo.lock`, which CI builds with `--locked`; the compiler by `rust-toolchain.toml`. Kani by the version its step installs, which `a_code_referent_names_code_that_exists` reads. The workflow's actions are pinned by commit, and nothing checks that: `unknown`. |
 | What is generated is what its generator writes: build pages, mural SVGs, the catalogue. The site's images are `brand/`'s files, byte for byte. | the Quality Gate's steps, and `the_catalogue_is_current` |
 | A published build version never changes. | the Quality Gate's step of that name |
 | `main` changes only through a PR that passes the Quality Gate. | the `main-protection` ruleset on GitHub |
@@ -91,8 +94,9 @@ test and path it names up to the proposal below must exist.
   `lab/limits.toml`.
 - **The enforcer's logic is `checked`, and enforces nothing yet.** `firmware/enforcer` holds its
   rules for any limits, but no hardware runs it, so no limit in `lab/limits.toml` is enforced by
-  anything. An agent may clear a trip (`reenable = "agent"`, Jon, 2026-09-30), and the enforcer
-  cannot see whether the trip was logged.
+  anything. Its board, `builds/enforcer`, is a draft: its hardware claims are `trusted` from its
+  parts' datasheets, with arithmetic a test holds, and none is measured. An agent may clear a trip
+  (`reenable = "agent"`, Jon, 2026-09-30), and the enforcer cannot see whether the trip was logged.
 - **Nothing is a lab target yet,** so every flash needs a person's approval. The list binds the
   log, not the bench: nothing between an agent and a USB port reads `lab/targets.toml`.
 - **The Pico voltage ceiling rests on the RP2350 alone** (`RP2350#io-supply`), 230 mV under its
@@ -183,12 +187,15 @@ Each step is one PR, done when its check passes:
    `a_refused_input_changes_nothing`, `a_bad_reading_or_a_silent_tick_trips_the_output_at_once`,
    `the_output_turns_on_only_by_on_from_off_with_a_setpoint`,
    `only_the_button_or_an_agent_s_clear_ends_a_trip`, `the_enforcer_compiles_in_the_limits_file`.
-8. **The supply build, draft:** `builds/supply/v1.toml`. `[supply.upstream]` says the DPS5005 can
-   fail above the ceiling and only the enforcer is to hold it, so the enforcer measures the output
-   itself and drives a switch that is open unless it holds it closed. The button is wired to nothing
-   an agent drives. Its claims cite step 7's harnesses, and the enforcer is never a lab target. Done
-   when a claim's `check` that names no harness is refused, and so is a lab target that is the
-   enforcer.
+8. **The supply build, draft:** `builds/supply/v1.toml`, using `builds/enforcer/v1.toml`.
+   `[supply.upstream]` says the DPS5005 can fail above the ceiling and only the enforcer is to hold
+   it, so the enforcer measures the output itself and drives a switch that is open unless it holds
+   it closed, and a comparator opens the switch whatever the firmware does (Jon, 2026-09-30). The
+   button is wired to nothing an agent drives. Its claims cite step 7's harnesses, and the enforcer
+   is never a lab target. Done when a claim's `check` that names no harness is refused, and so is a
+   lab target that is the enforcer. Done: `a_code_referent_names_code_that_exists`,
+   `a_build_that_is_never_a_lab_target_says_why`, `a_lab_target_names_a_board_the_catalogue_holds`,
+   `the_enforcer_s_numbers_follow_from_its_parts`.
 9. **The enforcer firmware on Tock:** the logic in a kernel capsule, behind Tock's process isolation
    (`verification.md`, "Tock"). How to stop a reflash over USB or SWD is decided first, with a
    person: it may take RP2350 OTP settings, which cannot be undone, and it bears on where a key an

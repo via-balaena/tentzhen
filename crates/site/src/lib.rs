@@ -82,8 +82,36 @@ type LineRow = (
 );
 /// A walkthrough step: instruction, run, expect, agent (`gold.page_step`).
 type StepRow = (String, Option<String>, Option<String>, Option<String>);
-/// A claim: says, sim grade, sim evidence, bench grade, bench evidence (`gold.claim_grades`).
-type ClaimRow = (String, String, Option<String>, String, Option<String>);
+/// A claim: key, says, sim grade, sim evidence, bench grade, bench evidence (`gold.claim_grades`).
+type ClaimRow = (
+    String,
+    String,
+    String,
+    Option<String>,
+    String,
+    Option<String>,
+);
+
+/// A claim's words with each `name` it states replaced by its number and unit, as
+/// `gold.claim_values` gives them. A name the claim does not state stays as written.
+fn fill(says: &str, values: &[(String, f64)]) -> String {
+    let mut out = says.to_string();
+    for (name, amount) in values {
+        let unit = match name.rsplit('_').next().unwrap_or_default() {
+            "volts" => " V",
+            "amps" => " A",
+            "ohms" => " Ω",
+            "watts" => " W",
+            "hertz" => " Hz",
+            "seconds" => " s",
+            "kelvin" => " K",
+            "codes" => " codes",
+            _ => "",
+        };
+        out = out.replace(&format!("`{name}`"), &format!("{amount}{unit}"));
+    }
+    out
+}
 
 /// One build version, as `gold.page` gives it.
 pub struct PageRow {
@@ -372,17 +400,28 @@ pub fn render_version(conn: &Connection, b: &PageRow) -> duckdb::Result<String> 
     }
 
     let mut stmt = conn.prepare(
-        "SELECT says, sim_grade, sim_evidence, bench_grade, bench_evidence FROM gold.claim_grades \
-         WHERE build = ? AND version = ? ORDER BY claim_no",
+        "SELECT claim, says, sim_grade, sim_evidence, bench_grade, bench_evidence \
+         FROM gold.claim_grades WHERE build = ? AND version = ? ORDER BY claim_no",
     )?;
     let claims: Vec<ClaimRow> = stmt
         .query_map(key, |r| {
-            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+            Ok((
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+            ))
         })?
         .collect::<duckdb::Result<_>>()?;
+    let mut values = conn.prepare("SELECT name, amount FROM gold.claim_values WHERE claim = ?")?;
     if !claims.is_empty() {
         h.push_str("<h2>Claims</h2>\n<table class=\"spec-table claims\">\n<thead><tr><th>CLAIM</th><th>SIMULATION</th><th>ON THE BENCH</th></tr></thead>\n<tbody>\n");
-        for (says, sim_grade, sim_evidence, bench_grade, bench_evidence) in &claims {
+        for (claim, says, sim_grade, sim_evidence, bench_grade, bench_evidence) in &claims {
+            let stated: Vec<(String, f64)> = values
+                .query_map([claim], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .collect::<duckdb::Result<_>>()?;
             let evidence = |e: &Option<String>| {
                 e.as_ref()
                     .map(|e| format!(" <span class=\"muted\">{}</span>", esc(e)))
@@ -391,7 +430,7 @@ pub fn render_version(conn: &Connection, b: &PageRow) -> duckdb::Result<String> 
             let _ = writeln!(
                 h,
                 "<tr><td>{}</td><td>{}{}</td><td>{}{}</td></tr>",
-                esc(says),
+                esc(&fill(says, &stated)),
                 chip(sim_grade),
                 evidence(sim_evidence),
                 chip(bench_grade),
@@ -453,6 +492,23 @@ pub fn write_site(conn: &Connection, root: &Path) -> Result<usize, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_claim_s_numbers_fill_its_words() {
+        let values = [
+            ("min_cut_volts".to_string(), 3.393),
+            ("max_cut_volts".to_string(), 3.61),
+            ("divider_top_ohms".to_string(), 18200.0),
+            ("resistor_tolerance_ratio".to_string(), 0.001),
+        ];
+        assert_eq!(
+            fill(
+                "between `min_cut_volts` and `max_cut_volts`, `divider_top_ohms` of `resistor_tolerance_ratio`; `unstated_volts`",
+                &values
+            ),
+            "between 3.393 V and 3.61 V, 18200 Ω of 0.001; `unstated_volts`"
+        );
+    }
     use tentzhen_records::{Catalogue, Source};
 
     fn src(path: &str, text: &str) -> Source {

@@ -1,0 +1,61 @@
+part = "TLV3011B"
+kind = "chip"
+is = "comparator with a 1.242 V reference, open-drain output and built-in hysteresis"
+# Safety-critical: the Pico enforcer's hardware cut rests on its reference (builds/enforcer).
+authorized_only = true
+datasheet = "https://www.ti.com/lit/ds/symlink/tlv3011.pdf"
+
+# Every claim below: TI SBOS300C (February 2004, revised April 2023), section 6.9, "Electrical
+# Characteristics - TLV3011B and TLV3012B", or 6.6 where said; read 2026-09-30.
+
+[[claim]]
+# Reference voltage 1.223 V minimum, 1.242 V typical, 1.260 V maximum; temperature drift, -40 to
+# 125 degrees C, 100 ppm per degree maximum.
+id = "reference"
+says = "Its reference is `reference_volts`, between `min_reference_volts` and `max_reference_volts`, and moves by at most `reference_drift_per_kelvin_ratio` of itself per kelvin"
+trusted = "maker-datasheets"
+values = { min_reference_volts = 1.223, reference_volts = 1.242, max_reference_volts = 1.260, reference_drift_per_kelvin_ratio = 0.0001 }
+
+[[claim]]
+# Input offset voltage, TA = -40 to 125 degrees C: -9 mV to 9 mV.
+id = "offset"
+says = "Its input offset is at most `max_offset_volts` either way"
+trusted = "maker-datasheets"
+values = { max_offset_volts = 0.009 }
+
+[[claim]]
+# Common-mode rejection ratio, VCM = (V-) - 0.2 V to (V+) + 0.2 V, VS = 5.5 V: 54 dB minimum, so the
+# offset moves by at most 10^(-54/20) = 0.001995 of the common-mode voltage. The offset above is
+# specified with the inputs at (V-); the datasheet gives this ratio only at a 5.5 V supply.
+id = "common-mode"
+says = "Its input offset moves by at most `common_mode_gain_ratio` of the inputs' common-mode voltage, over a range from 0.2 V below its negative supply to 0.2 V above its positive one"
+trusted = "maker-datasheets"
+values = { common_mode_gain_ratio = 0.001996 }
+
+[[claim]]
+# Input hysteresis voltage, TA = -40 to 125 degrees C: 2 mV minimum, 8 mV maximum.
+id = "hysteresis"
+says = "Its input hysteresis is from `min_hysteresis_volts` to `max_hysteresis_volts`"
+trusted = "maker-datasheets"
+values = { min_hysteresis_volts = 0.002, max_hysteresis_volts = 0.008 }
+
+[[claim]]
+# VOL, ISINK = 5 mA: 200 mV maximum. The TLV3011 variants are open-drain (section 3).
+id = "output"
+says = "Its open-drain output pulls to within `max_output_low_volts` of ground while sinking `output_sink_amps`"
+trusted = "maker-datasheets"
+values = { max_output_low_volts = 0.2, output_sink_amps = 0.005 }
+
+[[claim]]
+# Propagation delay time, high to low, VOD = 100 mV: 4 us maximum.
+id = "delay"
+says = "Its output falls within `max_propagation_seconds` of its input crossing by 100 mV"
+trusted = "maker-datasheets"
+values = { max_propagation_seconds = 0.000004 }
+
+[[claim]]
+# Section 6.6, "Recommended Operating Conditions": supply, B versions, 1.65 V to 5.5 V.
+id = "supply"
+says = "Runs from a supply of `min_supply_volts` to `max_supply_volts`"
+trusted = "maker-datasheets"
+values = { min_supply_volts = 1.65, max_supply_volts = 5.5 }

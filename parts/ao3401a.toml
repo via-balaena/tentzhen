@@ -1,0 +1,30 @@
+part = "AO3401A"
+kind = "chip"
+is = "P-channel MOSFET, SOT-23"
+# Safety-critical: it is the Pico enforcer's output switch (builds/enforcer).
+authorized_only = true
+datasheet = "https://www.aosmd.com/res/datasheets/AO3401A.pdf"
+
+# Every claim below: Alpha and Omega AO3401A datasheet, Rev 3.1, December 2023, read 2026-09-30.
+# A P-channel part: voltages are given as magnitudes, all negative from source to drain and gate.
+
+[[claim]]
+# Absolute maximum ratings: drain-source voltage -30 V; gate-source voltage +-12 V.
+id = "ratings"
+says = "Blocks up to `max_drain_source_volts` from source to drain, and takes up to `max_gate_source_volts` from gate to source"
+trusted = "maker-datasheets"
+values = { max_drain_source_volts = 30.0, max_gate_source_volts = 12.0 }
+
+[[claim]]
+# Electrical characteristics: gate threshold voltage -0.5 V minimum, -1.3 V maximum.
+id = "threshold"
+says = "Turns on with its gate from `min_threshold_volts` to `max_threshold_volts` below its source"
+trusted = "maker-datasheets"
+values = { min_threshold_volts = 0.5, max_threshold_volts = 1.3 }
+
+[[claim]]
+# Product summary: RDS(ON) at VGS = -2.5 V below 85 mOhm.
+id = "on-resistance"
+says = "With its gate `gate_drive_volts` below its source, it conducts with less than `max_on_ohms`"
+trusted = "maker-datasheets"
+values = { gate_drive_volts = 2.5, max_on_ohms = 0.085 }

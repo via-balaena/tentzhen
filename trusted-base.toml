@@ -41,3 +41,9 @@ id = "references"
 assumes = """
 The measuring references themselves (LM4040, crystal) — from authorized distributors, and \
 cross-checked against each other."""
+
+[[entry]]
+id = "maker-datasheets"
+assumes = """
+The values part records cite from their makers' datasheets, for parts bought from an authorized \
+distributor, until measured on the bench."""

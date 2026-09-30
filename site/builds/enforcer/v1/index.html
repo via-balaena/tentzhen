@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>enforcer v1 · Tentzhen</title>
+<link rel="icon" href="../../../img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500&amp;display=swap">
+<link rel="stylesheet" href="../../../style.css">
+</head>
+<body>
+
+<header class="column site-header">
+  <a class="brand" href="../../../index.html" aria-label="Tentzhen home">
+    <img src="../../../img/mark-black.svg" alt="">
+    <span class="wordmark">TENTZHEN</span>
+  </a>
+  <nav class="site-nav" aria-label="Main">
+    <a href="../../../builds/index.html">BUILDS</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/vision.md">VISION</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">INSTRUMENT</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/verification.md">VERIFICATION</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/roadmap.md">ROADMAP</a>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
+  </nav>
+</header>
+
+<main class="column spec">
+<p class="crumbs"><a href="../../index.html">BUILDS</a> / ENFORCER / V1</p>
+<h1 class="spec-title">enforcer</h1>
+<p class="spec-meta"><span class="state draft">v1 · draft</span><span class="versions">versions <span class="here">v1</span></span></p>
+<p class="spec-does">Holds a supply's output under the limits in lab/limits.toml, below any agent. It measures the output itself, sends the supply only setpoints within the limits, and drives a switch that is open unless it holds it closed. A comparator opens the switch by itself if the supply rises past its threshold, whatever the firmware does.</p>
+<h2>Parts</h2>
+<table class="spec-table">
+<thead><tr><th>QTY</th><th>PART</th><th>FORM</th><th></th></tr></thead>
+<tbody>
+<tr><td>1</td><td><a href="https://datasheets.raspberrypi.com/rp2350/rp2350-datasheet.pdf">RP2350</a></td><td>board with the Pico 2 pinout</td><td class="muted">authorized sellers only</td></tr>
+<tr><td>1</td><td><a href="https://www.ti.com/lit/ds/symlink/ina239.pdf">INA239</a></td><td>VSSOP-10 on an adapter board</td><td class="muted">authorized sellers only</td></tr>
+<tr><td>1</td><td><a href="https://www.ti.com/lit/ds/symlink/tlv3011.pdf">TLV3011B</a></td><td>SOT-23-6 on an adapter board</td><td class="muted">authorized sellers only</td></tr>
+<tr><td>1</td><td><a href="https://www.aosmd.com/res/datasheets/AO3401A.pdf">AO3401A</a></td><td>SOT-23 on an adapter board</td><td class="muted">authorized sellers only</td></tr>
+<tr><td>1</td><td><a href="https://www.aosmd.com/res/datasheets/AO3400A.pdf">AO3400A</a></td><td>SOT-23 on an adapter board</td><td class="muted">authorized sellers only</td></tr>
+<tr><td>1</td><td>resistor, 0.1 Ohm, 1 %, 0.25 W, the shunt</td><td></td><td class="muted"></td></tr>
+<tr><td>1</td><td>resistor, 18.2 kOhm, 0.1 %</td><td></td><td class="muted"></td></tr>
+<tr><td>1</td><td>resistor, 10 kOhm, 0.1 %</td><td></td><td class="muted"></td></tr>
+<tr><td>1</td><td>resistor, 100 kOhm, 1 %</td><td></td><td class="muted"></td></tr>
+<tr><td>1</td><td>resistor, 4.7 kOhm, 1 %</td><td></td><td class="muted"></td></tr>
+<tr><td>1</td><td>resistor, 1 kOhm, 1 %</td><td></td><td class="muted"></td></tr>
+<tr><td>2</td><td>capacitor, 100 nF, ceramic</td><td></td><td class="muted"></td></tr>
+<tr><td>1</td><td>push button, momentary, normally open</td><td></td><td class="muted"></td></tr>
+<tr><td>1</td><td>perfboard, 0.1 inch pitch</td><td></td><td class="muted"></td></tr>
+<tr><td>1</td><td>wire, 22 AWG, solid</td><td></td><td class="muted"></td></tr>
+</tbody>
+</table>
+<h2>Used in</h2>
+<ul class="refs">
+<li><a href="../../supply/v1/index.html">supply v1</a></li>
+</ul>
+<h2>Pins</h2>
+<table class="spec-table">
+<thead><tr><th>PIN</th><th>BOARD PIN</th><th>NET</th><th></th></tr></thead>
+<tbody>
+<tr><td>GP4</td><td>6</td><td>UART1 TX, to the DPS5005's serial RX</td><td class="muted">required</td></tr>
+<tr><td>GP5</td><td>7</td><td>UART1 RX, from the DPS5005's serial TX</td><td class="muted">required</td></tr>
+<tr><td>GP16</td><td>21</td><td>SPI0 RX, from the INA239's MISO</td><td class="muted">required</td></tr>
+<tr><td>GP17</td><td>22</td><td>SPI0 CSn, to the INA239's CS</td><td class="muted">required</td></tr>
+<tr><td>GP18</td><td>24</td><td>SPI0 SCK, to the INA239's SCLK</td><td class="muted">required</td></tr>
+<tr><td>GP19</td><td>25</td><td>SPI0 TX, to the INA239's MOSI</td><td class="muted">required</td></tr>
+<tr><td>GP20</td><td>26</td><td>EN, through 1 kOhm: high closes the switch</td><td class="muted">required</td></tr>
+<tr><td>GP22</td><td>29</td><td>the button, to GND; pulled up by the RP2350</td><td class="muted">required</td></tr>
+<tr><td>3V3(OUT)</td><td>36</td><td>3V3, powering the INA239 and the TLV3011B</td><td class="muted">required</td></tr>
+<tr><td>GND</td><td>38</td><td>GND</td><td class="muted">required</td></tr>
+</tbody>
+</table>
+<h2>Walkthrough</h2>
+<p class="notice">At your own risk: not certified or calibrated test equipment. <a href="../../../legal/index.html">Legal</a></p>
+<ol class="steps">
+<li><p>Build the circuit above on perfboard, with no firmware on the Pico and nothing connected to OUT+.</p></li>
+<li><p>With the Pico unplugged, set the DPS5005 to 3.3 V (builds/supply) and measure OUT+.</p><p class="expect"><span>EXPECT</span>0 V: nothing pulls the switch's gate down.</p><p class="agent"><span>AGENTS</span>Setting the DPS5005 is a hardware action: within lab/limits.toml, and logged.</p></li>
+<li><p>Plug the Pico into the lab computer while holding BOOTSEL, so no firmware runs, and measure OUT+ again.</p><p class="expect"><span>EXPECT</span>0 V: GP20 is not driven, and 4.7 kOhm holds EN low.</p></li>
+<li><p>Still in BOOTSEL, jumper the GP20 end of the 1 kOhm resistor to 3V3, and measure OUT+.</p><p class="expect"><span>EXPECT</span>OUT+ follows SUPPLY, less at most the switch's drop.</p></li>
+<li><p>With the jumper in place and nothing connected to OUT+, raise the DPS5005 in 10 mV steps from 3.3 V until OUT+ falls to 0 V, and note SUPPLY at that step.</p><p class="expect"><span>EXPECT</span>SUPPLY between 3.386 V and 3.617 V (the claim hardware-cut).</p><p class="agent"><span>AGENTS</span>Setting the supply above lab/limits.toml's 3.4 V needs a person's approval in the session (CLAUDE.md), with nothing on OUT+. Log every setpoint, and record the result as a measurement record citing those entries.</p></li>
+<li><p>Lower the DPS5005 to 3.3 V, then remove the jumper.</p><p class="expect"><span>EXPECT</span>OUT+ returns once SUPPLY falls back below the cut, and falls to 0 V when the jumper comes out.</p></li>
+</ol>
+<h2>Claims</h2>
+<table class="spec-table claims">
+<thead><tr><th>CLAIM</th><th>SIMULATION</th><th>ON THE BENCH</th></tr></thead>
+<tbody>
+<tr><td>Its limit logic sends the DPS5005 a setpoint and current limit only when both are within [supply.dps]'s, as asked, and refuses any others rather than clamping them</td><td><span class="grade checked">checked</span> <span class="muted">tentzhen-enforcer nothing_above_the_limits_reaches_the_dps; Kani 0.67.0; one input from any state</span></td><td><span class="grade unknown">unknown</span></td></tr>
+<tr><td>An input its limit logic refuses changes nothing</td><td><span class="grade checked">checked</span> <span class="muted">tentzhen-enforcer a_refused_input_changes_nothing; Kani 0.67.0; one input from any state</span></td><td><span class="grade unknown">unknown</span></td></tr>
+<tr><td>Its limit logic opens the switch at a reading above [supply]'s ceilings, a failed read, or a tick with no reading since the tick before, in any state</td><td><span class="grade checked">checked</span> <span class="muted">tentzhen-enforcer a_bad_reading_or_a_silent_tick_trips_the_output_at_once; Kani 0.67.0; one input from any state</span></td><td><span class="grade unknown">unknown</span></td></tr>
+<tr><td>Its limit logic closes the switch only on the host's On, from off, once a setpoint has been sent</td><td><span class="grade checked">checked</span> <span class="muted">tentzhen-enforcer the_output_turns_on_only_by_on_from_off_with_a_setpoint; Kani 0.67.0; one input from any state</span></td><td><span class="grade unknown">unknown</span></td></tr>
+<tr><td>In its limit logic a trip ends only by the button or, under reenable = &quot;agent&quot;, the host's clear, and either leaves the switch open</td><td><span class="grade checked">checked</span> <span class="muted">tentzhen-enforcer only_the_button_or_an_agent_s_clear_ends_a_trip; Kani 0.67.0; one input from any state</span></td><td><span class="grade unknown">unknown</span></td></tr>
+<tr><td>Whatever the firmware does, the switch opens when SUPPLY rises past a threshold between 3.386 V and 3.617 V, set by a divider of 18200 Ω over 10000 Ω in resistors within 0.001 of their value, in a room within 10 K of 25 degrees C</td><td><span class="grade tested">tested</span> <span class="muted">tentzhen-records the_enforcer_s_numbers_follow_from_its_parts</span></td><td><span class="grade trusted">trusted</span> <span class="muted">maker-datasheets</span></td></tr>
+<tr><td>It reads SUPPLY within 0.00997 V at 3.4 V, and the current within 0.00226 A at 0.2 A, up to 0.4096 A, through a 0.1 Ω shunt within 0.01 of its value</td><td><span class="grade tested">tested</span> <span class="muted">tentzhen-records the_enforcer_s_numbers_follow_from_its_parts</span></td><td><span class="grade trusted">trusted</span> <span class="muted">maker-datasheets</span></td></tr>
+<tr><td>Its switch blocks up to 30 V, above what [supply.upstream] feeds the DPS5005</td><td><span class="grade tested">tested</span> <span class="muted">tentzhen-records the_enforcer_s_numbers_follow_from_its_parts</span></td><td><span class="grade trusted">trusted</span> <span class="muted">maker-datasheets</span></td></tr>
+<tr><td>Its switch closes with less than 0.085 Ω only while SUPPLY is at least 2.5 V; below that it may not close fully</td><td><span class="grade unknown">unknown</span></td><td><span class="grade trusted">trusted</span> <span class="muted">maker-datasheets</span></td></tr>
+<tr><td>With GP20 not driven, 4700 Ω from EN to ground holds the switch open, and GP20's pad sees ground through it and the series resistor, within what erratum E9 needs</td><td><span class="grade tested">tested</span> <span class="muted">tentzhen-records the_enforcer_s_numbers_follow_from_its_parts</span></td><td><span class="grade trusted">trusted</span> <span class="muted">silicon</span></td></tr>
+<tr><td>GP20 at 3.3 V holds EN at 2.72 V, at least the AO3400A's specified drive, and the comparator pulls EN to at most 0.2 V, below its lowest threshold</td><td><span class="grade tested">tested</span> <span class="muted">tentzhen-records the_enforcer_s_numbers_follow_from_its_parts</span></td><td><span class="grade trusted">trusted</span> <span class="muted">maker-datasheets</span></td></tr>
+<tr><td>Only the enforcer's own setpoint commands reach the DPS5005's serial port: nothing from the host passes through</td><td><span class="grade unknown">unknown</span></td><td><span class="grade unknown">unknown</span></td></tr>
+</tbody>
+</table>
+</main>
+
+<footer class="site-footer">
+  <div class="column">
+    <span>腾振 TENTZHEN · A VIA BALAENA PROJECT</span>
+    <span>MIT OR APACHE-2.0 · <a href="../../../legal/index.html">LEGAL</a></span>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB.COM/VIA-BALAENA/TENTZHEN</a>
+  </div>
+</footer>
+
+</body>
+</html>

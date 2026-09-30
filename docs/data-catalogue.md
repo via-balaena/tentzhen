@@ -43,6 +43,7 @@ flowchart LR
   subgraph gold
     gold_latest["gold.latest"]
     gold_claim_grades["gold.claim_grades"]
+    gold_claim_values["gold.claim_values"]
     gold_grade_coverage["gold.grade_coverage"]
     gold_bom_exploded["gold.bom_exploded"]
     gold_where_used["gold.where_used"]
@@ -61,6 +62,7 @@ flowchart LR
   silver_build_version --> gold_latest
   silver_claim --> gold_claim_grades
   silver_referent --> gold_claim_grades
+  silver_claim_value --> gold_claim_values
   gold_claim_grades --> gold_grade_coverage
   silver_build_version --> gold_bom_exploded
   silver_line --> gold_bom_exploded
@@ -84,6 +86,7 @@ flowchart LR
   bronze_record --> gold_legal
   crates_site(["crates/site"])
   gold_claim_grades --> crates_site
+  gold_claim_values --> crates_site
   gold_page --> crates_site
   gold_page_line --> crates_site
   gold_page_uses --> crates_site
@@ -158,12 +161,14 @@ Each version of each build, from builds/<build>/v<n>.toml.
 | `does` | VARCHAR | no |  |
 | `changes` | VARCHAR | yes |  |
 | `drawing` | VARCHAR | yes |  |
+| `never_a_lab_target` | VARCHAR | yes | Why no board of this build, or of a build that uses it, may be a lab target; NULL if it may. crates/records refuses such a target; the database does not. |
 | `record` | VARCHAR | no | The file in bronze.record this row came from. |
 
 Constraints:
 
 - `CHECK(("version" >= 1))`
 - `CHECK((status IN ('draft', 'published')))`
+- `CHECK((main."trim"(never_a_lab_target) != ''))`
 - `PRIMARY KEY(build, "version")`
 - `CHECK((("version" = 1) OR (changes IS NOT NULL)))`
 
@@ -336,6 +341,8 @@ Constraints:
 
 - `FOREIGN KEY (claim) REFERENCES silver.claim(claim)`
 - `PRIMARY KEY(claim, "name")`
+
+Read by: `gold.claim_values`.
 
 ### `silver.lab_limit` (table)
 
@@ -636,6 +643,20 @@ Every claim on a part or a build version, with its grade on each axis: in simula
 Reads: `silver.claim`, `silver.referent`.
 
 Read by: `gold.grade_coverage`, `gold.limit_grades`, `crates/site`.
+
+### `gold.claim_values` (view)
+
+The numbers each claim states, for readers that write them into the claim's words.
+
+| column | type |
+|---|---|
+| `claim` | VARCHAR |
+| `name` | VARCHAR |
+| `amount` | DOUBLE |
+
+Reads: `silver.claim_value`.
+
+Read by: `crates/site`.
 
 ### `gold.grade_coverage` (view)
 

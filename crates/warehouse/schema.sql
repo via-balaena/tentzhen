@@ -52,11 +52,13 @@ CREATE TABLE silver.build_version (
     does    TEXT NOT NULL,
     changes TEXT,
     drawing TEXT,
+    never_a_lab_target TEXT CHECK (trim(never_a_lab_target) <> ''),
     record  TEXT NOT NULL,
     PRIMARY KEY (build, version),
     CHECK (version = 1 OR changes IS NOT NULL)
 );
 COMMENT ON TABLE silver.build_version IS 'Each version of each build, from builds/<build>/v<n>.toml.';
+COMMENT ON COLUMN silver.build_version.never_a_lab_target IS 'Why no board of this build, or of a build that uses it, may be a lab target; NULL if it may. crates/records refuses such a target; the database does not.';
 COMMENT ON COLUMN silver.build_version.record IS 'The file in bronze.record this row came from.';
 
 CREATE TABLE silver.line (
@@ -392,6 +394,10 @@ SELECT c.claim, c.part, c.build, c.version, c.claim_no, c.id, c.says,
 FROM silver.claim c
 LEFT JOIN r USING (claim);
 COMMENT ON VIEW gold.claim_grades IS 'Every claim on a part or a build version, with its grade on each axis: in simulation (proven, checked, tested) and on the bench (measured, trusted), each the strongest its referents give. No referent reads ''unknown''.';
+
+CREATE VIEW gold.claim_values AS
+SELECT claim, name, amount FROM silver.claim_value;
+COMMENT ON VIEW gold.claim_values IS 'The numbers each claim states, for readers that write them into the claim''s words.';
 
 CREATE VIEW gold.grade_coverage AS
 SELECT coalesce(part, build || '/v' || version)                            AS subject,

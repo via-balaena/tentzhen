@@ -54,6 +54,9 @@ pub struct Build {
     pub version: u32,
     pub status: Status,
     pub does: String,
+    /// Why no board of this build, or of a build that uses it, may be a lab target: the lab-target
+    /// list refuses one ([`target`]).
+    pub never_a_lab_target: Option<String>,
     /// What changed from the previous version. Required from v2 on.
     pub changes: Option<String>,
     pub drawing: Option<String>,
@@ -151,9 +154,9 @@ pub struct Claim {
 }
 
 /// The unit a claim's value may name, as the last part of its key (`min_volts`, `input_ratio`).
-/// `codes` is a raw ADC code, before it is converted.
-pub const VALUE_UNITS: [&str; 8] = [
-    "volts", "amps", "ohms", "watts", "hertz", "seconds", "ratio", "codes",
+/// `codes` is a raw ADC code, before it is converted. `kelvin` is a temperature or a span of one.
+pub const VALUE_UNITS: [&str; 9] = [
+    "volts", "amps", "ohms", "watts", "hertz", "seconds", "ratio", "codes", "kelvin",
 ];
 
 impl Claim {
@@ -601,6 +604,12 @@ impl Catalogue {
 
     fn check_build(&self, b: &Build) -> Result<(), String> {
         let at = format!("{} v{}", b.build, b.version);
+        if b.never_a_lab_target
+            .as_ref()
+            .is_some_and(|w| w.trim().is_empty())
+        {
+            return Err(format!("{at}: never_a_lab_target says why, and is empty"));
+        }
         for l in &b.line {
             match (&l.part, &l.commodity) {
                 (Some(p), None) if !self.parts.contains_key(p) => {
@@ -669,6 +678,18 @@ impl Catalogue {
     pub fn version(&self, name: &str, version: u32) -> Option<&Build> {
         let i = usize::try_from(version.checked_sub(1)?).ok()?;
         self.builds.get(name)?.get(i)
+    }
+
+    /// The build version that may never be a lab target, and why: `name` v`version` itself, or one
+    /// it uses through any chain of `uses`.
+    pub fn never_a_lab_target(&self, name: &str, version: u32) -> Option<(&Build, &str)> {
+        let b = self.version(name, version)?;
+        if let Some(why) = &b.never_a_lab_target {
+            return Some((b, why));
+        }
+        b.uses
+            .iter()
+            .find_map(|u| self.never_a_lab_target(&u.build, u.version))
     }
 
     /// Every build version that uses `name` v`version`.
@@ -774,6 +795,135 @@ mod tests {
                 .iter()
                 .any(|l| l.part.as_deref() == Some("RP2350"))
         );
+    }
+
+    /// The numbers builds/enforcer/v1.toml states are what its parts' claims and lab/limits.toml
+    /// give. Each is worked out again here, so a changed part, resistor or limit fails until the
+    /// claim follows it. A bound may be rounded, but only outward.
+    #[test]
+    fn the_enforcer_s_numbers_follow_from_its_parts() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let cat = Catalogue::load(&root).unwrap();
+        let (limits, _) = tentzhen_lab::Limits::load(&root).unwrap();
+        let v = |cite: &str, name: &str| -> f64 {
+            let claim = cat.claim(cite).unwrap_or_else(|| panic!("no claim {cite}"));
+            *claim
+                .values
+                .get(name)
+                .unwrap_or_else(|| panic!("{cite} states no {name}"))
+        };
+        let e = |id: &str, name: &str| v(&format!("enforcer/v1#{id}"), name);
+        // `stated` bounds `worked` from above (or below, with `sign` -1), and by less than `slack`.
+        let bounds = |stated: f64, worked: f64, sign: f64, slack: f64, what: &str| {
+            let over = sign * (stated - worked);
+            assert!(
+                (0.0..slack).contains(&over),
+                "{what}: states {stated}, works out to {worked}"
+            );
+        };
+
+        // The hardware cut: the divider's worst ratios, the reference's worst values over the
+        // room, and the comparator's offset and hysteresis, counted in full against the cut, with
+        // the offset's shift at the inputs' common mode, which sits at the reference.
+        let (top, bottom) = (
+            e("hardware-cut", "divider_top_ohms"),
+            e("hardware-cut", "divider_bottom_ohms"),
+        );
+        let tol = e("hardware-cut", "resistor_tolerance_ratio");
+        let drift = v("TLV3011B#reference", "reference_drift_per_kelvin_ratio")
+            * e("hardware-cut", "room_half_span_kelvin");
+        let slop = v("TLV3011B#offset", "max_offset_volts")
+            + v("TLV3011B#hysteresis", "max_hysteresis_volts");
+        let least = bottom * (1.0 - tol) / (top * (1.0 + tol) + bottom * (1.0 - tol));
+        let most = bottom * (1.0 + tol) / (top * (1.0 - tol) + bottom * (1.0 + tol));
+        let top_ref = v("TLV3011B#reference", "max_reference_volts") * (1.0 + drift);
+        let slop = slop + top_ref * v("TLV3011B#common-mode", "common_mode_gain_ratio");
+        let highest = (top_ref + slop) / least;
+        let lowest = (v("TLV3011B#reference", "min_reference_volts") * (1.0 - drift) - slop) / most;
+        let max_cut = e("hardware-cut", "max_cut_volts");
+        bounds(max_cut, highest, 1.0, 0.001, "max_cut_volts");
+        bounds(
+            e("hardware-cut", "min_cut_volts"),
+            lowest,
+            -1.0,
+            0.001,
+            "min_cut_volts",
+        );
+        assert!(max_cut < v("RP2350#io-supply", "absolute_max_io_supply_volts"));
+
+        // The measuring error, at the supply's ceilings, and a full scale past the fuse.
+        let s = &limits.supply;
+        assert_eq!(e("measuring-error", "at_volts"), s.max_volts.get());
+        assert_eq!(e("measuring-error", "at_amps"), s.max_amps.get());
+        let at = e("measuring-error", "at_volts");
+        let volts = v("INA239#bus-voltage", "max_bus_offset_volts")
+            + v("INA239#bus-voltage", "max_bus_gain_error_ratio") * at
+            + v("INA239#bus-voltage", "bus_step_volts") / 2.0;
+        bounds(
+            e("measuring-error", "max_error_volts"),
+            volts,
+            1.0,
+            1e-5,
+            "max_error_volts",
+        );
+        let shunt = e("measuring-error", "shunt_ohms");
+        let amps = e("measuring-error", "at_amps")
+            * (v("INA239#shunt-voltage", "max_shunt_gain_error_ratio")
+                + e("measuring-error", "shunt_tolerance_ratio"))
+            + v("INA239#shunt-voltage", "max_shunt_offset_volts") / shunt
+            + v("INA239#shunt-voltage", "shunt_step_volts") / (2.0 * shunt);
+        bounds(
+            e("measuring-error", "max_error_amps"),
+            amps,
+            1.0,
+            1e-5,
+            "max_error_amps",
+        );
+        let full = v("INA239#shunt-voltage", "shunt_full_scale_volts") / shunt;
+        bounds(
+            full,
+            e("measuring-error", "full_scale_amps"),
+            1.0,
+            1e-9,
+            "full_scale_amps",
+        );
+        assert!(
+            full > s.fuse.rating_amps.get(),
+            "reads any current the fuse passes"
+        );
+
+        // The switch blocks, and its gate takes, what feeds the DPS5005 if the DPS5005 fails.
+        let block = e("switch-blocks-upstream", "max_block_volts");
+        assert_eq!(block, v("AO3401A#ratings", "max_drain_source_volts"));
+        assert!(block > s.upstream.volts.get());
+        assert!(v("AO3401A#ratings", "max_gate_source_volts") > s.upstream.volts.get());
+
+        // The gate drive, and its pull-down against erratum E9, which is at GP20's pad: the pad
+        // sees ground through the series resistor and the pull-down together.
+        let pull_down = e("open-when-undriven", "pull_down_ohms");
+        let (drive, series) = (
+            e("gate-drive", "drive_volts"),
+            e("gate-drive", "series_ohms"),
+        );
+        assert!(series + pull_down <= v("RP2350#e9-pull-down", "max_pull_down_ohms"));
+        let high = drive * pull_down / (series + pull_down);
+        bounds(
+            e("gate-drive", "en_high_volts"),
+            high,
+            -1.0,
+            0.01,
+            "en_high_volts",
+        );
+        assert!(e("gate-drive", "en_high_volts") >= v("AO3400A#on-resistance", "gate_drive_volts"));
+        assert!(drive / series <= v("TLV3011B#output", "output_sink_amps"));
+        assert_eq!(
+            e("gate-drive", "en_low_volts"),
+            v("TLV3011B#output", "max_output_low_volts")
+        );
+        assert!(e("gate-drive", "en_low_volts") < v("AO3400A#threshold", "min_threshold_volts"));
+        for part in ["INA239#supply", "TLV3011B#supply"] {
+            assert!((v(part, "min_supply_volts")..=v(part, "max_supply_volts")).contains(&drive));
+        }
     }
 
     /// Copies a file, or a folder and everything in it.
@@ -1182,6 +1332,27 @@ mod tests {
             .err()
             .unwrap();
         assert!(err.contains("uses loop"), "{err}");
+    }
+
+    /// A build that may never be a lab target says why, and so does every build that uses it.
+    #[test]
+    fn a_build_that_is_never_a_lab_target_says_why() {
+        let enforcer = build("e", 1, "never_a_lab_target = \"it holds the limits\"\n");
+        let bench = build("b", 1, "[[uses]]\nbuild = \"e\"\nversion = 1\n");
+        let other = build("o", 1, "");
+        let cat = Catalogue::from_sources(&base(), &[], &[enforcer, bench, other]).unwrap();
+        for name in ["e", "b"] {
+            let (b, why) = cat.never_a_lab_target(name, 1).unwrap();
+            assert_eq!((b.build.as_str(), why), ("e", "it holds the limits"));
+        }
+        assert!(cat.never_a_lab_target("o", 1).is_none());
+        for empty in ["\"\"", "\"  \""] {
+            let e = build("e", 1, &format!("never_a_lab_target = {empty}\n"));
+            let err = Catalogue::from_sources(&base(), &[], &[e])
+                .err()
+                .unwrap_or_default();
+            assert!(err.contains("never_a_lab_target says why"), "{err}");
+        }
     }
 
     #[test]

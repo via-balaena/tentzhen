@@ -1,0 +1,276 @@
+build = "enforcer"
+version = 1
+# draft: may still change. published: frozen; any change is a new version.
+status = "draft"
+does = "Holds a supply's output under the limits in lab/limits.toml, below any agent. It measures the output itself, sends the supply only setpoints within the limits, and drives a switch that is open unless it holds it closed. A comparator opens the switch by itself if the supply rises past its threshold, whatever the firmware does."
+never_a_lab_target = "An agent that can flash it can change the limits it holds. Its firmware is flashed only on a person's approval, logged with approved_by (lab/targets.toml)."
+
+# The circuit, until a schematic exists. SUPPLY is the node between the shunt and the switch: the
+# DPS5005's output, less the shunt's drop. The enforcer reads SUPPLY, which is never below what
+# reaches OUT+.
+#
+#   DPS5005 out+ -- fuse (builds/supply) -- INA239 IN+ -- 0.1 Ohm shunt -- INA239 IN- = SUPPLY
+#   SUPPLY -- AO3401A source; AO3401A drain -- OUT+, to the device under test
+#   AO3401A gate -- 100 kOhm -- SUPPLY, so the switch is open unless its gate is pulled down
+#   AO3401A gate -- AO3400A drain; AO3400A source -- GND
+#   EN, the AO3400A's gate: 1 kOhm from GP20, 4.7 kOhm to GND, and the TLV3011B's OUT
+#   TLV3011B: V+ to 3V3, V- to GND, REF to IN+; SUPPLY -- 18.2 kOhm -- IN- -- 10 kOhm -- GND
+#   INA239: VS to 3V3, VBUS to SUPPLY, SPI to SPI0 below, ALERT not connected
+#   DPS5005 serial header to UART1 below; the button from GP22 to GND
+#   100 nF from 3V3 to GND beside the INA239 and beside the TLV3011B
+#
+# The TLV3011B's output goes low, pulling EN low and opening the switch, when SUPPLY divided down
+# passes its reference. With the Pico unplugged, 3V3 is gone and the 4.7 kOhm holds EN low. No pin
+# reaches EN but GP20, through 1 kOhm, which the comparator can pull down at any drive: a pin wired
+# to EN directly could be driven high by firmware and hold the switch closed through a cut.
+
+[[line]]
+part = "RP2350"
+form = "board with the Pico 2 pinout"
+qty = 1
+
+[[line]]
+part = "INA239"
+form = "VSSOP-10 on an adapter board"
+qty = 1
+
+[[line]]
+part = "TLV3011B"
+form = "SOT-23-6 on an adapter board"
+qty = 1
+
+[[line]]
+part = "AO3401A"
+form = "SOT-23 on an adapter board"
+qty = 1
+
+[[line]]
+part = "AO3400A"
+form = "SOT-23 on an adapter board"
+qty = 1
+
+[[line]]
+commodity = "resistor, 0.1 Ohm, 1 %, 0.25 W, the shunt"
+qty = 1
+
+[[line]]
+commodity = "resistor, 18.2 kOhm, 0.1 %"
+qty = 1
+
+[[line]]
+commodity = "resistor, 10 kOhm, 0.1 %"
+qty = 1
+
+[[line]]
+commodity = "resistor, 100 kOhm, 1 %"
+qty = 1
+
+[[line]]
+commodity = "resistor, 4.7 kOhm, 1 %"
+qty = 1
+
+[[line]]
+commodity = "resistor, 1 kOhm, 1 %"
+qty = 1
+
+[[line]]
+commodity = "capacitor, 100 nF, ceramic"
+qty = 2
+
+[[line]]
+commodity = "push button, momentary, normally open"
+qty = 1
+
+[[line]]
+commodity = "perfboard, 0.1 inch pitch"
+qty = 1
+
+[[line]]
+commodity = "wire, 22 AWG, solid"
+qty = 1
+
+# The Pico's pins, from the RP2350 datasheet (build-date 2025-07-29), Table 3, "GPIO Bank 0
+# Functions", and the Pico 2 datasheet (build date 03/07/2026), Figure 2, "The pinout of the
+# Raspberry Pi Pico 2 board", read 2026-09-30. UART0 on GP0 and GP1 stays free: upstream Tock's
+# Pico 2 board uses it for its console (boards/raspberry_pi_pico_2/src/main.rs).
+
+[[pin]]
+name = "GP4"
+board_pin = 6
+net = "UART1 TX, to the DPS5005's serial RX"
+required = true
+
+[[pin]]
+name = "GP5"
+board_pin = 7
+net = "UART1 RX, from the DPS5005's serial TX"
+required = true
+
+[[pin]]
+name = "GP16"
+board_pin = 21
+net = "SPI0 RX, from the INA239's MISO"
+required = true
+
+[[pin]]
+name = "GP17"
+board_pin = 22
+net = "SPI0 CSn, to the INA239's CS"
+required = true
+
+[[pin]]
+name = "GP18"
+board_pin = 24
+net = "SPI0 SCK, to the INA239's SCLK"
+required = true
+
+[[pin]]
+name = "GP19"
+board_pin = 25
+net = "SPI0 TX, to the INA239's MOSI"
+required = true
+
+[[pin]]
+name = "GP20"
+board_pin = 26
+net = "EN, through 1 kOhm: high closes the switch"
+required = true
+
+[[pin]]
+name = "GP22"
+board_pin = 29
+net = "the button, to GND; pulled up by the RP2350"
+required = true
+
+[[pin]]
+name = "3V3(OUT)"
+board_pin = 36
+net = "3V3, powering the INA239 and the TLV3011B"
+required = true
+
+[[pin]]
+name = "GND"
+board_pin = 38
+net = "GND"
+required = true
+
+# The walkthrough, for a person or an agent. `expect` is what you should see; until someone has
+# done the step, it is a prediction from the parts' datasheets. No firmware exists yet (plan step
+# 9), so these steps check the hardware alone.
+
+[[step]]
+do = "Build the circuit above on perfboard, with no firmware on the Pico and nothing connected to OUT+."
+
+[[step]]
+do = "With the Pico unplugged, set the DPS5005 to 3.3 V (builds/supply) and measure OUT+."
+expect = "0 V: nothing pulls the switch's gate down."
+agent = "Setting the DPS5005 is a hardware action: within lab/limits.toml, and logged."
+
+[[step]]
+do = "Plug the Pico into the lab computer while holding BOOTSEL, so no firmware runs, and measure OUT+ again."
+expect = "0 V: GP20 is not driven, and 4.7 kOhm holds EN low."
+
+[[step]]
+do = "Still in BOOTSEL, jumper the GP20 end of the 1 kOhm resistor to 3V3, and measure OUT+."
+expect = "OUT+ follows SUPPLY, less at most the switch's drop."
+
+[[step]]
+do = "With the jumper in place and nothing connected to OUT+, raise the DPS5005 in 10 mV steps from 3.3 V until OUT+ falls to 0 V, and note SUPPLY at that step."
+expect = "SUPPLY between 3.386 V and 3.617 V (the claim hardware-cut)."
+agent = "Setting the supply above lab/limits.toml's 3.4 V needs a person's approval in the session (CLAUDE.md), with nothing on OUT+. Log every setpoint, and record the result as a measurement record citing those entries."
+
+[[step]]
+do = "Lower the DPS5005 to 3.3 V, then remove the jumper."
+expect = "OUT+ returns once SUPPLY falls back below the cut, and falls to 0 V when the jumper comes out."
+
+# What this build claims, and how each claim is known. A grade is never typed: it comes from the
+# referents present (proof, check, test; record, trusted), and with none it is unknown. The logic's
+# claims hold for its code in `firmware/enforcer`; no firmware runs it on this board yet.
+
+[[claim]]
+id = "sends-within-limits"
+says = "Its limit logic sends the DPS5005 a setpoint and current limit only when both are within [supply.dps]'s, as asked, and refuses any others rather than clamping them"
+check = "tentzhen-enforcer nothing_above_the_limits_reaches_the_dps; Kani 0.67.0; one input from any state"
+
+[[claim]]
+id = "refusals-change-nothing"
+says = "An input its limit logic refuses changes nothing"
+check = "tentzhen-enforcer a_refused_input_changes_nothing; Kani 0.67.0; one input from any state"
+
+[[claim]]
+id = "trips-at-once"
+says = "Its limit logic opens the switch at a reading above [supply]'s ceilings, a failed read, or a tick with no reading since the tick before, in any state"
+check = "tentzhen-enforcer a_bad_reading_or_a_silent_tick_trips_the_output_at_once; Kani 0.67.0; one input from any state"
+
+[[claim]]
+id = "turns-on-only-by-on"
+says = "Its limit logic closes the switch only on the host's On, from off, once a setpoint has been sent"
+check = "tentzhen-enforcer the_output_turns_on_only_by_on_from_off_with_a_setpoint; Kani 0.67.0; one input from any state"
+
+[[claim]]
+id = "trips-end-only-by"
+says = "In its limit logic a trip ends only by the button or, under reenable = \"agent\", the host's clear, and either leaves the switch open"
+check = "tentzhen-enforcer only_the_button_or_an_agent_s_clear_ends_a_trip; Kani 0.67.0; one input from any state"
+
+[[claim]]
+# From TLV3011B#reference, #offset, #common-mode and #hysteresis, the divider's resistors, and the
+# reference's drift over a room within `room_half_span_kelvin` of 25 degrees C. The hysteresis
+# counts in full both ways. The bound on the low side can fall just under the 3.4 V ceiling, so a
+# setpoint at the ceiling can trip it; the high side stays under RP2350#io-supply's absolute
+# maximum, 3.63 V. That no pin reaches EN but GP20, through series_ohms, is the circuit above,
+# which nothing checks.
+id = "hardware-cut"
+says = "Whatever the firmware does, the switch opens when SUPPLY rises past a threshold between `min_cut_volts` and `max_cut_volts`, set by a divider of `divider_top_ohms` over `divider_bottom_ohms` in resistors within `resistor_tolerance_ratio` of their value, in a room within `room_half_span_kelvin` of 25 degrees C"
+trusted = "maker-datasheets"
+test = "tentzhen-records the_enforcer_s_numbers_follow_from_its_parts"
+values = { min_cut_volts = 3.386, max_cut_volts = 3.617, divider_top_ohms = 18200.0, divider_bottom_ohms = 10000.0, resistor_tolerance_ratio = 0.001, room_half_span_kelvin = 10.0 }
+
+[[claim]]
+# From INA239#bus-voltage and #shunt-voltage: offset, gain error and half a step, plus the shunt's
+# tolerance for the current. Wiring and the switch's drop come after SUPPLY and are not counted.
+id = "measuring-error"
+says = "It reads SUPPLY within `max_error_volts` at `at_volts`, and the current within `max_error_amps` at `at_amps`, up to `full_scale_amps`, through a `shunt_ohms` shunt within `shunt_tolerance_ratio` of its value"
+trusted = "maker-datasheets"
+test = "tentzhen-records the_enforcer_s_numbers_follow_from_its_parts"
+values = { max_error_volts = 0.00997, at_volts = 3.4, max_error_amps = 0.00226, at_amps = 0.2, full_scale_amps = 0.4096, shunt_ohms = 0.1, shunt_tolerance_ratio = 0.01 }
+
+[[claim]]
+# From AO3401A#ratings, and lab/limits.toml's [supply.upstream]: if the DPS5005 fails, SUPPLY can
+# rise toward what feeds it.
+id = "switch-blocks-upstream"
+says = "Its switch blocks up to `max_block_volts`, above what [supply.upstream] feeds the DPS5005"
+trusted = "maker-datasheets"
+test = "tentzhen-records the_enforcer_s_numbers_follow_from_its_parts"
+values = { max_block_volts = 30.0 }
+
+[[claim]]
+# From AO3401A#on-resistance: its gate is pulled to ground, so it is driven by SUPPLY itself.
+id = "switch-closes-from"
+says = "Its switch closes with less than `max_on_ohms` only while SUPPLY is at least `min_closed_volts`; below that it may not close fully"
+trusted = "maker-datasheets"
+values = { min_closed_volts = 2.5, max_on_ohms = 0.085 }
+
+[[claim]]
+# From RP2350#e9-pull-down and AO3400A#threshold: a GPIO left undriven on an A2 RP2350 can float
+# near 2.2 V, above the AO3400A's threshold, unless pulled to ground by 8.2 kOhm or less. GP20's
+# own pad sees ground through 1 kOhm and 4.7 kOhm, also within that.
+id = "open-when-undriven"
+says = "With GP20 not driven, `pull_down_ohms` from EN to ground holds the switch open, and GP20's pad sees ground through it and the series resistor, within what erratum E9 needs"
+trusted = "silicon"
+test = "tentzhen-records the_enforcer_s_numbers_follow_from_its_parts"
+values = { pull_down_ohms = 4700.0 }
+
+[[claim]]
+# From AO3400A#threshold and #on-resistance, and TLV3011B#output: GP20 high drives EN through
+# `series_ohms` into the pull-down; the comparator sinks what GP20 then pushes through it.
+id = "gate-drive"
+says = "GP20 at `drive_volts` holds EN at `en_high_volts`, at least the AO3400A's specified drive, and the comparator pulls EN to at most `en_low_volts`, below its lowest threshold"
+trusted = "maker-datasheets"
+test = "tentzhen-records the_enforcer_s_numbers_follow_from_its_parts"
+values = { drive_volts = 3.3, series_ohms = 1000.0, en_high_volts = 2.72, en_low_volts = 0.2 }
+
+[[claim]]
+# OpenDPS can take a firmware upgrade over the same serial port (its README), so the port carries
+# only the enforcer's own commands. Nothing holds this until the firmware exists (plan step 9).
+id = "only-its-own-commands"
+says = "Only the enforcer's own setpoint commands reach the DPS5005's serial port: nothing from the host passes through"
