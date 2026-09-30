@@ -42,6 +42,9 @@ budget ends up able to design, build and *verify* hardware — and to teach the 
    cannot reconfigure.
 6. **Rust wherever possible.**
 7. **Document for peers.** Write for someone following along on a budget.
+8. **Build with what exists, and make friends.** Before building a piece, look for who has built
+   it already (`prior-art.md`). Use it where it is not the point, credit it, and send fixes
+   upstream.
 
 ## Entry tiers
 
