@@ -52,11 +52,13 @@ CREATE TABLE silver.build_version (
     does    TEXT NOT NULL,
     changes TEXT,
     drawing TEXT,
+    never_a_lab_target TEXT CHECK (trim(never_a_lab_target) <> ''),
     record  TEXT NOT NULL,
     PRIMARY KEY (build, version),
     CHECK (version = 1 OR changes IS NOT NULL)
 );
 COMMENT ON TABLE silver.build_version IS 'Each version of each build, from builds/<build>/v<n>.toml.';
+COMMENT ON COLUMN silver.build_version.never_a_lab_target IS 'Why no board of this build, or of a build that uses it, may be a lab target; NULL if it may. crates/records refuses such a target; the database does not.';
 COMMENT ON COLUMN silver.build_version.record IS 'The file in bronze.record this row came from.';
 
 CREATE TABLE silver.line (

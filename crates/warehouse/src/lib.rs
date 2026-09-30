@@ -59,7 +59,7 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
     // Every version first: lines, uses and claims point at them.
     for b in cat.builds.values().flatten() {
         tx.execute(
-            "INSERT INTO silver.build_version VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO silver.build_version VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             params![
                 b.build,
                 b.version,
@@ -67,6 +67,7 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
                 b.does,
                 b.changes,
                 b.drawing,
+                b.never_a_lab_target,
                 b.record
             ],
         )?;
@@ -1017,6 +1018,17 @@ mod tests {
             conn.execute(unrecorded, []).map(|_| ()),
             "a part must have a record",
         );
+        let never = |why: &str| {
+            format!(
+                "INSERT INTO silver.build_version VALUES \
+                 ('quiet', 1, 'draft', 'a thing', NULL, NULL, '{why}', 'builds/quiet/v1.toml')"
+            )
+        };
+        refused(
+            conn.execute(&never("  "), []).map(|_| ()),
+            "a build that is never a lab target says why",
+        );
+        conn.execute(&never("it holds the limits"), []).unwrap();
         for (values, why) in [
             (
                 "'k1', 'RP2350', 'probe', 1",

@@ -54,6 +54,9 @@ pub struct Build {
     pub version: u32,
     pub status: Status,
     pub does: String,
+    /// Why no board of this build, or of a build that uses it, may be a lab target: the lab-target
+    /// list refuses one ([`target`]).
+    pub never_a_lab_target: Option<String>,
     /// What changed from the previous version. Required from v2 on.
     pub changes: Option<String>,
     pub drawing: Option<String>,
@@ -601,6 +604,12 @@ impl Catalogue {
 
     fn check_build(&self, b: &Build) -> Result<(), String> {
         let at = format!("{} v{}", b.build, b.version);
+        if b.never_a_lab_target
+            .as_ref()
+            .is_some_and(|w| w.trim().is_empty())
+        {
+            return Err(format!("{at}: never_a_lab_target says why, and is empty"));
+        }
         for l in &b.line {
             match (&l.part, &l.commodity) {
                 (Some(p), None) if !self.parts.contains_key(p) => {
@@ -669,6 +678,18 @@ impl Catalogue {
     pub fn version(&self, name: &str, version: u32) -> Option<&Build> {
         let i = usize::try_from(version.checked_sub(1)?).ok()?;
         self.builds.get(name)?.get(i)
+    }
+
+    /// The build version that may never be a lab target, and why: `name` v`version` itself, or one
+    /// it uses through any chain of `uses`.
+    pub fn never_a_lab_target(&self, name: &str, version: u32) -> Option<(&Build, &str)> {
+        let b = self.version(name, version)?;
+        if let Some(why) = &b.never_a_lab_target {
+            return Some((b, why));
+        }
+        b.uses
+            .iter()
+            .find_map(|u| self.never_a_lab_target(&u.build, u.version))
     }
 
     /// Every build version that uses `name` v`version`.
@@ -1182,6 +1203,27 @@ mod tests {
             .err()
             .unwrap();
         assert!(err.contains("uses loop"), "{err}");
+    }
+
+    /// A build that may never be a lab target says why, and so does every build that uses it.
+    #[test]
+    fn a_build_that_is_never_a_lab_target_says_why() {
+        let enforcer = build("e", 1, "never_a_lab_target = \"it holds the limits\"\n");
+        let bench = build("b", 1, "[[uses]]\nbuild = \"e\"\nversion = 1\n");
+        let other = build("o", 1, "");
+        let cat = Catalogue::from_sources(&base(), &[], &[enforcer, bench, other]).unwrap();
+        for name in ["e", "b"] {
+            let (b, why) = cat.never_a_lab_target(name, 1).unwrap();
+            assert_eq!((b.build.as_str(), why), ("e", "it holds the limits"));
+        }
+        assert!(cat.never_a_lab_target("o", 1).is_none());
+        for empty in ["\"\"", "\"  \""] {
+            let e = build("e", 1, &format!("never_a_lab_target = {empty}\n"));
+            let err = Catalogue::from_sources(&base(), &[], &[e])
+                .err()
+                .unwrap_or_default();
+            assert!(err.contains("never_a_lab_target says why"), "{err}");
+        }
     }
 
     #[test]

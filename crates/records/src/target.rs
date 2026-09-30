@@ -88,6 +88,14 @@ impl Target {
                 self.subject().unwrap_or_default()
             ));
         }
+        if let (Some(b), Some(v)) = (&self.build, self.version)
+            && let Some((never, why)) = cat.never_a_lab_target(b, v)
+        {
+            return Err(format!(
+                "{}: target {} is {b}/v{v}, which is or uses {}/v{}, never a lab target: {why}",
+                self.record, self.id, never.build, never.version
+            ));
+        }
         Ok(())
     }
 
@@ -392,8 +400,8 @@ approved_by = \"person:jon\"
         );
     }
 
-    /// A catalogue with the RP2350, a probe build that pins its firmware, `b` x 64, and a bare
-    /// build that pins none.
+    /// A catalogue with the RP2350, a probe build that pins its firmware, `b` x 64, a bare build
+    /// that pins none, an enforcer build that is never a lab target, and a bench that uses it.
     fn catalogue() -> Catalogue {
         let base = src(
             crate::TRUSTED_BASE,
@@ -407,12 +415,18 @@ approved_by = \"person:jon\"
             "b".repeat(64)
         );
         let bare = "build = \"bare\"\nversion = 1\nstatus = \"draft\"\ndoes = \"a thing\"\n";
+        let enforcer = "build = \"enforcer\"\nversion = 1\nstatus = \"draft\"\ndoes = \"a thing\"\n\
+                        never_a_lab_target = \"it holds the limits\"\n";
+        let bench = "build = \"bench\"\nversion = 1\nstatus = \"draft\"\ndoes = \"a thing\"\n\n\
+                     [[uses]]\nbuild = \"enforcer\"\nversion = 1\n";
         Catalogue::from_sources(
             &base,
             &[src("parts/rp2350.toml", rp2350)],
             &[
                 src("builds/probe/v1.toml", &probe),
                 src("builds/bare/v1.toml", bare),
+                src("builds/enforcer/v1.toml", enforcer),
+                src("builds/bench/v1.toml", bench),
             ],
         )
         .unwrap()
@@ -436,6 +450,17 @@ approved_by = \"person:jon\"
                 "version = 1",
                 "version = 2",
                 "target probe-1 is probe/v2, which has no record",
+            ),
+            (
+                "build = \"probe\"",
+                "build = \"enforcer\"",
+                "target probe-1 is enforcer/v1, which is or uses enforcer/v1, never a lab target: it \
+                 holds the limits",
+            ),
+            (
+                "build = \"probe\"",
+                "build = \"bench\"",
+                "target probe-1 is bench/v1, which is or uses enforcer/v1, never a lab target",
             ),
         ] {
             let err = catalogue()

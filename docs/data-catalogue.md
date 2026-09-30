@@ -158,12 +158,14 @@ Each version of each build, from builds/<build>/v<n>.toml.
 | `does` | VARCHAR | no |  |
 | `changes` | VARCHAR | yes |  |
 | `drawing` | VARCHAR | yes |  |
+| `never_a_lab_target` | VARCHAR | yes | Why no board of this build, or of a build that uses it, may be a lab target; NULL if it may. crates/records refuses such a target; the database does not. |
 | `record` | VARCHAR | no | The file in bronze.record this row came from. |
 
 Constraints:
 
 - `CHECK(("version" >= 1))`
 - `CHECK((status IN ('draft', 'published')))`
+- `CHECK((main."trim"(never_a_lab_target) != ''))`
 - `PRIMARY KEY(build, "version")`
 - `CHECK((("version" = 1) OR (changes IS NOT NULL)))`
 
