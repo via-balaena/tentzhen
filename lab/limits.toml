@@ -1,7 +1,8 @@
 # What the hardware below any agent will allow.
 #
-# The Pico enforcer is to compile these values in, so nothing at run time can raise them. It is
-# not built yet, so none of these limits is enforced by anything: `unknown`. Raising a limit is a
+# The Pico enforcer compiles the [supply] values in (firmware/enforcer, through crates/lab alone),
+# so nothing at run time can raise them. Kani checks its logic up to a bound, but it runs on no
+# hardware yet, so none of these limits is enforced by anything: `unknown`. Raising a limit is a
 # change to this file, which a person is to approve (CLAUDE.md, "Safety and permission rules").
 # That is a convention, not enforced: the branch rules require no approval, and agents work
 # through the same GitHub account as the person, so a required review could not tell them apart.
@@ -45,14 +46,15 @@ basis.max_amps = { policy = "CLAUDE.md, \"Default ceilings: 3.4 V and 200 mA\"" 
 # It serves Pico circuits until a build needs more, so it takes their ceiling.
 max_volts = 3.4
 max_amps = 0.200
-# After a trip, who may turn the output back on: "person" (a physical button on the enforcer) or
-# "agent" (after the trip is logged). The lab log (lab/log/) can record a trip, but the host writes
-# it, so an agent could log one itself. Whether that is enough is for the enforcer to settle, and
-# until it does the agent cannot re-enable the output.
+# After a trip, who may turn the output back on: "person" (only the button on the enforcer) or
+# "agent" (the host's clear too). A clear leaves the output off, and turning it on is a command of
+# its own. The enforcer cannot tell whether a trip was logged: the host writes the lab log, so an
+# agent could clear a trip it never logged. Jon chose "agent" knowing that. A fault that keeps
+# tripping is powered again after each clear, for as long as a trip takes: `unknown` until measured.
 reenable = "agent"
 basis.max_volts = { same_as = "pico_3v3.max_volts" }
 basis.max_amps = { same_as = "pico_3v3.max_amps" }
-basis.reenable = { policy = "Jon, 2026-09-28" }
+basis.reenable = { policy = "Jon, 2026-09-30" }
 
 [supply.upstream]
 # The bench supply feeding the DPS5005's input: the least input the DPS5005 needs for its highest
