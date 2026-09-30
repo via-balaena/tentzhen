@@ -27,7 +27,7 @@
 //! measurement record never changes". Like the log's, every field is what its writer says.
 
 use crate::log::{self, Datum};
-use crate::{Catalogue, Source, plain, read_folder, sha256_shaped, unit_of};
+use crate::{Catalogue, Source, plain, read_folder, sha256_shaped, subject_of, unit_of};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -93,11 +93,7 @@ pub struct Device {
 impl Device {
     /// The record it is, as a claim on it is cited before its `#`: `DPS5005`, or `supply/v1`.
     pub fn subject(&self) -> Option<String> {
-        match (&self.part, &self.build, self.version) {
-            (Some(p), None, None) => Some(p.clone()),
-            (None, Some(b), Some(v)) => Some(format!("{b}/v{v}")),
-            _ => None,
-        }
+        subject_of(self.part.as_deref(), self.build.as_deref(), self.version)
     }
 }
 

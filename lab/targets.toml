@@ -1,0 +1,39 @@
+# The lab targets: the boards an agent may flash without asking first. Flashing any other device
+# needs a person's approval in the session (CLAUDE.md, "Safety and permission rules"). Loading any
+# code into a board counts as flashing it: into its flash, its RAM, or an FPGA's configuration.
+#
+# Nothing is listed yet, so every flash needs that approval.
+#
+# One entry per physical board, never per kind of board, so that listing one Pico lists no other:
+#
+#   [[target]]
+#   id = "probe-1"              # written on a label on the board
+#   build = "debug-probe"       # what it is: a part (part = "RP2350"), or a build and its version
+#   version = 1
+#   serial = "..."              # the serial the board reports, which no other target's is
+#   listed = "2026-10-14"       # the first UTC day it may be flashed
+#   approved_by = "person:jon"  # on whose decision: a person's
+#   retired = "2026-12-01"      # the UTC day it stops being a target, once it has
+#
+# A board listed as a build version takes only the firmware that version pins, if it pins one. A
+# board listed as a part takes any image.
+#
+# Each flash is logged, naming the target, the serial read from the board and the image's sha256:
+#
+#   cargo run -p tentzhen -- log append firmware.flash --by agent:<name> --param target=probe-1 \
+#     --param serial=... --param image_sha256=... --result done=true
+#
+# crates/records refuses a flash whose target is not on this list that day, whose serial is not the
+# target's, or whose image is not the firmware the target's build version pins. So a target that a
+# flash names stays here as it was, and leaves by `retired`. The log keeps a flash this list
+# refuses, and the records stop loading until a person decides what follows.
+#
+# Not held by anything:
+# - A listing never covers irreversible settings (OTP, eFuses, secure-boot keys, flash protection
+#   bits): each needs a person's approval (CLAUDE.md).
+# - The Pico enforcer is never a target: an agent that can flash it can raise its limits. The
+#   enforcer's build is to add the check. This list cannot stop a flash, since nothing between an
+#   agent and a USB port reads it, so the enforcer's design has to.
+# - Only a person adds an entry, and every load of code is logged as a firmware.flash. Like the
+#   log's, each field here is its writer's word, and an agent's commits here carry the person's
+#   signature (docs/architecture.md).

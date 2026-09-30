@@ -1,6 +1,6 @@
-//! Loads the catalogue's records, the lab's limits, the lab log and the measurement records into
-//! DuckDB: bronze (the files as read), silver (typed rows the database itself constrains) and gold
-//! (views). The schema is `schema.sql`; this only fills it.
+//! Loads the catalogue's records, the lab's limits, the lab-target list, the lab log and the
+//! measurement records into DuckDB: bronze (the files as read), silver (typed rows the database
+//! itself constrains) and gold (views). The schema is `schema.sql`; this only fills it.
 
 use duckdb::{Connection, params};
 use tentzhen_lab::{LIMITS, Limits, Value};
@@ -118,6 +118,22 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
     }
     if let Some(limits) = &cat.limits {
         load_limits(&tx, limits)?;
+    }
+    for t in &cat.targets {
+        tx.execute(
+            "INSERT INTO silver.lab_target VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            params![
+                t.id,
+                t.part,
+                t.build,
+                t.version,
+                t.serial,
+                t.listed,
+                t.approved_by,
+                t.retired,
+                t.record
+            ],
+        )?;
     }
     load_log(&tx, &cat.log)?;
     for m in cat.measurements.values() {
@@ -358,6 +374,7 @@ mod tests {
              UNION ALL SELECT record FROM silver.build_version \
              UNION ALL SELECT record FROM silver.lab_limit \
              UNION ALL SELECT record FROM silver.trusted_entry \
+             UNION ALL SELECT record FROM silver.lab_target \
              UNION ALL SELECT record FROM silver.lab_log_entry \
              UNION ALL SELECT record FROM silver.measurement) s \
              LEFT JOIN bronze.record r ON r.path = s.record WHERE r.path IS NULL",
@@ -544,6 +561,42 @@ mod tests {
         assert_eq!(
             (grade.as_str(), by.as_str()),
             ("measured", "2026-09-21-draw")
+        );
+    }
+
+    #[test]
+    fn a_lab_target_loads_with_the_board_it_names() {
+        let list = "[[target]]\nid = \"pico-1\"\npart = \"RP2350\"\nserial = \"E661\"\n\
+                    listed = \"2026-10-14\"\napproved_by = \"person:jon\"\n\n\
+                    [[target]]\nid = \"probe-1\"\nbuild = \"probe\"\nversion = 1\n\
+                    serial = \"E662\"\nlisted = \"2026-10-14\"\napproved_by = \"person:jon\"\n\
+                    retired = \"2026-10-20\"\n";
+        let cat = Catalogue::from_sources(
+            &base(),
+            &[src("parts/rp2350.toml", PART)],
+            &[build("probe", PROBE)],
+        )
+        .unwrap()
+        .with_targets(src("lab/targets.toml", list))
+        .unwrap();
+        let conn = warehouse(&cat);
+        let rows = |sql: &str| one(&conn, &format!("SELECT count(*) FROM {sql}"));
+        assert_eq!(
+            [
+                rows(
+                    "silver.lab_target t JOIN silver.part p USING (part) \
+                     WHERE t.target = 'pico-1' AND t.retired IS NULL"
+                ),
+                rows(
+                    "silver.lab_target t JOIN silver.build_version b USING (build, version) \
+                     WHERE t.target = 'probe-1' AND t.retired = DATE '2026-10-20'"
+                ),
+                rows(
+                    "silver.lab_target t JOIN bronze.record r ON r.path = t.record \
+                     WHERE t.listed = DATE '2026-10-14' AND t.approved_by = 'person:jon'"
+                ),
+            ],
+            [1, 1, 2]
         );
     }
 
@@ -1251,6 +1304,63 @@ mod tests {
         ] {
             refused(conn.execute_batch(sql), why);
         }
+        // The lab-target list: one board each, a part or a build version with a record, told apart
+        // by its serial, listed by a person, and retired only after it was listed.
+        let target = |values: &str, by: &str, retired: &str| {
+            format!(
+                "INSERT INTO silver.lab_target VALUES ({values}, '2026-10-14', {by}, {retired}, 'r')"
+            )
+        };
+        let jon = |values: &str| target(values, "'person:jon'", "NULL");
+        conn.execute_batch(&jon("'t1', 'RP2350', NULL, NULL, 'S1'"))
+            .unwrap();
+        for (sql, why) in [
+            (
+                jon("'t2', 'RP2350', 'probe', 1, 'S2'"),
+                "a target is a part or a build, not both",
+            ),
+            (jon("'t2', NULL, NULL, NULL, 'S2'"), "a target is something"),
+            (
+                jon("'t2', NULL, 'probe', NULL, 'S2'"),
+                "a build target names its version",
+            ),
+            (
+                jon("'t2', 'RP9999', NULL, NULL, 'S2'"),
+                "a target's part has a record",
+            ),
+            (
+                jon("'t2', NULL, 'probe', 9, 'S2'"),
+                "a target's build version exists",
+            ),
+            (
+                jon("'t2', 'RP2350', NULL, NULL, 'S1'"),
+                "no two targets give the same serial",
+            ),
+            (
+                jon("'t1', 'RP2350', NULL, NULL, 'S2'"),
+                "no two targets have the same id",
+            ),
+            (
+                target("'t2', 'RP2350', NULL, NULL, 'S2'", "'agent:claude'", "NULL"),
+                "a person lists a target",
+            ),
+            (
+                target(
+                    "'t2', 'RP2350', NULL, NULL, 'S2'",
+                    "'person:jon'",
+                    "'2026-10-14'",
+                ),
+                "a target retires after the day it was listed",
+            ),
+        ] {
+            refused(conn.execute_batch(&sql), why);
+        }
+        conn.execute_batch(&target(
+            "'t2', NULL, 'probe', 1, 'S2'",
+            "'person:jon'",
+            "'2026-10-15'",
+        ))
+        .unwrap();
         conn.execute_batch(
             "INSERT INTO silver.measurement_value VALUES ('m1', 'x', 1.0, NULL, NULL); \
              INSERT INTO silver.measurement_tool VALUES ('m1', 'probe-rs', '0.29.1'); \

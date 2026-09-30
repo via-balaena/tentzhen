@@ -20,7 +20,7 @@ CREATE TABLE bronze.record (
     path TEXT PRIMARY KEY,
     body TEXT NOT NULL
 );
-COMMENT ON TABLE bronze.record IS 'Every file the loader read, exactly as read: records, drawings, site documents, the lab''s limits, the lab log and measurement records.';
+COMMENT ON TABLE bronze.record IS 'Every file the loader read, exactly as read: records, drawings, site documents, the lab''s limits, the lab-target list, the lab log and measurement records.';
 COMMENT ON COLUMN bronze.record.path IS 'The file''s path, relative to the repo root.';
 
 CREATE VIEW bronze.record_hash AS
@@ -213,6 +213,32 @@ CREATE TABLE silver.lab_limit_at_most (
 );
 COMMENT ON TABLE silver.lab_limit_at_most IS 'A number a limit may not exceed: a value of a claim it rests on. crates/lab holds the limit to it.';
 COMMENT ON COLUMN silver.lab_limit_at_most.name IS 'The claim''s value, in silver.claim_value.';
+
+-- ---------------------------------------------------------------- silver: the lab-target list
+-- From lab/targets.toml, which crates/records has checked, with each flash in the log against it.
+
+CREATE TABLE silver.lab_target (
+    target      TEXT PRIMARY KEY,
+    part        TEXT REFERENCES silver.part (part),
+    build       TEXT,
+    version     INTEGER,
+    serial      TEXT NOT NULL UNIQUE,
+    listed      DATE NOT NULL,
+    approved_by TEXT NOT NULL CHECK (regexp_full_match(approved_by, 'person:[a-z0-9-]+')),
+    retired     DATE,
+    record      TEXT NOT NULL,
+    FOREIGN KEY (build, version) REFERENCES silver.build_version (build, version),
+    CHECK ((part IS NULL) <> (build IS NULL)),
+    CHECK ((build IS NULL) = (version IS NULL)),
+    CHECK (retired > listed)
+);
+COMMENT ON TABLE silver.lab_target IS 'Each board an agent may flash without asking first: one physical board, a part or a build version. crates/records holds each flash in the lab log to it.';
+COMMENT ON COLUMN silver.lab_target.target IS 'Its id, written on a label on the board.';
+COMMENT ON COLUMN silver.lab_target.serial IS 'The serial the board reports, which no other target''s is.';
+COMMENT ON COLUMN silver.lab_target.listed IS 'The first UTC day it may be flashed.';
+COMMENT ON COLUMN silver.lab_target.approved_by IS 'On whose decision it was listed: a person''s, as person:<name>. The writer''s word.';
+COMMENT ON COLUMN silver.lab_target.retired IS 'The UTC day it stops being a target, once it has.';
+COMMENT ON COLUMN silver.lab_target.record IS 'The file in bronze.record this row came from.';
 
 -- ---------------------------------------------------------------- silver: the lab log
 -- From lab/log/<yyyy-mm-dd>.jsonl, which crates/records has checked, chain and all.
