@@ -2,4 +2,7 @@
 [toolchain]
 channel = "1.96.0"
 components = ["rustfmt", "clippy"]
+# The RP2350's Cortex-M33 cores, the target upstream Tock builds its Pico 2 board for: the
+# Quality Gate builds firmware/enforcer for it, with no standard library.
+targets = ["thumbv8m.main-none-eabi"]
 profile = "minimal"
