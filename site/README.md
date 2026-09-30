@@ -22,5 +22,5 @@ does. Keep `--bind 127.0.0.1`; without it the server listens on every network in
   from. A page loads nothing from another site.
 - **Hosting:** GitHub Pages publishes this directory from main: when main's Quality Gate passes
   on a push, from that commit, or when the workflow is run by hand, from main as it is
-  (`.github/workflows/pages.yml`). It is served at tentzhen.com once the domain's DNS points at
-  GitHub.
+  (`.github/workflows/pages.yml`). It is served at https://tentzhen.com, with a Let's Encrypt
+  certificate GitHub renews; www.tentzhen.com redirects to it. The DNS records are at Namecheap.
