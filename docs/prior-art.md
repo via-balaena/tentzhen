@@ -8,7 +8,8 @@ made them (`vision.md`, principle 8). A proposal for a new piece starts here, an
 
 - **When and how:** 2026-09-30. Five searches in English, one per part of Tentzhen (instruments
   from cheap parts, grading claims by evidence, safety below an AI agent, lab records, projects
-  that combine several), then three in Chinese (below).
+  that combine several), then three in Chinese (below). The web-search budget ran out during the
+  Chinese searches, so a later search would reach further.
 - **How the pages were read:** most through a tool that summarises a page before it is read. One
   such summary was contradicted by the paper's own text. A source marked **re-read** was read in
   its own text; the rest are as summarised, so re-read one before resting anything on it.
@@ -23,27 +24,29 @@ gateware and limit logic with proofs or bounded checks, a grade on every publish
 from its evidence, an AI agent held to limits enforced below it, and the repo as the lab's system
 of record. Each part exists on its own, and several were built in 2026.
 
-- **Instruments from cheap parts** are well trodden. What is new is the evidence behind them.
+- **Instruments from cheap parts** are well trodden. What we found no one doing is putting
+  evidence behind their numbers.
 - **Grading claims** has close relatives in test-equipment spec sheets and in metrology, where a
   maker or a lab asserts how a number is known. Tools that derive a grade from evidence and fail
   when it is missing exist for software; we found none for hardware specs.
 - **Safety below the agent** has a name, runtime assurance, and a literature. Of the systems we
   found that let an AI drive lab hardware and say where their limits are enforced, each enforces
-  them in host software, or in an instrument's firmware whose limits the same link can rewrite.
-  One paper asks for verified firmware below the agent and has no code.
+  them in software above the instrument, or in the instrument's own firmware, whose protection
+  settings sit on the same link the commands use. One paper asks for verified firmware below the
+  agent and has no code.
 - **Lab records** each exist: hash-chained logs, flash gates for agents, measurement records. We
   found none that ties them to claims.
 - **In Chinese,** there are many more open instruments, supplies and loads, several with one unit's
   accuracy measured and published, and agents on instruments from RIGOL and others. The pattern is
-  the same: no evidence behind each number, and every limit in the software or firmware being
-  commanded.
+  the same: at most one unit's measurements behind some of the numbers, and every limit read in
+  the software or firmware being commanded.
 
 ## Instruments from cheap parts
 
 | project | what it is | shared with Tentzhen | different | source |
 |---|---|---|---|---|
 | AD9226 builds on GitHub | 27 repos on the cheap AD9226 module: hobby instruments, SDRs and student projects, one from China's national student electronics contest (全国大学生电子设计竞赛, `19-E-NUEDC`); `amin005/skywave_SDR` pairs it with an ECP5 | the same module, often with an FPGA | no evidence behind their specs seen in their descriptions | GitHub repository search for "AD9226", **re-read** |
-| Red Pitaya STEMlab 125-14 | the class instrument #1 aims at | two channels, FPGA, SCPI; an MCP server for it exists | €649; schematics not open; no evidence on its specs; calibrated at the factory | redpitaya.readthedocs.io |
+| Red Pitaya STEMlab 125-14 | the class instrument #1 aims at | two channels, FPGA, SCPI; an MCP server for it exists | lab-instrument prices (€649 for the Gen2 PRO Z7010); schematics not open; no evidence on its specs; calibrated at the factory | redpitaya.readthedocs.io |
 | PSLab (FOSSASIA) | a low-cost multi-instrument for education | the budget and teaching mission; corrects cheap parts in software against an ADS1115 | a microcontroller at 2 MS/s, no FPGA | pslab.io, FOSSASIA blog |
 | ThunderScope | an open 4-channel FPGA oscilloscope | LiteX gateware; one spec says how it was set ("a current measured value with margin applied") | $1,099–1,299, custom boards | crowdsupply.com, github.com/EEVengers |
 | Haasoscope Pro | an open USB oscilloscope | open, aimed at students | $999; numbers without method | crowdsupply.com |
@@ -84,12 +87,12 @@ source).
 
 | system | where its limits are enforced | verified? | source |
 |---|---|---|---|
-| Duke's LLM agent on ARTIQ, for a trapped-ion experiment | an MCP proxy on the host, "the single enforcement point" | no | arXiv 2606.27231, **re-read** |
-| LabMCP | a connector on the host checks each request against limits the user sets; for bench supplies and other lab instruments | no | github.com/K-Dense-AI/lab-instrument-mcps, **re-read** |
+| Duke's LLM agent on ARTIQ, for a trapped-ion experiment | an MCP proxy, "the single enforcement point" | none described | arXiv 2606.27231, **re-read** |
+| LabMCP | a connector on the host checks each request against limits the user sets; for bench supplies and other lab instruments. Each connector is labelled "simulated" until someone confirms it on a real instrument | "not certified safety systems" | github.com/K-Dense-AI/lab-instrument-mcps, **re-read** |
 | Anthropic's Model Hardware Standard | its driver writes a reference file of "what safety limits will be enforced"; where the driver runs is not said | not said | anthropic.com, 2026-08-27, **re-read**; a preview for applicants |
 | Safe-SDL | asks for limits "on dedicated hardware with verified firmware" | proposed | arXiv 2602.15061, **re-read**; a framework paper with no code |
 | LAP, an agent-to-instrument protocol | leaves the instrument's physical limits to its maker, below the protocol | no | arXiv 2606.03755, **re-read** |
-| agentic-hil | a gate on the host for flashing and serial; one configuration kept "outside the repository, out of reach of the agent's own file tools" | no | github.com/agentic-hil/agentic-hil, **re-read** |
+| agentic-hil | a gate on the host for flashing and serial; one configuration kept "outside the repository, out of reach of the agent's own file tools" | none described | github.com/agentic-hil/agentic-hil, **re-read** |
 | RoboGuard, Safe-ROS | a planner layer; a ROS node checked with Dafny | Safe-ROS: yes | GitHub, arXiv 2511.14433 |
 
 ## Lab records
@@ -135,11 +138,11 @@ limit read lives in the same firmware that is being commanded.
 Many of the most-viewed supplies and loads are licensed CC BY-NC-SA, which forbids commercial use:
 read the licence before reusing a design.
 
-**The DPS5005's own protection can be rewritten over its link.** A community Modbus library for the
-DPS5005 reads and writes its over-voltage and over-current settings (registers `0x52` and `0x53`),
-and a register map of Riden's RD6006 lists the same settings (registers 82 and 83). Whatever holds
-the link can raise them, so they are not a limit below the agent. Whether the module accepts every
-such write has not been tried here. Sources: github.com/lambcutlet/DPS5005_pyGUI and
+**The DPS5005's own protection sits on the link the commands use.** A community Modbus library for
+the DPS5005 reads and writes its over-voltage and over-current settings (registers `0x52` and
+`0x53`), and a register map of Riden's RD6006 lists the same settings (registers 82 and 83). If the
+module accepts those writes, whatever holds the link can raise them, so they are no limit below the
+agent; that has not been tried here. Sources: github.com/lambcutlet/DPS5005_pyGUI and
 github.com/Baldanos/rd6006, both **re-read**.
 
 **Agents on instruments.**
@@ -195,8 +198,8 @@ Each is a candidate, to be proposed where it lands:
 6. **Keep the list of what an agent may do out of the agent's reach,** as agentic-hil does:
    `lab/targets.toml` is a file an agent can edit.
 7. **Check sigrok's driver for the DPS5005's stock firmware** before flashing OpenDPS, which
-   changes the module's flash protection (plan step 10). Either way the stock firmware's own
-   protection can be rewritten over its link, so the enforcer stays.
+   changes the module's flash protection (plan step 10). Either way the stock firmware's protection
+   settings sit on the same link as the commands, so the enforcer stays.
 8. **A link from a claim to a record could store the record's sha256,** as Doorstop does, so an
    edited record flags its claims.
 9. **Emit an RO-Crate Process Run Crate for each measurement record,** and name measurement fields
@@ -211,7 +214,7 @@ Each is a candidate, to be proposed where it lands:
 | LiteX, VexRiscv | the digitizer's SoC and soft core | `scope.md`, `CLAUDE.md` (planned) |
 | Amaranth, SymbiYosys, Yosys, nextpnr, Project Trellis | gateware cores, their proofs, and the bitstream | `verification.md` (planned) |
 | Tock | the enforcer's OS; upstream supports the RP2350, and Jon's `via-balaena/tock` branches add drivers | `verification.md`, "Tock" (planned) |
-| Kani | the enforcer's checks | `firmware/enforcer` (PR #29) |
+| Kani | the enforcer's checks | `firmware/enforcer` |
 | DuckDB | the warehouse | `crates/warehouse` |
 | Muse Lab's Colorlight pinouts | the digitizer's FPGA board | `scope.md` (planned) |
 | machcnz's AD9226 module notes | the module's clipping defect and its fix | `scope.md` |
@@ -225,7 +228,7 @@ The authors of the closest work: agentic-hil and LabMCP (agents on benches), Duk
 Safe-SDL's authors (safety below the agent), the authors of Self-Verifying Measurement Records
 (evidence on every number), and M-Labs (Sinara's evidence-footnoted datasheets). In China: Muse Lab
 (our FPGA board), greentor (LogicPi's analog front end), the ESP32 load's author (our load's
-topology), the S-ELO and XS1 authors (calibrating every unit), RIGOL's UVerse team (agents on
+topology), the S-ELO and XS1 authors (calibration, published), RIGOL's UVerse team (agents on
 instruments, with confirmation on the host), the authors of instrumentControl and WaveBench, rIC3's
 authors, the 一生一芯 course, and the reviewers at 数码之家. And the projects we build on, upstream first
 when we find a bug.
