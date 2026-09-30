@@ -7,7 +7,7 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
-# Nothing but serde and toml: the Pico enforcer's build script is to read the limits through this.
+# Nothing but serde and toml: the Pico enforcer's build script reads the limits through this.
 [dependencies]
 serde = { version = "=1.0.229", features = ["derive"] }
 toml = "=1.1.6"

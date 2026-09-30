@@ -362,8 +362,8 @@ mod tests {
         }
     }
 
-    /// The Pico enforcer's build script is to read lab/limits.toml through crates/lab, so the
-    /// safety path must not pull in the database or the catalogue.
+    /// The Pico enforcer's build script reads lab/limits.toml through crates/lab, so the safety
+    /// path must not pull in the database or the catalogue.
     #[test]
     fn the_lab_crate_needs_only_serde_and_toml() {
         assert_eq!(runtime_dependencies("crates/lab"), ["serde", "toml"]);

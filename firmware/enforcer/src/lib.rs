@@ -233,14 +233,36 @@ mod proofs {
 
     #[kani::proof]
     fn nothing_above_the_limits_reaches_the_dps() {
-        one_step(|before, _, result, _| {
+        one_step(|before, input, result, _| {
+            let l = before.limits;
             if let Ok(Send::Setpoint {
                 millivolts,
                 milliamps,
             }) = result
             {
-                assert!(millivolts <= before.limits.max_setpoint_millivolts);
-                assert!(milliamps <= before.limits.max_current_limit_milliamps);
+                assert!(millivolts <= l.max_setpoint_millivolts);
+                assert!(milliamps <= l.max_current_limit_milliamps);
+            }
+            // Refused, not clamped: a setpoint above the limits sends nothing, and one within
+            // them is sent as asked.
+            if let Input::Set {
+                millivolts,
+                milliamps,
+            } = input
+            {
+                if millivolts > l.max_setpoint_millivolts
+                    || milliamps > l.max_current_limit_milliamps
+                {
+                    assert!(result == Err(Refused::AboveLimit));
+                } else {
+                    assert!(
+                        result
+                            == Ok(Send::Setpoint {
+                                millivolts,
+                                milliamps
+                            })
+                    );
+                }
             }
         });
     }
@@ -371,6 +393,23 @@ mod tests {
             .map(|b| format!("{b:02x}"))
             .collect();
         assert_eq!(LIMITS_SHA256, sha256);
+    }
+
+    /// Kani runs only a function marked `#[kani::proof]`, so a harness that lost its mark would
+    /// stop running and nothing would fail. Every function in `proofs` but `one_step` has it.
+    #[test]
+    fn every_function_in_proofs_is_a_kani_harness() {
+        let (_, proofs) = include_str!("lib.rs").split_once("\nmod proofs {").unwrap();
+        let (proofs, _) = proofs.split_once("\n}\n").unwrap();
+        let lines: Vec<&str> = proofs.lines().map(str::trim).collect();
+        let mut harnesses = 0;
+        for (i, line) in lines.iter().enumerate() {
+            if line.starts_with("fn ") && !line.starts_with("fn one_step(") {
+                assert_eq!(lines[i - 1], "#[kani::proof]", "{line}");
+                harnesses += 1;
+            }
+        }
+        assert_eq!(harnesses, 5);
     }
 
     #[test]
