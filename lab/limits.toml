@@ -12,22 +12,28 @@
 #   same_as = "..."  a copy of another value, which it must equal
 #   rule = "..."     held to a rule in crates/lab, which names the values it uses
 # and may add `rests_on`: the claims the value relies on to do its job, each cited as <part>#<id>
-# (parts/) or <build>/v<n>#<id>. A claim's grade comes from its referents
+# (parts/) or <build>/v<n>#<id>; and `at_most`: a number, of a claim it rests on, that the value
+# may not exceed, as <claim>.<value name>. A claim's grade comes from its referents
 # (builds/README.md, "Claims"). The warehouse gives each value the weakest bench grade among the
 # claims it rests on, through every value it comes from (gold.limit_grades). A rule reads numbers
 # only from the claims its value rests on, so its grade covers them.
 #
-# crates/lab reads this file and refuses a key it does not know, a value that is not a finite
-# number above zero, a value without exactly one basis, a copy that differs from its original, a
-# DPS5005 setpoint or current limit above the supply's ceiling, and a fuse that is not the next
-# rating above max_amps. Given the claims (crates/records), it also refuses a claim cited that does
-# not exist and an upstream voltage outside the DPS5005's input rule.
+# crates/lab reads this file and refuses, among other things, a key it does not know, a value that
+# is not a finite number above zero, a value without exactly one basis, a copy that differs from
+# its original, a DPS5005 setpoint or current limit above the supply's ceiling, and a fuse that is
+# not the next rating above max_amps. Given the claims (crates/records), it also refuses a claim
+# cited that does not exist, a value above its at_most, and an upstream voltage outside the
+# DPS5005's input rule.
 
 [pico_3v3]
-# Any Pico or 3.3 V circuit.
+# Any Pico or 3.3 V circuit. The voltage ceiling rests on the RP2350's rating alone: no claim covers
+# another part on the supply yet. 3.6 V is 30 mV under that rating's maximum, 3.63 V, which is also
+# the RP2350's absolute maximum. The current ceiling rests on nothing.
 max_volts = 3.6
 max_amps = 0.200
-basis.max_volts = { policy = "CLAUDE.md, \"Default ceilings: 3.6 V and 200 mA\"" }
+basis.max_volts.policy = "CLAUDE.md, \"Default ceilings: 3.6 V and 200 mA\""
+basis.max_volts.rests_on = ["RP2350#io-supply"]
+basis.max_volts.at_most = "RP2350#io-supply.max_io_supply_volts"
 basis.max_amps = { policy = "CLAUDE.md, \"Default ceilings: 3.6 V and 200 mA\"" }
 
 [supply]

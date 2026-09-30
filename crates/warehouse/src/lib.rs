@@ -174,6 +174,12 @@ fn load_limits(tx: &duckdb::Transaction, limits: &Limits) -> duckdb::Result<()> 
                 params![e.path, c],
             )?;
         }
+        if let Some((claim, name)) = e.basis.bound() {
+            tx.execute(
+                "INSERT INTO silver.lab_limit_at_most VALUES (?, ?, ?)",
+                params![e.path, claim, name],
+            )?;
+        }
     }
     Ok(())
 }
@@ -345,23 +351,43 @@ mod tests {
             one(&conn, "SELECT count(*) FROM silver.lab_limit"),
             one(&conn, "SELECT count(*) FROM gold.limit_grades"),
         );
+        let io = "RP2350#io-supply";
         assert_eq!(
             grade(&conn, "supply.upstream.volts"),
-            some("unknown", "DPS5005#input-range, bench-supply#setting-error"),
+            some(
+                "unknown",
+                &format!("DPS5005#input-range, {io}, bench-supply#setting-error")
+            ),
             "the bench supply's setting error is not measured",
         );
         assert_eq!(
             grade(&conn, "supply.dps.current_limit_amps"),
             some("trusted", "DPS5005#current-limit"),
         );
-        assert_eq!(grade(&conn, "pico_3v3.max_volts"), (None, None));
+        // The Pico ceiling, and every value copied from it.
+        for path in [
+            "pico_3v3.max_volts",
+            "supply.max_volts",
+            "supply.dps.max_setpoint_volts",
+        ] {
+            assert_eq!(grade(&conn, path), some("trusted", io), "{path}");
+        }
+        assert_eq!(grade(&conn, "pico_3v3.max_amps"), (None, None));
         assert_eq!(
             one(
                 &conn,
                 "SELECT count(*) FROM gold.limit_grades WHERE weakest_grade IS NOT NULL"
             ),
-            2,
-            "only those two rest on a claim",
+            5,
+            "only those five rest on a claim",
+        );
+        assert_eq!(
+            one(
+                &conn,
+                "SELECT count(*) FROM silver.lab_limit_at_most WHERE path = 'pico_3v3.max_volts' \
+                 AND claim = 'RP2350#io-supply' AND name = 'max_io_supply_volts'"
+            ),
+            1
         );
     }
 
@@ -387,7 +413,10 @@ mod tests {
             grade(&conn, "supply.fuse.rating_amps"),
             some("unknown", bench)
         );
-        assert_eq!(grade(&conn, "pico_3v3.max_volts"), (None, None));
+        assert_eq!(
+            grade(&conn, "pico_3v3.max_volts"),
+            some("trusted", "RP2350#io-supply")
+        );
     }
 
     #[test]
@@ -700,6 +729,35 @@ mod tests {
             "INSERT INTO silver.referent VALUES ('k5', 'trusted', NULL, 'entry'); \
              INSERT INTO silver.referent VALUES ('k5', 'test', 't', NULL); \
              INSERT INTO silver.lab_limit_rests_on VALUES ('held', 'k5')",
+        )
+        .unwrap();
+        // A bound is a value of a claim the limit rests on.
+        conn.execute_batch(
+            "INSERT INTO silver.claim_value VALUES ('k5', 'max_volts', 3.63); \
+             INSERT INTO silver.claim VALUES ('k7', 'RP2350', NULL, NULL, 2, 'b', 'x'); \
+             INSERT INTO silver.claim_value VALUES ('k7', 'max_volts', 3.63)",
+        )
+        .unwrap();
+        for (values, why) in [
+            (
+                "'held', 'k5', 'min_volts'",
+                "a bound is a value its claim states",
+            ),
+            (
+                "'held', 'k7', 'max_volts'",
+                "a bound is on a claim the limit rests on",
+            ),
+            (
+                "'nothing', 'k5', 'max_volts'",
+                "a bound is on a limit that exists",
+            ),
+        ] {
+            let sql = format!("INSERT INTO silver.lab_limit_at_most VALUES ({values})");
+            refused(conn.execute(&sql, []).map(|_| ()), why);
+        }
+        conn.execute(
+            "INSERT INTO silver.lab_limit_at_most VALUES ('held', 'k5', 'max_volts')",
+            [],
         )
         .unwrap();
         let both =

@@ -4,3 +4,12 @@ is = "microcontroller"
 # Security-critical: buy from authorized distributors only.
 authorized_only = true
 datasheet = "https://datasheets.raspberrypi.com/rp2350/rp2350-datasheet.pdf"
+
+[[claim]]
+# RP2350 datasheet, build-date 2025-07-29 (build-version d126e9e-clean): Table 1441, "Power Supply
+# Specifications", IOVDD min 1.62 V, max 3.63 V; Table 1433, "Absolute maximum ratings", IOVDD
+# max 3.63 V. Read 2026-09-29.
+id = "io-supply"
+says = "Its I/O supply (IOVDD) is rated from `min_io_supply_volts` to `max_io_supply_volts`, and its absolute maximum is `absolute_max_io_supply_volts`"
+trusted = "silicon"
+values = { min_io_supply_volts = 1.62, max_io_supply_volts = 3.63, absolute_max_io_supply_volts = 3.63 }

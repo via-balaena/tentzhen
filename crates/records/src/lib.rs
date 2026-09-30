@@ -325,8 +325,8 @@ impl Catalogue {
         cat.with_limits(limits)
     }
 
-    /// Adds the lab's limits, refusing a value that rests on no claim here, or whose rule the claims
-    /// it rests on break ([`tentzhen_lab::Limits::check_with_claims`]).
+    /// Adds the lab's limits, refusing what [`tentzhen_lab::Limits::check_with_claims`] refuses
+    /// against this catalogue's claims.
     pub fn with_limits(mut self, limits: tentzhen_lab::Limits) -> Result<Self, String> {
         limits
             .check_with_claims(|c| self.claim(c).map(|c| &c.values))
@@ -747,6 +747,15 @@ mod tests {
         let mut gone = repo();
         gone.parts.get_mut("DPS5005").unwrap().claim.remove(1);
         refused(gone, "rests on DPS5005#current-limit, which is no claim");
+        let mut lower = repo();
+        let rp2350 = lower.parts.get_mut("RP2350").unwrap();
+        rp2350.claim[0]
+            .values
+            .insert("max_io_supply_volts".into(), 3.5);
+        refused(
+            lower,
+            "pico_3v3.max_volts: is 3.6, above RP2350#io-supply's max_io_supply_volts of 3.5",
+        );
     }
 
     // What lab/limits.toml's comments say about its values, with the claims they rest on.
@@ -765,6 +774,16 @@ mod tests {
         let err = cat.claim("bench-supply#setting-error").unwrap().values["setting_error_volts"];
         assert_eq!(dps_floor(&cat), 6.0);
         assert_eq!(dps_floor(&cat) + err, 6.5);
+    }
+
+    #[test]
+    fn the_pico_ceiling_is_30_mv_under_the_rp2350_s_maximum() {
+        let cat = repo();
+        let v = &cat.claim("RP2350#io-supply").unwrap().values;
+        let ceiling = cat.limits.as_ref().unwrap().pico_3v3.max_volts.get();
+        assert_eq!(v["max_io_supply_volts"], 3.63);
+        assert_eq!(v["absolute_max_io_supply_volts"], 3.63);
+        assert!((v["max_io_supply_volts"] - ceiling - 0.030).abs() < 1e-9);
     }
 
     #[test]
