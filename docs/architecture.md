@@ -36,6 +36,7 @@ flowchart LR
 | Every file the warehouse loads is in bronze with its sha256, and every silver row traces to one. | `every_row_traces_to_the_bytes_it_came_from`, for the four silver tables with a `record` column; the rest reference one of those by foreign key, directly or through another table. |
 | A grade comes from its referents, never typed. | `no_record_can_type_a_grade`, `grades_derive_from_referents`, `every_limit_gets_the_weakest_grade_of_its_claims` |
 | A limit rests only on claims that exist, and a rule reads numbers only from the claims its value rests on, so its grade covers them. | `a_value_rests_on_claims_that_exist` and `a_rule_reads_only_the_claims_its_value_rests_on` in `crates/lab`, `the_limits_are_held_to_the_claims_they_cite` in `crates/records`, and the warehouse's foreign key to `silver.claim` (`the_database_refuses_what_the_records_refuse`) |
+| A limit with an `at_most` is no more than the number it names, a value of a claim the limit rests on. | `a_value_stays_at_most_the_number_it_names` in `crates/lab`, `the_limits_are_held_to_the_claims_they_cite` in `crates/records`, and the warehouse's foreign keys from `silver.lab_limit_at_most` (`the_database_refuses_what_the_records_refuse`) |
 | A claim's `trusted` referent names an entry in the trusted base. | `a_trusted_referent_names_an_entry_in_the_trusted_base` in `crates/records`, and the warehouse's foreign keys to `silver.trusted_entry` (`the_database_refuses_what_the_records_refuse`) |
 | Readers of the warehouse read gold only. | `the_site_reads_only_gold`; the site is the only one so far. |
 | Every table and view says what it is, and the catalogue is generated. | `every_table_and_view_says_what_it_is`, `the_catalogue_is_current` |
@@ -61,7 +62,9 @@ test and path it names up to the proposal below must exist.
 - **`record` referents resolve to nothing.** A claim can name a measurement record, but no format
   or store for records exists yet. That's the lab log in `roadmap.md`,
   Phase 0.
-- **The Pico ceiling rests on no claim** (`gold.limit_grades`): step 4 in the plan below.
+- **The Pico voltage ceiling rests on the RP2350 alone** (`RP2350#io-supply`), 30 mV under its
+  rated and absolute maximum of 3.63 V. No claim covers another part on the supply, and
+  `pico_3v3.max_amps` rests on nothing (`gold.limit_grades`).
 - **Three gold views have no reader:** `grade_coverage`, `where_used` and `limit_grades`
   (`docs/data-catalogue.md`).
 - **`main`'s Quality Gate did not run for the merge of #18,** for an unknown cause. The tree was
@@ -119,6 +122,7 @@ Each step is one PR, done when its check passes:
    `every_limit_gets_the_weakest_grade_of_its_claims`, which holds every limit to the grade it had
    before.
 4. **A claim under the Pico ceiling:** the RP2350's rated I/O supply range, as a claim on
-   `parts/rp2350.toml`. Done when `pico_3v3.max_volts` rests on it.
+   `parts/rp2350.toml`. Done when `pico_3v3.max_volts` rests on it. Done, and bounded by it:
+   `RP2350#io-supply`, `at_most`, `a_value_stays_at_most_the_number_it_names`.
 5. **Measurement records** with the lab log (`roadmap.md`, Phase 0). Done when a `record` referent
    is a foreign key.

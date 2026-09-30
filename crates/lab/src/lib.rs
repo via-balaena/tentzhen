@@ -6,7 +6,8 @@
 //!
 //! The claims live in other records, which this crate does not read, so the Pico enforcer builds
 //! from the limits file alone. [`Limits::check_with_claims`] checks what needs them: that each
-//! claim cited exists, and an upstream voltage within the DPS5005's input rule.
+//! claim cited exists, that a value is no more than the claim's number its `at_most` names, and an
+//! upstream voltage within the DPS5005's input rule.
 
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -152,6 +153,9 @@ pub struct Basis {
     /// Each cited as `<part>#<id>` or `<build>/v<n>#<id>`.
     #[serde(default)]
     pub rests_on: Vec<String>,
+    /// A number this value may not exceed, as `<claim>.<name>`: a value, in this value's unit, of a
+    /// claim it rests on.
+    pub at_most: Option<String>,
 }
 
 /// A rule a value is held to. Its check is in `check_values` or, when it reads claims,
@@ -249,6 +253,11 @@ impl Basis {
             (None, Some(_)) => "same_as",
             (None, None) => "rule",
         }
+    }
+
+    /// `at_most` as the claim it cites and the name of that claim's value.
+    pub fn bound(&self) -> Option<(&str, &str)> {
+        self.at_most.as_deref()?.rsplit_once('.')
     }
 
     /// The values this one comes from.
@@ -364,8 +373,8 @@ impl Limits {
         self.check_bases()
     }
 
-    /// Checks what needs the claims the values rest on: that each claim cited exists, and each rule
-    /// that reads claims. `claim(citation)` gives a claim's values by name, or `None` when there is
+    /// Checks what needs the claims the values rest on: that each claim cited exists, that each
+    /// value with an `at_most` is no more than the number it names, and each rule that reads claims. `claim(citation)` gives a claim's values by name, or `None` when there is
     /// no such claim; crates/records passes the catalogue's. A rule reads only the claims its value
     /// rests on, and a name two of them state is refused, since the rule could read either.
     pub fn check_with_claims<'c>(
@@ -389,6 +398,19 @@ impl Limits {
                             e.path
                         ));
                     }
+                }
+            }
+            if let Some((c, name)) = e.basis.bound()
+                && let Value::Volts(v) | Value::Amps(v) = e.value
+            {
+                let Some(&most) = claim(c).and_then(|values| values.get(name)) else {
+                    return Err(format!(
+                        "{}: at_most names {name}, which {c} does not state",
+                        e.path
+                    ));
+                };
+                if v > most {
+                    return Err(format!("{}: is {v}, above {c}'s {name} of {most}", e.path));
                 }
             }
             if reads {
@@ -518,6 +540,27 @@ impl Limits {
                     return Err(format!("{at}: rests on {c} twice"));
                 }
             }
+            if let Some(at_most) = &b.at_most {
+                let Some((c, name)) = b.bound().filter(|(c, n)| !c.is_empty() && !n.is_empty())
+                else {
+                    return Err(format!(
+                        "{at}: at_most {at_most:?} is not <claim>.<value name>"
+                    ));
+                };
+                if !b.rests_on.iter().any(|r| r == c) {
+                    return Err(format!("{at}: at_most names {c}, so it must rest on it"));
+                }
+                let unit = match e.value {
+                    Value::Volts(_) => "volts",
+                    Value::Amps(_) => "amps",
+                    Value::Choice(_) => return Err(format!("{at}: a choice has no at_most")),
+                };
+                if name.rsplit('_').next() != Some(unit) {
+                    return Err(format!(
+                        "{at}: at_most names {name}, which is not in {unit} like this value"
+                    ));
+                }
+            }
             if let Some(p) = &b.same_as {
                 let Some(v) = values.get(p) else {
                     return Err(format!("{at}: same_as {p}, which is not a value"));
@@ -615,6 +658,10 @@ mod tests {
                 ]),
             ),
             ("DPS5005#current-limit".into(), values(&[])),
+            (
+                "RP2350#io-supply".into(),
+                values(&[("max_io_supply_volts", 3.63)]),
+            ),
             (
                 "bench-supply#setting-error".into(),
                 values(&[("setting_error_volts", 0.5)]),
@@ -956,9 +1003,63 @@ mod tests {
     #[test]
     fn no_value_comes_from_itself() {
         let text = with(
-            "basis.max_volts = { policy = \"CLAUDE.md, \\\"Default ceilings: 3.6 V and 200 mA\\\"\" }",
-            "basis.max_volts = { same_as = \"supply.max_volts\" }",
+            "basis.max_volts.policy = \"CLAUDE.md, \\\"Default ceilings: 3.6 V and 200 mA\\\"\"",
+            "basis.max_volts.same_as = \"supply.max_volts\"",
         );
         refused(&text, "comes from itself");
+    }
+
+    const PICO_AT_MOST: &str = "basis.max_volts.at_most = \"RP2350#io-supply.max_io_supply_volts\"";
+
+    #[test]
+    fn a_value_stays_at_most_the_number_it_names() {
+        let lower = claims_with("RP2350#io-supply", "max_io_supply_volts", 3.5);
+        refused_with(
+            &repo(),
+            &lower,
+            "pico_3v3.max_volts: is 3.6, above RP2350#io-supply's max_io_supply_volts of 3.5",
+        );
+        let mut unstated = claims();
+        unstated.get_mut("RP2350#io-supply").unwrap().clear();
+        refused_with(
+            &repo(),
+            &unstated,
+            "at_most names max_io_supply_volts, which RP2350#io-supply does not state",
+        );
+        // The bound is on a claim the value rests on, in its unit, and a number is bounded.
+        refused(
+            &with(
+                "basis.max_volts.rests_on = [\"RP2350#io-supply\"]\n",
+                "basis.max_volts.rests_on = [\"DPS5005#input-range\"]\n",
+            ),
+            "at_most names RP2350#io-supply, so it must rest on it",
+        );
+        refused(
+            &with(
+                PICO_AT_MOST,
+                "basis.max_volts.at_most = \"RP2350#io-supply.max_io_supply_amps\"",
+            ),
+            "not in volts like this value",
+        );
+        for bad in [
+            "RP2350#io-supply",
+            "RP2350#io-supply.",
+            ".max_io_supply_volts",
+        ] {
+            refused(
+                &with(
+                    PICO_AT_MOST,
+                    &format!("basis.max_volts.at_most = \"{bad}\""),
+                ),
+                "is not <claim>.<value name>",
+            );
+        }
+        refused(
+            &with(
+                "basis.reenable = { policy = \"Jon, 2026-09-28\" }",
+                "basis.reenable = { policy = \"Jon, 2026-09-28\", rests_on = [\"RP2350#io-supply\"], at_most = \"RP2350#io-supply.max_io_supply_volts\" }",
+            ),
+            "a choice has no at_most",
+        );
     }
 }

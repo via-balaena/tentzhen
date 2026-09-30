@@ -31,6 +31,7 @@ flowchart LR
     silver_lab_limit["silver.lab_limit"]
     silver_lab_limit_input["silver.lab_limit_input"]
     silver_lab_limit_rests_on["silver.lab_limit_rests_on"]
+    silver_lab_limit_at_most["silver.lab_limit_at_most"]
   end
   subgraph gold
     gold_latest["gold.latest"]
@@ -409,6 +410,23 @@ Constraints:
 - `PRIMARY KEY(path, claim)`
 
 Read by: `gold.limit_grades`.
+
+### `silver.lab_limit_at_most` (table)
+
+A number a limit may not exceed: a value of a claim it rests on. crates/lab holds the limit to it.
+
+| column | type | null | about |
+|---|---|---|---|
+| `path` | VARCHAR | no |  |
+| `claim` | VARCHAR | no |  |
+| `name` | VARCHAR | no | The claim's value, in silver.claim_value. |
+
+Constraints:
+
+- `PRIMARY KEY(path)`
+- `FOREIGN KEY (path) REFERENCES silver.lab_limit(path)`
+- `FOREIGN KEY (path, claim) REFERENCES silver.lab_limit_rests_on(path, claim)`
+- `FOREIGN KEY (claim, "name") REFERENCES silver.claim_value(claim, "name")`
 
 ## gold
 

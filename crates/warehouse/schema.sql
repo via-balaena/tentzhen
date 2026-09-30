@@ -214,6 +214,16 @@ CREATE TABLE silver.lab_limit_rests_on (
 );
 COMMENT ON TABLE silver.lab_limit_rests_on IS 'The claims a limit relies on to do its job.';
 
+CREATE TABLE silver.lab_limit_at_most (
+    path  TEXT PRIMARY KEY REFERENCES silver.lab_limit (path),
+    claim TEXT NOT NULL,
+    name  TEXT NOT NULL,
+    FOREIGN KEY (path, claim) REFERENCES silver.lab_limit_rests_on (path, claim),
+    FOREIGN KEY (claim, name) REFERENCES silver.claim_value (claim, name)
+);
+COMMENT ON TABLE silver.lab_limit_at_most IS 'A number a limit may not exceed: a value of a claim it rests on. crates/lab holds the limit to it.';
+COMMENT ON COLUMN silver.lab_limit_at_most.name IS 'The claim''s value, in silver.claim_value.';
+
 -- ---------------------------------------------------------------- gold
 
 CREATE VIEW gold.latest AS
