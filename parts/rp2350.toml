@@ -13,3 +13,13 @@ id = "io-supply"
 says = "Its I/O supply (IOVDD) is rated from `min_io_supply_volts` to `max_io_supply_volts`, and its absolute maximum is `absolute_max_io_supply_volts`"
 trusted = "silicon"
 values = { min_io_supply_volts = 1.62, max_io_supply_volts = 3.63, absolute_max_io_supply_volts = 3.63 }
+
+[[claim]]
+# RP2350 datasheet, build-date 2025-07-29 (build-version d126e9e-clean), erratum RP2350-E9,
+# "Increased leakage current on Bank 0 GPIO when pad input is enabled", affects A2, fixed in A3:
+# the pad sources "typically around 120uA", holds "around 2.2 V", the pull-down "isn't strong
+# enough", and "8.2 kOhm or less will overcome" it (IOVDD 3.3 V). Read 2026-09-30.
+id = "e9-pull-down"
+says = "On stepping A2, a GPIO whose input is enabled and output disabled, left between logic levels, sources about `leakage_amps` and holds near `leakage_hold_volts`; its own pull-down cannot pull it low, and a pull to ground of `max_pull_down_ohms` or less can"
+trusted = "silicon"
+values = { leakage_amps = 0.00012, leakage_hold_volts = 2.2, max_pull_down_ohms = 8200.0 }

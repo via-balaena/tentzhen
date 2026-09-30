@@ -1,0 +1,55 @@
+part = "INA239"
+kind = "chip"
+is = "power monitor with SPI: shunt current, bus voltage"
+# Safety-critical: the Pico enforcer reads the supply through it (builds/enforcer).
+authorized_only = true
+datasheet = "https://www.ti.com/lit/ds/symlink/ina239.pdf"
+
+# Every claim below: TI SLYS027A (January 2021, revised May 2022), read 2026-09-30.
+
+[[claim]]
+# Section 6.3, "Recommended Operating Conditions": VS 2.7 V to 5.5 V.
+id = "supply"
+says = "Runs from a supply of `min_supply_volts` to `max_supply_volts`"
+trusted = "maker-datasheets"
+values = { min_supply_volts = 2.7, max_supply_volts = 5.5 }
+
+[[claim]]
+# Section 6.1, "Absolute Maximum Ratings": IN+ and IN- common mode, and VBUS, -0.3 V to 85 V.
+id = "input-rating"
+says = "Its IN+, IN- and VBUS pins take up to `max_input_volts` above ground"
+trusted = "maker-datasheets"
+values = { max_input_volts = 85.0 }
+
+[[claim]]
+# Section 6.5, "Electrical Characteristics": VBUS input range 0 V to 85 V; 1 LSB step size, bus
+# voltage, 3.125 mV; VBUS offset voltage (Vos_bus) +-5 mV maximum; VBUS voltage gain error (GBERR)
+# +-0.1 % maximum.
+id = "bus-voltage"
+says = "Reads the voltage on VBUS in steps of `bus_step_volts`, within `max_bus_offset_volts` plus `max_bus_gain_error_ratio` of the reading"
+trusted = "maker-datasheets"
+values = { bus_step_volts = 0.003125, max_bus_offset_volts = 0.005, max_bus_gain_error_ratio = 0.001 }
+
+[[claim]]
+# Section 6.5: shunt voltage input range +-40.96 mV at ADCRANGE = 1; 1 LSB step size, shunt
+# voltage, ADCRANGE = 1, 1.25 uV; shunt offset voltage (Vos) +-5 uV maximum; shunt voltage gain
+# error (GSERR) +-0.1 % maximum.
+id = "shunt-voltage"
+says = "With ADCRANGE = 1, reads the voltage across its shunt up to `shunt_full_scale_volts` either way, in steps of `shunt_step_volts`, within `max_shunt_offset_volts` plus `max_shunt_gain_error_ratio` of the reading"
+trusted = "maker-datasheets"
+values = { shunt_full_scale_volts = 0.04096, shunt_step_volts = 0.00000125, max_shunt_offset_volts = 0.000005, max_shunt_gain_error_ratio = 0.001 }
+
+[[claim]]
+# Section 6.5: ADC conversion time (TCT), typical, 50 us at field 0h to 4120 us at field 7h.
+id = "conversion-time"
+says = "Each conversion takes about `min_conversion_seconds` to `max_conversion_seconds`, as configured"
+trusted = "maker-datasheets"
+values = { min_conversion_seconds = 0.00005, max_conversion_seconds = 0.00412 }
+
+[[claim]]
+# Section 6.6, "Timing Requirements (SPI)": SPI bit frequency 10 MHz maximum. Table 5-1, "Pin
+# Functions": MISO push-pull, ALERT open-drain.
+id = "spi"
+says = "Its SPI runs at up to `max_spi_hertz`"
+trusted = "maker-datasheets"
+values = { max_spi_hertz = 10000000.0 }

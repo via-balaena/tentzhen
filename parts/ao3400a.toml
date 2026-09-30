@@ -1,0 +1,29 @@
+part = "AO3400A"
+kind = "chip"
+is = "N-channel MOSFET, SOT-23"
+# Safety-critical: it drives the Pico enforcer's output switch (builds/enforcer).
+authorized_only = true
+datasheet = "https://www.aosmd.com/res/datasheets/AO3400A.pdf"
+
+# Every claim below: Alpha and Omega AO3400A datasheet, Rev 3.1, July 2023, read 2026-09-30.
+
+[[claim]]
+# Absolute maximum ratings: drain-source voltage 30 V; gate-source voltage +-12 V.
+id = "ratings"
+says = "Blocks up to `max_drain_source_volts` from drain to source, and takes up to `max_gate_source_volts` from gate to source"
+trusted = "maker-datasheets"
+values = { max_drain_source_volts = 30.0, max_gate_source_volts = 12.0 }
+
+[[claim]]
+# Electrical characteristics: gate threshold voltage 0.65 V minimum, 1.45 V maximum.
+id = "threshold"
+says = "Turns on with its gate from `min_threshold_volts` to `max_threshold_volts` above its source"
+trusted = "maker-datasheets"
+values = { min_threshold_volts = 0.65, max_threshold_volts = 1.45 }
+
+[[claim]]
+# Product summary: RDS(ON) at VGS = 2.5 V below 48 mOhm.
+id = "on-resistance"
+says = "With its gate `gate_drive_volts` above its source, it conducts with less than `max_on_ohms`"
+trusted = "maker-datasheets"
+values = { gate_drive_volts = 2.5, max_on_ohms = 0.048 }
