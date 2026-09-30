@@ -31,6 +31,7 @@ flowchart LR
     silver_lab_limit_input["silver.lab_limit_input"]
     silver_lab_limit_rests_on["silver.lab_limit_rests_on"]
     silver_lab_limit_at_most["silver.lab_limit_at_most"]
+    silver_lab_target["silver.lab_target"]
     silver_lab_log_entry["silver.lab_log_entry"]
     silver_lab_log_value["silver.lab_log_value"]
     silver_measurement["silver.measurement"]
@@ -97,7 +98,7 @@ flowchart LR
 
 ### `bronze.record` (table)
 
-Every file the loader read, exactly as read: records, drawings, site documents, the lab's limits, the lab log and measurement records.
+Every file the loader read, exactly as read: records, drawings, site documents, the lab's limits, the lab-target list, the lab log and measurement records.
 
 | column | type | null | about |
 |---|---|---|---|
@@ -413,6 +414,33 @@ Constraints:
 - `FOREIGN KEY (path) REFERENCES silver.lab_limit(path)`
 - `FOREIGN KEY (path, claim) REFERENCES silver.lab_limit_rests_on(path, claim)`
 - `FOREIGN KEY (claim, "name") REFERENCES silver.claim_value(claim, "name")`
+
+### `silver.lab_target` (table)
+
+Each board an agent may flash without asking first: one physical board, a part or a build version. crates/records holds each flash in the lab log to it.
+
+| column | type | null | about |
+|---|---|---|---|
+| `target` | VARCHAR | no | Its id, written on a label on the board. |
+| `part` | VARCHAR | yes |  |
+| `build` | VARCHAR | yes |  |
+| `version` | INTEGER | yes |  |
+| `serial` | VARCHAR | no | The serial the board reports, which no other target's is. |
+| `listed` | DATE | no | The first UTC day it may be flashed. |
+| `approved_by` | VARCHAR | no | On whose decision it was listed: a person's, as person:<name>. The writer's word. |
+| `retired` | DATE | yes | The UTC day it stops being a target, once it has. |
+| `record` | VARCHAR | no | The file in bronze.record this row came from. |
+
+Constraints:
+
+- `PRIMARY KEY("target")`
+- `FOREIGN KEY (part) REFERENCES silver.part(part)`
+- `UNIQUE(serial)`
+- `CHECK(regexp_full_match(approved_by, 'person:[a-z0-9-]+'))`
+- `FOREIGN KEY (build, "version") REFERENCES silver.build_version(build, "version")`
+- `CHECK(((part IS NULL) != (build IS NULL)))`
+- `CHECK(((build IS NULL) = ("version" IS NULL)))`
+- `CHECK((retired > listed))`
 
 ### `silver.lab_log_entry` (table)
 

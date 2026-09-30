@@ -32,9 +32,9 @@ flowchart LR
 | rule | held by |
 |---|---|
 | Schema first: every file in `parts/`, `builds/` and `lab/` is loaded into the warehouse, and so are `trusted-base.toml` and `DISCLAIMER.md`, or CI fails. A record is parsed by its schema on the way in; a drawing is kept as it is. A folder's README is not a record. | `every_file_in_the_records_folders_is_loaded` |
-| Every schema refuses a key it doesn't know. | `every_table_refuses_a_key_it_does_not_know`, in `crates/records` and in `crates/lab`; for the lab log and the measurement records, `a_log_entry_keeps_its_shape` and `a_measurement_record_keeps_its_shape` |
-| A rule a record states in a comment is a check or a test. | the tests in `crates/lab` and `crates/records`, for `lab/limits.toml`. Nothing holds this for new files: `unknown`. |
-| Every file the warehouse loads is in bronze with its sha256, and every silver row traces to one. | `every_row_traces_to_the_bytes_it_came_from`, for the six silver tables with a `record` column; the rest reference one of those by foreign key, directly or through another table. |
+| Every schema refuses a key it doesn't know. | `every_table_refuses_a_key_it_does_not_know`, in `crates/records` and in `crates/lab`; for the lab log, the measurement records and the lab-target list, `a_log_entry_keeps_its_shape`, `a_measurement_record_keeps_its_shape` and `a_lab_target_keeps_its_shape` |
+| A rule a record states in a comment is a check or a test. | the tests in `crates/lab` and `crates/records`, for `lab/limits.toml`, and for `lab/targets.toml`, whose comment lists what nothing holds. Nothing holds this for new files: `unknown`. |
+| Every file the warehouse loads is in bronze with its sha256, and every silver row traces to one. | `every_row_traces_to_the_bytes_it_came_from`, for the seven silver tables with a `record` column; the rest reference one of those by foreign key, directly or through another table. |
 | Each lab-log entry names the sha256 of the line before it, so an entry edited, dropped or moved is refused. The chain cannot see a change to the last entry, entries cut from the end, or a chain rewritten from an edit on: the next rule covers those on `main`. | `an_edited_dropped_or_moved_entry_breaks_the_chain` in `crates/records`, and the warehouse's keys on `silver.lab_log_entry` (`the_database_refuses_what_the_records_refuse`) |
 | `main`'s lab log only grows: each of its files is the start of the same file in a PR. | the Quality Gate's step "The lab log only grows", which `the_lab_log_step_passes_only_an_append` runs against a scratch repo |
 | Two writers on one machine cannot chain to the same entry. | `appends_from_many_threads_keep_one_chain` |
@@ -42,6 +42,9 @@ flowchart LR
 | A measurement record cites the lab-log entries it came from, first and last and in that order, by the sha256 of their lines, and its id starts with the first's UTC day. Each device and meter it names has a record, one that is a build version gives the firmware that version pins, and each meter's accuracy is a claim on the meter's own record. | `a_record_names_what_the_catalogue_and_its_log_hold`. The warehouse's keys on `silver.measurement` and `silver.measurement_device` hold that the entries, devices and accuracy claims exist and that each accuracy is on its meter's record, not the order, the day or the firmware (`the_database_refuses_what_the_records_refuse`) |
 | A raw ADC code in a record's results (`input_codes`) sits beside the value converted from it (`input_volts`). Nothing holds the reverse, that a value read from an ADC keeps its code: `unknown`. | `a_raw_code_sits_beside_its_converted_value` |
 | A merged measurement record never changes. | the Quality Gate's step "A measurement record never changes", which `the_record_step_passes_only_a_new_record` runs against a scratch repo |
+| A lab target is one board: a part or a build version with a record, giving a serial no other target gives, naming a person as `approved_by`, and retired only after the day it was listed. | `a_lab_target_keeps_its_shape` and `a_lab_target_names_a_board_the_catalogue_holds` in `crates/records`, and the warehouse's keys and checks on `silver.lab_target` (`the_database_refuses_what_the_records_refuse`) |
+| Each flash in the lab log, `firmware.flash`, names the target, the serial read from the board and the image's sha256. Unless its params name the person who approved it in the session (`approved_by`), as CLAUDE.md allows for a board that is not listed, the target is on the lab-target list that day, the serial is the target's, and the image is the firmware the target's build version pins if it pins one. So a target such a flash names stays on the list with the serial it gave. The log keeps a flash the list refuses, and the records stop loading. | `a_flash_is_held_to_the_lab_target_list` and `load_holds_claims_to_the_records_on_disk` in `crates/records`. The warehouse has no key from a flash to its target. |
+| An agent flashes only a listed board or one a person approved, and logs every load of code as a flash. The Pico enforcer is never a target, a listing never covers irreversible settings, and a serial names one board. | nothing: `unknown`. Nothing between an agent and a USB port reads the list. The enforcer's build is to add a check that it is not listed. How each kind of board reports a serial is unknown until one arrives. |
 | A grade comes from its referents, never typed. | `no_record_can_type_a_grade`, `grades_derive_from_referents`, `every_limit_gets_the_weakest_grade_of_its_claims` |
 | A limit rests only on claims that exist, and a rule reads numbers only from the claims its value rests on, so its grade covers them. | `a_value_rests_on_claims_that_exist` and `a_rule_reads_only_the_claims_its_value_rests_on` in `crates/lab`, `the_limits_are_held_to_the_claims_they_cite` in `crates/records`, and the warehouse's foreign key to `silver.claim` (`the_database_refuses_what_the_records_refuse`) |
 | A limit with an `at_most` is no more than the number it names, a value of a claim the limit rests on. | `a_value_stays_at_most_the_number_it_names` in `crates/lab`, `the_limits_are_held_to_the_claims_they_cite` in `crates/records`, and the warehouse's foreign keys from `silver.lab_limit_at_most` (`the_database_refuses_what_the_records_refuse`) |
@@ -73,13 +76,16 @@ test and path it names up to the proposal below must exist.
   touched hardware, so the lab log they cite has no entries either.
 - **A measured grade does not look at the meter.** `gold.claim_grades` gives `measured` to any
   claim with a `record` referent, whatever the grade of the claim that gives its meter's accuracy.
-- **A lab-log entry or a measurement record is only as trustworthy as the machine that wrote it.**
-  Every field is what its writer says, a log entry's `by` included. So a `measured` grade says that
-  a record and its log entries exist, not that anyone touched the bench, and `lab/limits.toml`'s
-  "Raise it only on a measured claim" depends on someone reading the record. Commits are signed,
-  but an agent that can commit there signs with the person's key: Claude's commits on this repo
-  carry Jon's signature. What `main` adds is that neither can change once merged. Nothing checks
-  that an entry's `limits_sha256` names a version of `lab/limits.toml`.
+- **A lab-log entry, a measurement record or a lab target is only as trustworthy as the machine that
+  wrote it.** Every field is what its writer says, a log entry's `by` and a target's or a flash's
+  `approved_by` included. So a `measured` grade says that a record and its log entries exist, not
+  that anyone touched the bench, and `lab/limits.toml`'s "Raise it only on a measured claim" depends
+  on someone reading the record. Commits are signed, but an agent that can commit there signs with
+  the person's key: Claude's commits on this repo carry Jon's signature. What `main` adds is that
+  neither can change once merged. Nothing checks that an entry's `limits_sha256` names a version of
+  `lab/limits.toml`.
+- **Nothing is a lab target yet,** so every flash needs a person's approval. The list binds the
+  log, not the bench: nothing between an agent and a USB port reads `lab/targets.toml`.
 - **The Pico voltage ceiling rests on the RP2350 alone** (`RP2350#io-supply`), 230 mV under its
   rated and absolute maximum of 3.63 V. No claim covers another part on the supply, and
   `pico_3v3.max_amps` rests on nothing (`gold.limit_grades`).
@@ -154,3 +160,10 @@ Each step is one PR, done when its check passes:
      subject, and a merged record cannot change. Done:
      `a_record_referent_names_a_record_that_measured_its_subject`, the warehouse's key from
      `silver.referent` to `silver.measurement`, `the_record_step_passes_only_a_new_record`.
+6. **The lab-target list** (`roadmap.md`, Phase 0): the boards an agent may flash without asking,
+   one entry per physical board, in `lab/targets.toml`, with nothing listed yet. A board listed as
+   a build version takes only the firmware that version pins; one listed as a part takes any
+   image. A flash of a board that is not listed loads only when it names the person who approved
+   it. Done when an unapproved flash naming a board that is not listed is refused, and each rule is
+   held by a test or written as `unknown`. Done: `a_lab_target_keeps_its_shape`,
+   `a_lab_target_names_a_board_the_catalogue_holds`, `a_flash_is_held_to_the_lab_target_list`.

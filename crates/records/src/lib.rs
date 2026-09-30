@@ -2,10 +2,12 @@
 //! checked against the contract every consumer relies on (the site, the warehouse). Both can carry
 //! claims, in one shape: [`Claim`]. A claim assumed rather than shown names an entry in the trusted
 //! base, `trusted-base.toml`: [`Trusted`]. The lab log, every hardware action, is [`log`], and a
-//! claim's `record` names a measurement record: [`measurement`].
+//! claim's `record` names a measurement record: [`measurement`]. The boards an agent may flash are
+//! the lab-target list: [`target`].
 
 pub mod log;
 pub mod measurement;
+pub mod target;
 
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -217,6 +219,16 @@ fn plain(t: &str) -> bool {
             .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-')
 }
 
+/// The record a device is, as a claim on it is cited before its `#`: a part (`DPS5005`), or a build
+/// and its version (`supply/v1`). None unless it names exactly one of the two.
+fn subject_of(part: Option<&str>, build: Option<&str>, version: Option<u32>) -> Option<String> {
+    match (part, build, version) {
+        (Some(p), None, None) => Some(p.into()),
+        (None, Some(b), Some(v)) => Some(format!("{b}/v{v}")),
+        _ => None,
+    }
+}
+
 /// A sha256 as the records write it: 64 lowercase hex digits.
 fn sha256_shaped(h: &str) -> bool {
     h.len() == 64
@@ -289,12 +301,16 @@ pub struct Catalogue {
     /// The trusted base's entries, in the file's order.
     pub trusted_base: Vec<Trusted>,
     /// Every file exactly as read, the trusted base then records then drawings then site documents
-    /// then the lab's limits then the lab log then the measurement records: the warehouse's bronze
-    /// layer.
+    /// then the lab's limits then the lab-target list then the lab log then the measurement
+    /// records: the warehouse's bronze layer.
     pub sources: Vec<Source>,
     /// The lab's limits, checked. Set by [`Catalogue::with_limits`], which [`Catalogue::load`]
     /// calls; `from_sources` leaves it empty.
     pub limits: Option<tentzhen_lab::Limits>,
+    /// The lab-target list, in the file's order, checked against the catalogue. Set by
+    /// [`Catalogue::with_targets`], which [`Catalogue::load`] calls; `from_sources` leaves it
+    /// empty, so nothing may be flashed.
+    pub targets: Vec<target::Target>,
     /// The lab log's entries in the log's order, checked and chained. Set by [`Catalogue::with_log`],
     /// which [`Catalogue::load`] calls; `from_sources` leaves it empty.
     pub log: Vec<log::Entry>,
@@ -355,6 +371,7 @@ impl Catalogue {
             text,
         });
         cat.with_limits(limits)?
+            .with_targets(target::read(root)?)?
             .with_log(log::read(root)?)?
             .with_measurements(measurement::read(root)?)
     }
@@ -369,9 +386,25 @@ impl Catalogue {
         Ok(self)
     }
 
-    /// Adds the lab log's files, refusing what [`log::parse`] refuses.
+    /// Adds the lab-target list, before the log, whose flashes it holds. Refuses what
+    /// [`target::parse`] refuses, and a target whose part or build version has no record.
+    pub fn with_targets(mut self, list: Source) -> Result<Self, String> {
+        let targets = target::parse(&list)?;
+        for t in &targets {
+            t.check_in(&self)?;
+        }
+        self.targets = targets;
+        self.sources.push(list);
+        Ok(self)
+    }
+
+    /// Adds the lab log's files, refusing what [`log::parse`] refuses and a flash the lab-target
+    /// list does not allow ([`target`]), so it comes after [`Catalogue::with_targets`].
     pub fn with_log(mut self, files: Vec<Source>) -> Result<Self, String> {
         self.log = log::parse(&files)?;
+        for e in self.log.iter().filter(|e| e.what == target::FLASH) {
+            target::check_flash(&self, e)?;
+        }
         self.sources.extend(files);
         Ok(self)
     }
@@ -473,6 +506,7 @@ impl Catalogue {
                 .cloned()
                 .collect(),
             limits: None,
+            targets: Vec::new(),
             log: Vec::new(),
             measurements: BTreeMap::new(),
         };
@@ -756,7 +790,8 @@ mod tests {
     }
 
     /// `load` reads the lab log and the measurement records from disk, and holds a claim's `record`
-    /// to them: a copy of the repo's records, in a folder of its own, with a claim that cites one.
+    /// to them, and a flash in the log to the lab-target list: a copy of the repo's records, in a
+    /// folder of its own, with a claim that cites one and a flash.
     #[test]
     fn load_holds_claims_to_the_records_on_disk() {
         let root =
@@ -771,6 +806,7 @@ mod tests {
             "parts",
             "builds",
             tentzhen_lab::LIMITS,
+            target::TARGETS,
         ] {
             copy(&repo.join(path), &root.join(path));
         }
@@ -808,12 +844,40 @@ mod tests {
         let cat = Catalogue::load(&root).unwrap();
         assert_eq!(cat.log.len(), 1);
         assert_eq!(cat.measurements["2026-09-21-draw"].log.first, seen.sha256);
-        for file in [path.as_str(), "lab/log/2026-09-21.jsonl"] {
+        for file in [path.as_str(), "lab/log/2026-09-21.jsonl", target::TARGETS] {
             assert!(
                 cat.sources.iter().any(|s| s.path == file),
                 "{file} is in bronze"
             );
         }
+        // The log takes a flash the list refuses, so it keeps what happened, and the records stop
+        // loading until the list allows it.
+        let flash = |key: &str, value: &str| (key.to_string(), log::Datum::Text(value.into()));
+        log::append(
+            &root,
+            std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_790_000_060),
+            "agent:claude",
+            target::FLASH,
+            BTreeMap::from([
+                flash("target", "pico-1"),
+                flash("serial", "E661"),
+                flash("image_sha256", &"c".repeat(64)),
+            ]),
+            BTreeMap::from([("done".into(), log::Datum::Flag(true))]),
+        )
+        .unwrap();
+        let err = Catalogue::load(&root).err().unwrap_or_default();
+        assert!(
+            err.contains("flashes pico-1, which is no target in lab/targets.toml"),
+            "{err}"
+        );
+        let list = root.join(target::TARGETS);
+        let text = fs::read_to_string(&list).unwrap();
+        let pico = "[[target]]\nid = \"pico-1\"\npart = \"RP2350\"\nserial = \"E661\"\n\
+                    listed = \"2026-09-21\"\napproved_by = \"person:jon\"\n";
+        fs::write(&list, format!("{text}\n{pico}")).unwrap();
+        let cat = Catalogue::load(&root).unwrap();
+        assert_eq!((cat.log.len(), cat.targets.len()), (2, 1));
         fs::remove_dir_all(&root).unwrap();
     }
 

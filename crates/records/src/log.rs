@@ -11,6 +11,9 @@
 //!
 //! Every field is what its writer says, `by` included. The log is signed only as a commit is, and
 //! an agent that can commit on the writer's machine signs with the same key as the person.
+//!
+//! A flash, `firmware.flash`, is held to the lab-target list as the records load:
+//! [`crate::target`].
 
 use crate::{Source, VALUE_UNITS, plain, read_folder, sha256_shaped, snake, unit_of};
 use serde::{Deserialize, Serialize};
