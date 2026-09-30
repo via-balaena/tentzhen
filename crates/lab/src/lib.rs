@@ -1,8 +1,9 @@
 //! The lab's safety records. For now that is `lab/limits.toml`: what the hardware below any agent
-//! will allow, each value's basis, and the claims the values rest on. [`Limits::parse`]
-//! refuses a key it does not know, a value that is not a finite number above zero, a value without
-//! exactly one basis, a copy that differs from its original, a DPS5005 setpoint or current limit
-//! above the supply's ceiling, and a fuse that is not the next rating above `max_amps`.
+//! will allow, each value's basis, and the claims the values rest on. [`Limits::parse`] refuses,
+//! among other things, a key it does not know, a value that is not a finite number above zero, a
+//! value without exactly one basis, a copy that differs from its original, a DPS5005 setpoint or
+//! current limit above the supply's ceiling, and a fuse that is not the next rating above
+//! `max_amps`.
 //!
 //! The claims live in other records, which this crate does not read, so the Pico enforcer builds
 //! from the limits file alone. [`Limits::check_with_claims`] checks what needs them: that each
@@ -374,9 +375,10 @@ impl Limits {
     }
 
     /// Checks what needs the claims the values rest on: that each claim cited exists, that each
-    /// value with an `at_most` is no more than the number it names, and each rule that reads claims. `claim(citation)` gives a claim's values by name, or `None` when there is
-    /// no such claim; crates/records passes the catalogue's. A rule reads only the claims its value
-    /// rests on, and a name two of them state is refused, since the rule could read either.
+    /// value with an `at_most` is no more than the number it names, and each rule that reads
+    /// claims. `claim(citation)` gives a claim's values by name, or `None` when there is no such
+    /// claim; crates/records passes the catalogue's. A rule reads only the claims its value rests
+    /// on, and a name two of them state is refused, since the rule could read either.
     pub fn check_with_claims<'c>(
         &self,
         claim: impl Fn(&str) -> Option<&'c BTreeMap<String, f64>>,

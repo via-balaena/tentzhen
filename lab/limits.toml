@@ -18,11 +18,12 @@
 # claims it rests on, through every value it comes from (gold.limit_grades). A rule reads numbers
 # only from the claims its value rests on, so its grade covers them.
 #
-# crates/lab reads this file and refuses a key it does not know, a value that is not a finite
-# number above zero, a value without exactly one basis, a copy that differs from its original, a
-# DPS5005 setpoint or current limit above the supply's ceiling, and a fuse that is not the next
-# rating above max_amps. Given the claims (crates/records), it also refuses a claim cited that does
-# not exist, a value above its at_most, and an upstream voltage outside the DPS5005's input rule.
+# crates/lab reads this file and refuses, among other things, a key it does not know, a value that
+# is not a finite number above zero, a value without exactly one basis, a copy that differs from
+# its original, a DPS5005 setpoint or current limit above the supply's ceiling, and a fuse that is
+# not the next rating above max_amps. Given the claims (crates/records), it also refuses a claim
+# cited that does not exist, a value above its at_most, and an upstream voltage outside the
+# DPS5005's input rule.
 
 [pico_3v3]
 # Any Pico or 3.3 V circuit. The voltage ceiling rests on the RP2350's rating alone: no claim covers

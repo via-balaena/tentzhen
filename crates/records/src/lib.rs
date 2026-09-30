@@ -325,8 +325,8 @@ impl Catalogue {
         cat.with_limits(limits)
     }
 
-    /// Adds the lab's limits, refusing a value that rests on no claim here, or whose rule the claims
-    /// it rests on break ([`tentzhen_lab::Limits::check_with_claims`]).
+    /// Adds the lab's limits, refusing what [`tentzhen_lab::Limits::check_with_claims`] refuses
+    /// against this catalogue's claims.
     pub fn with_limits(mut self, limits: tentzhen_lab::Limits) -> Result<Self, String> {
         limits
             .check_with_claims(|c| self.claim(c).map(|c| &c.values))
