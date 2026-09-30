@@ -1,5 +1,5 @@
 //! The lab's safety records. For now that is `lab/limits.toml`: what the hardware below any agent
-//! will allow, each value's basis, and the claims on parts the values rest on. [`Limits::parse`]
+//! will allow, each value's basis, and the claims the values rest on. [`Limits::parse`]
 //! refuses a key it does not know, a value that is not a finite number above zero, a value without
 //! exactly one basis, a copy that differs from its original, a DPS5005 setpoint or current limit
 //! above the supply's ceiling, and a fuse that is not the next rating above `max_amps`.
@@ -367,17 +367,21 @@ impl Limits {
     /// Checks what needs the claims the values rest on: that each claim cited exists, and each rule
     /// that reads claims. `claim(citation)` gives a claim's values by name, or `None` when there is
     /// no such claim; crates/records passes the catalogue's. A rule reads only the claims its value
-    /// rests on, and a name stated by two of them is refused.
+    /// rests on, and a name two of them state is refused, since the rule could read either.
     pub fn check_with_claims<'c>(
         &self,
         claim: impl Fn(&str) -> Option<&'c BTreeMap<String, f64>>,
     ) -> Result<(), String> {
         for e in self.entries() {
+            let reads = e.basis.rule == Some(Rule::DpsInput);
             let mut read: BTreeMap<&str, (f64, &str)> = BTreeMap::new();
             for c in &e.basis.rests_on {
                 let Some(values) = claim(c) else {
                     return Err(format!("{}: rests on {c}, which is no claim", e.path));
                 };
+                if !reads {
+                    continue;
+                }
                 for (name, v) in values {
                     if let Some((_, first)) = read.insert(name, (*v, c)) {
                         return Err(format!(
@@ -387,7 +391,7 @@ impl Limits {
                     }
                 }
             }
-            if e.basis.rule == Some(Rule::DpsInput) {
+            if reads {
                 self.check_dps_input(&e.path, &read)?;
             }
         }
@@ -868,6 +872,18 @@ mod tests {
             &twice,
             "input_ratio is stated by both DPS5005#input-range and bench-supply#setting-error",
         );
+        // A value no rule reads may rest on claims that state the same name.
+        let mut shared = claims();
+        shared.insert(
+            "RP2350#x".into(),
+            BTreeMap::from([("min_input_volts".into(), 1.8)]),
+        );
+        let text = with(
+            "basis.reenable = { policy = \"Jon, 2026-09-28\" }",
+            "basis.reenable = { policy = \"Jon, 2026-09-28\", rests_on = [\"DPS5005#input-range\", \"RP2350#x\"] }",
+        );
+        let l = Limits::parse(&text).unwrap();
+        l.check_with_claims(|c| shared.get(c)).unwrap();
     }
 
     #[test]
