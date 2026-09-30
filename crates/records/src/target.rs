@@ -19,7 +19,12 @@
 //! build version pins. So a target a flash names stays on the list with the serial it gave:
 //! removing it, or changing its serial, refuses that flash. It stops being a target by `retired`.
 //!
-//! Like the log's, every field is its writer's word, `approved_by` included.
+//! CLAUDE.md also allows a flash of a board that is not listed, on a person's approval in the
+//! session. Such a flash names that person in its params, `approved_by = "person:<name>"`, and is
+//! not held to the list. The Pico enforcer, which is never listed, is to be flashed that way.
+//!
+//! Like the log's, every field is its writer's word, a target's or a flash's `approved_by`
+//! included.
 
 use crate::log::{Datum, Entry, real_day};
 use crate::{Catalogue, Source, plain, read_source, sha256_shaped, subject_of};
@@ -140,14 +145,11 @@ pub fn parse(s: &Source) -> Result<Vec<Target>, String> {
                 "{at}: target {id} is retired on or before the day it was listed"
             ));
         }
-        match t.approved_by.split_once(':') {
-            Some(("person", name)) if plain(name) => {}
-            _ => {
-                return Err(format!(
-                    "{at}: target {id}'s approved_by names the person who approved it, as \
-                     person:<name>, the name in lowercase letters, digits and hyphens"
-                ));
-            }
+        if !a_person(&t.approved_by) {
+            return Err(format!(
+                "{at}: target {id}'s approved_by names the person who approved it, as \
+                 person:<name>, the name in lowercase letters, digits and hyphens"
+            ));
         }
     }
     for t in &mut target {
@@ -156,9 +158,15 @@ pub fn parse(s: &Source) -> Result<Vec<Target>, String> {
     Ok(target)
 }
 
+/// Whether `s` names a person, as `person:<name>`, the name in lowercase letters, digits and
+/// hyphens.
+fn a_person(s: &str) -> bool {
+    matches!(s.split_once(':'), Some(("person", name)) if plain(name))
+}
+
 /// Holds a flash in the lab log to the list in `cat`: its target is on the list on the flash's
 /// day, the serial read is the target's, and the image is the firmware the target's build version
-/// pins, if it pins one.
+/// pins, if it pins one. A flash that names the person who approved it is not held to the list.
 pub(crate) fn check_flash(cat: &Catalogue, e: &Entry) -> Result<(), String> {
     let at = format!("{}: entry {}", e.record, e.seq);
     let param = |key: &str| match e.params.get(key) {
@@ -177,6 +185,16 @@ pub(crate) fn check_flash(cat: &Catalogue, e: &Entry) -> Result<(), String> {
         return Err(format!(
             "{at}: image_sha256 must be a sha256 in lowercase hex"
         ));
+    }
+    match e.params.get("approved_by") {
+        None => {}
+        Some(Datum::Text(p)) if a_person(p) => return Ok(()),
+        Some(_) => {
+            return Err(format!(
+                "{at}: approved_by names the person who approved the flash, as person:<name>, \
+                 the name in lowercase letters, digits and hyphens"
+            ));
+        }
     }
     let Some(t) = cat.targets.iter().find(|t| t.id == id) else {
         return Err(format!(
@@ -536,6 +554,31 @@ approved_by = \"person:jon\"
         refused(
             catalogue().with_log(one_entry(day, FLASH, &all)),
             "flashes pico-1, which is no target",
+        );
+        // A flash a person approved is not held to the list, and needs no list at all. It still
+        // names what was flashed.
+        let approved = |by: &'static str| {
+            let mut params = all.to_vec();
+            params[0] = ("target", "enforcer-1");
+            params.push(("approved_by", by));
+            params
+        };
+        for cat in [listed(), catalogue()] {
+            let ok = cat.with_log(one_entry(day, FLASH, &approved("person:jon")));
+            assert!(ok.is_ok(), "{:?}", ok.err());
+        }
+        let by = "approved_by names the person who approved the flash, as person:<name>";
+        for who in ["agent:claude", "jon", "person:", "true"] {
+            refused(listed().with_log(one_entry(day, FLASH, &approved(who))), by);
+        }
+        let mut unnamed = approved("person:jon");
+        unnamed.retain(|(key, _)| *key != "serial");
+        refused(listed().with_log(one_entry(day, FLASH, &unnamed)), named);
+        let mut bad = approved("person:jon");
+        bad[2] = ("image_sha256", "bbb");
+        refused(
+            listed().with_log(one_entry(day, FLASH, &bad)),
+            "image_sha256 must be a sha256",
         );
         // Only a flash is held to the list.
         let set = catalogue().with_log(one_entry(day, "supply.set", &[("set_volts", "3.3")]));

@@ -29,6 +29,13 @@
 # flash names stays here with the serial it gave, and stops being a target by `retired`. The log
 # keeps a flash this list refuses, and the records stop loading until a person decides what follows.
 #
+# A flash of a board that is not listed, which a person approved in the session, names that person
+# instead, and is not held to this list. The Pico enforcer, never listed, is to be flashed that way:
+#
+#   cargo run -p tentzhen -- log append firmware.flash --by agent:<name> --param target=enforcer-1 \
+#     --param serial=... --param image_sha256=... --param approved_by=person:<name> \
+#     --result done=true
+#
 # Not held by anything:
 # - That a serial names one board. How each kind of board reports a serial is unknown until one
 #   arrives, and if every board of a kind reports the same one, an entry lists them all.
