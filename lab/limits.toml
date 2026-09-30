@@ -10,9 +10,9 @@
 # Every value has a basis beside it, as data. It is one of:
 #   policy = "..."   a person's decision, and where it is recorded
 #   same_as = "..."  a copy of another value, which it must equal
-#   rule = "..."     held to a rule in crates/lab, which names the values and facts it uses
-# and may add `rests_on`: the claims the value relies on to do its job, each on the part it is
-# about and cited as <part>#<id> (parts/). A claim's grade comes from its referents
+#   rule = "..."     held to a rule in crates/lab, which names the values it uses
+# and may add `rests_on`: the claims the value relies on to do its job, each cited as <part>#<id>
+# (parts/) or <build>/v<n>#<id>. A claim's grade comes from its referents
 # (builds/README.md, "Claims"). The warehouse gives each value the weakest bench grade among the
 # claims it rests on, through every value it comes from (gold.limit_grades). A rule reads numbers
 # only from the claims its value rests on, so its grade covers them.
@@ -46,7 +46,7 @@ basis.reenable = { policy = "Jon, 2026-09-28" }
 [supply.upstream]
 # The bench supply feeding the DPS5005's input: the least input the DPS5005 needs for its highest
 # setpoint, plus the bench supply's setting error. For a 3.6 V output that is
-# max(6.0, 1.1 x 3.6 = 3.96) + 0.5 = 6.5 V, from the claims below.
+# max(6.0, 1.1 x 3.6 = 3.96) + 0.5 = 6.5 V, from the claims it rests on.
 volts = 6.5
 basis.volts = { rule = "dps-input", rests_on = ["DPS5005#input-range", "bench-supply#setting-error"] }
 # This layer does NOT hold the 3.6 V ceiling. Its input must be at least 6.0 V, already above

@@ -395,7 +395,7 @@ Read by: `gold.limit_grades`.
 
 ### `silver.lab_limit_rests_on` (table)
 
-The claims a limit relies on to do its job, on the parts they are about.
+The claims a limit relies on to do its job.
 
 | column | type | null | about |
 |---|---|---|---|

@@ -212,7 +212,7 @@ CREATE TABLE silver.lab_limit_rests_on (
     claim TEXT NOT NULL REFERENCES silver.claim (claim),
     PRIMARY KEY (path, claim)
 );
-COMMENT ON TABLE silver.lab_limit_rests_on IS 'The claims a limit relies on to do its job, on the parts they are about.';
+COMMENT ON TABLE silver.lab_limit_rests_on IS 'The claims a limit relies on to do its job.';
 
 -- ---------------------------------------------------------------- gold
 

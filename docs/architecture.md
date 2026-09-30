@@ -118,7 +118,7 @@ Each step is one PR, done when its check passes:
    before. Done: `parts/dps5005.toml`, `parts/bench-supply.toml`, and
    `every_limit_gets_the_weakest_grade_of_its_claims`, which holds every limit to the grade it had
    before.
-4. **A fact under the Pico ceiling:** the RP2350's rated I/O supply range, as a claim on
+4. **A claim under the Pico ceiling:** the RP2350's rated I/O supply range, as a claim on
    `parts/rp2350.toml`. Done when `pico_3v3.max_volts` rests on it.
 5. **Measurement records** with the lab log (`roadmap.md`, Phase 0). Done when a `record` referent
    is a foreign key.
