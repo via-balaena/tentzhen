@@ -3,6 +3,7 @@
 
 #[cfg(test)]
 mod tests {
+    use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::process::Command;
@@ -391,6 +392,228 @@ mod tests {
         assert_eq!(
             dependencies_of("firmware/enforcer", "build-dependencies"),
             ["sha2", "tentzhen-lab"]
+        );
+    }
+
+    /// The Kani harnesses and tests in the workspace, by package name.
+    #[derive(Default)]
+    struct Code {
+        harnesses: BTreeMap<String, BTreeSet<String>>,
+        tests: BTreeMap<String, BTreeSet<String>>,
+    }
+
+    /// Reads every member's sources for functions marked `#[kani::proof]` or `#[test]`, through
+    /// any other attributes between the mark and the `fn`.
+    fn code() -> Code {
+        let mut code = Code::default();
+        for m in members() {
+            let package = manifest(&root().join(&m).join("Cargo.toml"))["package"]["name"]
+                .as_str()
+                .unwrap()
+                .to_string();
+            let mut stack = vec![root().join(&m).join("src")];
+            while let Some(dir) = stack.pop() {
+                for entry in fs::read_dir(dir).unwrap() {
+                    let path = entry.unwrap().path();
+                    if path.is_dir() {
+                        stack.push(path);
+                        continue;
+                    }
+                    if path.extension().is_none_or(|x| x != "rs") {
+                        continue;
+                    }
+                    let mut pending: Option<bool> = None;
+                    for line in fs::read_to_string(&path).unwrap().lines() {
+                        let line = line.trim();
+                        if line.starts_with("#[kani::proof") {
+                            pending = Some(true);
+                        } else if line == "#[test]" {
+                            pending = Some(false);
+                        } else if let (Some(kani), Some(rest)) = (pending, line.strip_prefix("fn "))
+                        {
+                            let name = rest.split(['(', '<']).next().unwrap().to_string();
+                            let set = if kani {
+                                &mut code.harnesses
+                            } else {
+                                &mut code.tests
+                            };
+                            set.entry(package.clone()).or_default().insert(name);
+                            pending = None;
+                        } else if !line.starts_with("#[") {
+                            pending = None;
+                        }
+                    }
+                }
+            }
+        }
+        code
+    }
+
+    /// The Kani version the Quality Gate installs.
+    fn kani_version() -> String {
+        let workflow =
+            fs::read_to_string(root().join(".github/workflows/quality-gate.yml")).unwrap();
+        let (_, rest) = workflow
+            .split_once("kani-verifier --version ")
+            .expect("the Quality Gate installs Kani");
+        rest.split_whitespace().next().unwrap().to_string()
+    }
+
+    /// What is wrong with a claim's referent of `kind` (`check`, `test` or `proof`), if anything.
+    /// A check is `<package> <harness>; Kani <version>; <bound>`, naming a harness in that package
+    /// and the version the Quality Gate runs. A test is `<package> <test>`. A proof is
+    /// `<path>; <tool> <version>`, naming a file in the repo.
+    fn referent_problem(kind: &str, referent: &str, code: &Code, kani: &str) -> Option<String> {
+        let fields: Vec<&str> = referent.split("; ").collect();
+        let named = |set: &BTreeMap<String, BTreeSet<String>>| match fields[0].split_once(' ') {
+            Some((package, name)) if set.get(package).is_some_and(|s| s.contains(name)) => None,
+            _ => Some(format!("{kind} {referent:?} names no {kind} that exists")),
+        };
+        match kind {
+            "check" => {
+                if fields.len() != 3 || fields[2].trim().is_empty() {
+                    return Some(format!(
+                        "check {referent:?} is not `<package> <harness>; Kani <version>; <bound>`"
+                    ));
+                }
+                if fields[1] != format!("Kani {kani}") {
+                    return Some(format!(
+                        "check {referent:?} names {}, but the Quality Gate runs Kani {kani}",
+                        fields[1]
+                    ));
+                }
+                named(&code.harnesses)
+            }
+            "test" => named(&code.tests),
+            "proof" => match fields.as_slice() {
+                [path, tool] if !tool.is_empty() && root().join(path).is_file() => None,
+                _ => Some(format!(
+                    "proof {referent:?} is not `<path>; <tool> <version>` naming a file"
+                )),
+            },
+            _ => unreachable!(),
+        }
+    }
+
+    /// Every claim in parts/ and builds/, as its record and its table.
+    fn claims() -> Vec<(String, Table)> {
+        let mut files: Vec<PathBuf> = fs::read_dir(root().join("parts"))
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .collect();
+        for b in fs::read_dir(root().join("builds")).unwrap() {
+            let b = b.unwrap().path();
+            if b.is_dir() {
+                files.extend(fs::read_dir(b).unwrap().map(|e| e.unwrap().path()));
+            }
+        }
+        files.sort();
+        let mut out = Vec::new();
+        for f in files
+            .iter()
+            .filter(|f| f.extension().is_some_and(|x| x == "toml"))
+        {
+            let at = f.strip_prefix(root()).unwrap().display().to_string();
+            for c in manifest(f)
+                .get("claim")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                out.push((at.clone(), c.as_table().unwrap().clone()));
+            }
+        }
+        out
+    }
+
+    /// A claim's `check`, `test` or `proof` names code that exists, so no record can take a grade
+    /// by naming evidence that is not there (docs/architecture.md, "Rules").
+    #[test]
+    fn a_code_referent_names_code_that_exists() {
+        let (code, kani) = (code(), kani_version());
+        let mut checks = 0;
+        for (at, claim) in claims() {
+            for kind in ["check", "test", "proof"] {
+                if let Some(r) = claim.get(kind).and_then(Value::as_str) {
+                    checks += usize::from(kind == "check");
+                    let problem = referent_problem(kind, r, &code, &kani);
+                    assert!(problem.is_none(), "{at}: {}", problem.unwrap());
+                }
+            }
+        }
+        assert!(checks >= 5, "found {checks} check referents");
+        // Each way a referent can be wrong is refused, and the right one is not.
+        let good = format!(
+            "tentzhen-enforcer a_refused_input_changes_nothing; Kani {kani}; one input from any state"
+        );
+        assert_eq!(referent_problem("check", &good, &code, &kani), None);
+        for (kind, bad, why) in [
+            (
+                "check",
+                good.replace("a_refused", "an_unwritten"),
+                "names no check",
+            ),
+            (
+                "check",
+                good.replace(&kani, "0.1.0"),
+                "the Quality Gate runs",
+            ),
+            (
+                "check",
+                good.replace("tentzhen-enforcer", "tentzhen-lab"),
+                "names no check",
+            ),
+            (
+                "check",
+                good.replace("; one input from any state", ""),
+                "is not",
+            ),
+            (
+                "check",
+                good.replace("one input from any state", " "),
+                "is not",
+            ),
+            // A test is not a harness, nor a harness a test.
+            (
+                "check",
+                good.replace(
+                    "a_refused_input_changes_nothing",
+                    "a_trip_keeps_its_first_cause",
+                ),
+                "names no check",
+            ),
+            (
+                "test",
+                "tentzhen-enforcer a_refused_input_changes_nothing".into(),
+                "names no test",
+            ),
+            (
+                "test",
+                "tentzhen-enforcer no_such_test".into(),
+                "names no test",
+            ),
+            (
+                "proof",
+                "gateware/none.sby; SymbiYosys 0.60".into(),
+                "naming a file",
+            ),
+            ("proof", "Cargo.toml".into(), "naming a file"),
+        ] {
+            let problem = referent_problem(kind, &bad, &code, &kani).unwrap_or_default();
+            assert!(problem.contains(why), "{bad}: {problem}");
+        }
+        assert_eq!(
+            referent_problem(
+                "test",
+                "tentzhen-enforcer a_trip_keeps_its_first_cause",
+                &code,
+                &kani
+            ),
+            None
+        );
+        assert_eq!(
+            referent_problem("proof", "Cargo.toml; a tool 1.0", &code, &kani),
+            None
         );
     }
 }
