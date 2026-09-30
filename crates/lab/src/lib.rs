@@ -699,30 +699,41 @@ mod tests {
         Limits::load(&root()).expect("lab/limits.toml loads");
     }
 
-    /// A policy that cites CLAUDE.md quotes it: the quote must be there, word for word.
+    /// A policy that cites CLAUDE.md quotes it, as `CLAUDE.md, "<words>"`, and the words must be
+    /// there: no policy may say CLAUDE.md says something without quoting it.
     #[test]
     fn every_policy_quoting_claude_md_matches_it() {
         let claude = fs::read_to_string(root().join("CLAUDE.md")).unwrap();
         let l = Limits::parse(&repo()).unwrap();
-        let mut quoted = 0;
+        let mut quoted = Vec::new();
         for e in l.entries() {
-            let Some(quote) = e
+            let Some(p) = e
                 .basis
                 .policy
                 .as_deref()
-                .and_then(|p| p.strip_prefix("CLAUDE.md, "))
+                .filter(|p| p.contains("CLAUDE.md"))
             else {
                 continue;
             };
-            let quote = quote.trim_matches('"');
+            let Some(quote) = p
+                .strip_prefix("CLAUDE.md, \"")
+                .and_then(|q| q.strip_suffix('"'))
+            else {
+                panic!("{}: cites CLAUDE.md without quoting it: {p:?}", e.path);
+            };
             assert!(
                 claude.contains(quote),
                 "{}: CLAUDE.md does not say {quote:?}",
                 e.path
             );
-            quoted += 1;
+            quoted.push(e.path);
         }
-        assert_eq!(quoted, 2, "pico_3v3.max_volts and max_amps quote CLAUDE.md");
+        for ceiling in ["pico_3v3.max_volts", "pico_3v3.max_amps"] {
+            assert!(
+                quoted.iter().any(|q| q == ceiling),
+                "{ceiling} quotes CLAUDE.md"
+            );
+        }
     }
 
     /// `tables` lists values by hand; this holds it to the file, so no value goes without a basis
