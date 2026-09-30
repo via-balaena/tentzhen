@@ -35,9 +35,9 @@ Everything here runs at tier 0, and all of it must exist before the first order 
   user's LCSC key or jlcparts, reports unique JLCPCB extended parts, and prints the date of every
   price. This produces the tier prices.
 - **Lab safety before hardware.** `lab/limits.toml`, the lab-target list (`lab/targets.toml`),
-  and a lab log that is hash-chained and only grows on `main`. Its entries are not signed: an
-  agent that can commit signs with the person's key (`architecture.md`), so where to keep a key an
-  agent cannot use is decided with the Pico enforcer.
+  and a lab log that is hash-chained and only grows on `main`. Its entries are not signed. Commits
+  are, but an agent that can commit signs with the person's key (`architecture.md`), so where to
+  keep a key an agent cannot use is decided with the Pico enforcer.
 - **First cart.** A BOM and cart for tiers 1–2, reviewed by the user, who places the order.
 
 ## Phase 1 — Bring-up

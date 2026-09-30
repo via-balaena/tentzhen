@@ -4,7 +4,8 @@
 #
 # Nothing is listed yet, so every flash needs that approval.
 #
-# One entry per physical board, never per kind of board, so that listing one Pico lists no other:
+# One entry per physical board, never per kind of board, so that listing one Pico lists no other
+# (if each reports a serial of its own: see below):
 #
 #   [[target]]
 #   id = "probe-1"              # written on a label on the board
@@ -29,6 +30,8 @@
 # keeps a flash this list refuses, and the records stop loading until a person decides what follows.
 #
 # Not held by anything:
+# - That a serial names one board. How each kind of board reports a serial is unknown until one
+#   arrives, and if every board of a kind reports the same one, an entry lists them all.
 # - A listing never covers irreversible settings (OTP, eFuses, secure-boot keys, flash protection
 #   bits): each needs a person's approval (CLAUDE.md).
 # - The Pico enforcer is never a target: an agent that can flash it can raise its limits. The

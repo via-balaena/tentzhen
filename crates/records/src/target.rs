@@ -144,7 +144,7 @@ pub fn parse(s: &Source) -> Result<Vec<Target>, String> {
             Some(("person", name)) if plain(name) => {}
             _ => {
                 return Err(format!(
-                    "{at}: target {id} is listed on a person's decision, so approved_by is \
+                    "{at}: target {id}'s approved_by names the person who approved it, as \
                      person:<name>, the name in lowercase letters, digits and hyphens"
                 ));
             }
@@ -227,8 +227,8 @@ mod tests {
         }
     }
 
-    /// Two boards: a bare RP2350 board, and a probe listed as the build that pins its firmware,
-    /// retired on 2026-10-20.
+    /// Three boards: a bare RP2350 board; a probe listed as the build that pins its firmware,
+    /// retired on 2026-10-20; and a board listed as a build that pins none.
     const LIST: &str = "\
 [[target]]
 id = \"pico-1\"
@@ -245,6 +245,14 @@ serial = \"E662\"
 listed = \"2026-10-14\"
 approved_by = \"person:jon\"
 retired = \"2026-10-20\"
+
+[[target]]
+id = \"bare-1\"
+build = \"bare\"
+version = 1
+serial = \"E663\"
+listed = \"2026-10-14\"
+approved_by = \"person:jon\"
 ";
 
     fn refused(text: &str, because: &str) {
@@ -261,7 +269,7 @@ retired = \"2026-10-20\"
     #[test]
     fn a_lab_target_keeps_its_shape() {
         let targets = parse(&src(TARGETS, LIST)).unwrap();
-        assert_eq!(targets.len(), 2);
+        assert_eq!(targets.len(), 3);
         assert_eq!(targets[1].subject().as_deref(), Some("probe/v1"));
         assert_eq!(targets[1].record, TARGETS);
         let empty = parse(&src(TARGETS, "# Nothing is a target yet.\n")).unwrap();
@@ -343,7 +351,7 @@ retired = \"2026-10-20\"
             "retired = \"2026-10-13\"",
             early,
         );
-        let person = "target pico-1 is listed on a person's decision, so approved_by is person:";
+        let person = "target pico-1's approved_by names the person who approved it, as person:";
         at(
             "approved_by = \"person:jon\"",
             "approved_by = \"agent:claude\"",
@@ -366,7 +374,8 @@ retired = \"2026-10-20\"
         );
     }
 
-    /// A catalogue with the RP2350 and a probe build that pins its firmware, `b` x 64.
+    /// A catalogue with the RP2350, a probe build that pins its firmware, `b` x 64, and a bare
+    /// build that pins none.
     fn catalogue() -> Catalogue {
         let base = src(
             crate::TRUSTED_BASE,
@@ -379,10 +388,14 @@ retired = \"2026-10-20\"
              file = \"f\"\nsha256 = \"{}\"\n",
             "b".repeat(64)
         );
+        let bare = "build = \"bare\"\nversion = 1\nstatus = \"draft\"\ndoes = \"a thing\"\n";
         Catalogue::from_sources(
             &base,
             &[src("parts/rp2350.toml", rp2350)],
-            &[src("builds/probe/v1.toml", &probe)],
+            &[
+                src("builds/probe/v1.toml", &probe),
+                src("builds/bare/v1.toml", bare),
+            ],
         )
         .unwrap()
     }
@@ -390,7 +403,7 @@ retired = \"2026-10-20\"
     #[test]
     fn a_lab_target_names_a_board_the_catalogue_holds() {
         let cat = catalogue().with_targets(src(TARGETS, LIST)).unwrap();
-        assert_eq!(cat.targets.len(), 2);
+        assert_eq!(cat.targets.len(), 3);
         assert!(
             cat.sources.iter().any(|s| s.path == TARGETS),
             "bronze holds it"
@@ -456,10 +469,11 @@ retired = \"2026-10-20\"
         };
         let day = "2026-10-15T10:00:00Z";
         // A board listed as a part takes any image; one listed as a build version, the firmware
-        // it pins, on the days it is listed.
+        // it pins, if it pins one, on the days it is listed.
         for (at, target, serial, image) in [
             (day, "pico-1", "E661", &other),
             (day, "probe-1", "E662", &pinned),
+            (day, "bare-1", "E663", &other),
             ("2026-10-14T00:00:00Z", "probe-1", "E662", &pinned),
             ("2026-10-19T23:59:59Z", "probe-1", "E662", &pinned),
         ] {
