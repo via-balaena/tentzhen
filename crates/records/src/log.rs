@@ -59,8 +59,8 @@ impl Entry {
     }
 }
 
-/// A parameter or a result, here or in a measurement record. A number's key ends in its unit ([`VALUE_UNITS`]); a key that does
-/// not holds a word or a yes/no.
+/// A parameter or a result, here or in a measurement record. A number's key ends in its unit
+/// ([`VALUE_UNITS`]); a key that does not holds a word or a yes/no.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Datum {

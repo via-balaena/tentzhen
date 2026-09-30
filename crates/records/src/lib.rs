@@ -299,8 +299,8 @@ pub struct Catalogue {
     /// which [`Catalogue::load`] calls; `from_sources` leaves it empty.
     pub log: Vec<log::Entry>,
     /// The measurement records by id, checked against the catalogue and the log. Set by
-    /// [`Catalogue::with_measurements`], which [`Catalogue::load`] calls, and which also holds every
-    /// claim's `record` to them; `from_sources` leaves it empty and checks no `record`.
+    /// [`Catalogue::with_measurements`], which [`Catalogue::load`] calls, and which also holds
+    /// every claim's `record` to them; `from_sources` leaves it empty and checks no `record`.
     pub measurements: BTreeMap<String, measurement::Measurement>,
 }
 

@@ -39,7 +39,7 @@ flowchart LR
 | `main`'s lab log only grows: each of its files is the start of the same file in a PR. | the Quality Gate's step "The lab log only grows", which `the_lab_log_step_passes_only_an_append` runs against a scratch repo |
 | Two writers on one machine cannot chain to the same entry. | `appends_from_many_threads_keep_one_chain` |
 | A claim's `record` referent names a measurement record, `lab/records/<id>.toml`, which lists the claim's subject among the devices it measured. | `a_record_referent_names_a_record_that_measured_its_subject` and `load_holds_claims_to_the_records_on_disk` in `crates/records`; the warehouse's foreign key to `silver.measurement` holds only that the record exists (`the_database_refuses_what_the_records_refuse`) |
-| A measurement record cites the lab-log entries it came from, first and last, by the sha256 of their lines, and its id starts with the first's UTC day. Each device and meter it names has a record, and each meter's accuracy is a claim on the meter's own record. | `a_record_names_what_the_catalogue_and_its_log_hold`, and the warehouse's keys on `silver.measurement` and `silver.measurement_device` (`the_database_refuses_what_the_records_refuse`) |
+| A measurement record cites the lab-log entries it came from, first and last and in that order, by the sha256 of their lines, and its id starts with the first's UTC day. Each device and meter it names has a record, one that is a build version gives the firmware that version pins, and each meter's accuracy is a claim on the meter's own record. | `a_record_names_what_the_catalogue_and_its_log_hold`. The warehouse's keys on `silver.measurement` and `silver.measurement_device` hold that the entries, devices and accuracy claims exist and that each accuracy is on its meter's record, not the order, the day or the firmware (`the_database_refuses_what_the_records_refuse`) |
 | A raw ADC code in a record's results (`input_codes`) sits beside the value converted from it (`input_volts`). Nothing holds the reverse, that a value read from an ADC keeps its code: `unknown`. | `a_raw_code_sits_beside_its_converted_value` |
 | A merged measurement record never changes. | the Quality Gate's step "A measurement record never changes", which `the_record_step_passes_only_a_new_record` runs against a scratch repo |
 | A grade comes from its referents, never typed. | `no_record_can_type_a_grade`, `grades_derive_from_referents`, `every_limit_gets_the_weakest_grade_of_its_claims` |
@@ -74,10 +74,12 @@ test and path it names up to the proposal below must exist.
 - **A measured grade does not look at the meter.** `gold.claim_grades` gives `measured` to any
   claim with a `record` referent, whatever the grade of the claim that gives its meter's accuracy.
 - **A lab-log entry or a measurement record is only as trustworthy as the machine that wrote it.**
-  Every field is what its writer says, `by` included. Commits are signed, but an agent that can
-  commit there signs with the person's key: Claude's commits on this repo carry Jon's signature.
-  What `main` adds is that neither can change once merged. Nothing checks that an entry's `limits_sha256` names a version
-  of `lab/limits.toml`.
+  Every field is what its writer says, a log entry's `by` included. So a `measured` grade says that
+  a record and its log entries exist, not that anyone touched the bench, and `lab/limits.toml`'s
+  "Raise it only on a measured claim" depends on someone reading the record. Commits are signed,
+  but an agent that can commit there signs with the person's key: Claude's commits on this repo
+  carry Jon's signature. What `main` adds is that neither can change once merged. Nothing checks
+  that an entry's `limits_sha256` names a version of `lab/limits.toml`.
 - **The Pico voltage ceiling rests on the RP2350 alone** (`RP2350#io-supply`), 230 mV under its
   rated and absolute maximum of 3.63 V. No claim covers another part on the supply, and
   `pico_3v3.max_amps` rests on nothing (`gold.limit_grades`).
