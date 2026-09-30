@@ -396,7 +396,7 @@ mod tests {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let mut cat = Catalogue::load(&root).unwrap();
         let text = fs::read_to_string(root.join(LIMITS)).unwrap().replace(
-            "basis.max_amps = { policy = \"CLAUDE.md, \\\"Default ceilings: 3.6 V and 200 mA\\\"\" }",
+            "basis.max_amps = { policy = \"CLAUDE.md, \\\"Default ceilings: 3.4 V and 200 mA\\\"\" }",
             "basis.max_amps = { policy = \"x\", rests_on = [\"bench-supply#setting-error\"] }",
         );
         cat.limits = Some(Limits::parse(&text).unwrap());

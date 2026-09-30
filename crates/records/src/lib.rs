@@ -751,10 +751,10 @@ mod tests {
         let rp2350 = lower.parts.get_mut("RP2350").unwrap();
         rp2350.claim[0]
             .values
-            .insert("max_io_supply_volts".into(), 3.5);
+            .insert("max_io_supply_volts".into(), 3.3);
         refused(
             lower,
-            "pico_3v3.max_volts: is 3.6, above RP2350#io-supply's max_io_supply_volts of 3.5",
+            "pico_3v3.max_volts: is 3.4, above RP2350#io-supply's max_io_supply_volts of 3.3",
         );
     }
 
@@ -769,7 +769,7 @@ mod tests {
     }
 
     #[test]
-    fn the_dps_needs_6_5_volts_in_for_3v6_out() {
+    fn the_dps_needs_6_5_volts_in_for_3v4_out() {
         let cat = repo();
         let err = cat.claim("bench-supply#setting-error").unwrap().values["setting_error_volts"];
         assert_eq!(dps_floor(&cat), 6.0);
@@ -777,13 +777,13 @@ mod tests {
     }
 
     #[test]
-    fn the_pico_ceiling_is_30_mv_under_the_rp2350_s_maximum() {
+    fn the_pico_ceiling_is_230_mv_under_the_rp2350_s_maximum() {
         let cat = repo();
         let v = &cat.claim("RP2350#io-supply").unwrap().values;
         let ceiling = cat.limits.as_ref().unwrap().pico_3v3.max_volts.get();
         assert_eq!(v["max_io_supply_volts"], 3.63);
         assert_eq!(v["absolute_max_io_supply_volts"], 3.63);
-        assert!((v["max_io_supply_volts"] - ceiling - 0.030).abs() < 1e-9);
+        assert!((v["max_io_supply_volts"] - ceiling - 0.230).abs() < 1e-9);
     }
 
     #[test]

@@ -27,19 +27,23 @@
 
 [pico_3v3]
 # Any Pico or 3.3 V circuit. The voltage ceiling rests on the RP2350's rating alone: no claim covers
-# another part on the supply yet. 3.6 V is 30 mV under that rating's maximum, 3.63 V, which is also
-# the RP2350's absolute maximum. The current ceiling rests on nothing.
-max_volts = 3.6
+# another part on the supply yet. 3.4 V is 230 mV under that rating's maximum, 3.63 V, which is
+# also the RP2350's absolute maximum, past which it can be damaged. The enforcer's measuring error
+# and any overshoot must stay inside that margin; both are unknown until the enforcer exists, and
+# at 3.6 V the margin was 30 mV. 3.4 V leaves 100 mV above a 3.3 V setting for the supply's ripple
+# and the same error, also unknown. Raise it only on a measured claim (Jon, 2026-09-29). The
+# current ceiling rests on nothing.
+max_volts = 3.4
 max_amps = 0.200
-basis.max_volts.policy = "CLAUDE.md, \"Default ceilings: 3.6 V and 200 mA\""
+basis.max_volts.policy = "CLAUDE.md, \"Default ceilings: 3.4 V and 200 mA\""
 basis.max_volts.rests_on = ["RP2350#io-supply"]
 basis.max_volts.at_most = "RP2350#io-supply.max_io_supply_volts"
-basis.max_amps = { policy = "CLAUDE.md, \"Default ceilings: 3.6 V and 200 mA\"" }
+basis.max_amps = { policy = "CLAUDE.md, \"Default ceilings: 3.4 V and 200 mA\"" }
 
 [supply]
 # The programmable supply: bench supply -> DPS5005 running OpenDPS -> Pico enforcer -> output.
 # It serves Pico circuits until a build needs more, so it takes their ceiling.
-max_volts = 3.6
+max_volts = 3.4
 max_amps = 0.200
 # After a trip, who may turn the output back on: "person" (a physical button on the enforcer) or
 # "agent" (after the trip is logged). The append-only lab log does not exist yet (docs/roadmap.md,
@@ -51,14 +55,14 @@ basis.reenable = { policy = "Jon, 2026-09-28" }
 
 [supply.upstream]
 # The bench supply feeding the DPS5005's input: the least input the DPS5005 needs for its highest
-# setpoint, plus the bench supply's setting error. For a 3.6 V output that is
-# max(6.0, 1.1 x 3.6 = 3.96) + 0.5 = 6.5 V, from the claims it rests on.
+# setpoint, plus the bench supply's setting error. For a 3.4 V output that is
+# max(6.0, 1.1 x 3.4 = 3.74) + 0.5 = 6.5 V, from the claims it rests on.
 volts = 6.5
 basis.volts = { rule = "dps-input", rests_on = ["DPS5005#input-range", "bench-supply#setting-error"] }
-# This layer does NOT hold the 3.6 V ceiling. Its input must be at least 6.0 V, already above
+# This layer does NOT hold the 3.4 V ceiling. Its input must be at least 6.0 V, already above
 # the ceiling, and how high its output can go if the layers above it fail is `unknown`: the
 # 1.1 x rule says what input the DPS5005 needs, not how far it can drive its output. Only the
-# enforcer, and anything added below it, is to hold 3.6 V.
+# enforcer, and anything added below it, is to hold 3.4 V.
 #
 # Current limit: not set. It depends on the DPS5005's own draw, at no load and at max_amps out,
 # which is unknown until measured on arrival.
@@ -67,7 +71,7 @@ basis.volts = { rule = "dps-input", rests_on = ["DPS5005#input-range", "bench-su
 # OpenDPS in constant-voltage mode: the voltage setpoint, and the current limit it regulates to.
 # OpenDPS lists no separate over-voltage protection (README, "Control"); the stock firmware's
 # S-OVP and S-OCP menus (Joy-IT manual) are gone once OpenDPS is flashed.
-max_setpoint_volts = 3.6
+max_setpoint_volts = 3.4
 current_limit_amps = 0.200
 basis.max_setpoint_volts = { same_as = "supply.max_volts" }
 basis.current_limit_amps = { same_as = "supply.max_amps", rests_on = ["DPS5005#current-limit"] }
