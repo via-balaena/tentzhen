@@ -1,0 +1,21 @@
+[package]
+name = "tentzhen-enforcer"
+version = "0.0.0"
+description = "The Pico supply enforcer's limit logic for Tentzhen, with lab/limits.toml compiled in"
+publish = false
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Nothing at run time: this goes into the Pico's firmware. The build script reads the limits
+# through crates/lab alone.
+[build-dependencies]
+tentzhen-lab = { path = "../../crates/lab" }
+sha2 = "=0.11.0"
+
+[dev-dependencies]
+tentzhen-lab = { path = "../../crates/lab" }
+sha2 = "=0.11.0"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)"] }

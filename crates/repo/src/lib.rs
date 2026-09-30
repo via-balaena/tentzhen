@@ -16,24 +16,37 @@ mod tests {
         fs::read_to_string(path).unwrap().parse().unwrap()
     }
 
+    /// Every crate in the workspace, as its manifest's `members` names them: a directory, or
+    /// `<dir>/*` for each directory under it that has a manifest. Relative to the root.
+    fn members() -> Vec<String> {
+        let ws = manifest(&root().join("Cargo.toml"));
+        let mut out = Vec::new();
+        for m in ws["workspace"]["members"].as_array().unwrap() {
+            let m = m.as_str().unwrap();
+            let Some(parent) = m.strip_suffix("/*") else {
+                out.push(m.to_string());
+                continue;
+            };
+            for e in fs::read_dir(root().join(parent)).unwrap() {
+                let name = e.unwrap().file_name().to_string_lossy().into_owned();
+                if root().join(parent).join(&name).join("Cargo.toml").is_file() {
+                    out.push(format!("{parent}/{name}"));
+                }
+            }
+        }
+        out.sort();
+        out
+    }
+
     /// The workspace's manifest and every crate's, by path.
     fn manifests() -> Vec<(String, Table)> {
-        let mut dirs: Vec<PathBuf> = fs::read_dir(root().join("crates"))
-            .unwrap()
-            .map(|e| e.unwrap().path())
-            .filter(|p| p.join("Cargo.toml").is_file())
-            .collect();
-        dirs.sort();
         let mut out = vec![(
             "Cargo.toml".to_string(),
             manifest(&root().join("Cargo.toml")),
         )];
-        for d in dirs {
-            let name = format!(
-                "crates/{}/Cargo.toml",
-                d.file_name().unwrap().to_string_lossy()
-            );
-            out.push((name, manifest(&d.join("Cargo.toml"))));
+        for m in members() {
+            let path = format!("{m}/Cargo.toml");
+            out.push((path.clone(), manifest(&root().join(path))));
         }
         out
     }
@@ -58,11 +71,16 @@ mod tests {
             .collect()
     }
 
-    /// The names a crate lists under [dependencies], sorted.
-    fn runtime_dependencies(krate: &str) -> Vec<String> {
-        let m = manifest(&root().join("crates").join(krate).join("Cargo.toml"));
+    /// The names the crate in `dir` lists under [dependencies], sorted.
+    fn runtime_dependencies(dir: &str) -> Vec<String> {
+        dependencies_of(dir, "dependencies")
+    }
+
+    /// The names the crate in `dir` lists under the table `kind`, sorted.
+    fn dependencies_of(dir: &str, kind: &str) -> Vec<String> {
+        let m = manifest(&root().join(dir).join("Cargo.toml"));
         let mut names: Vec<String> = m
-            .get("dependencies")
+            .get(kind)
             .and_then(Value::as_table)
             .map(|t| t.keys().cloned().collect())
             .unwrap_or_default();
@@ -93,7 +111,7 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
         let mut source = String::new();
-        let mut stack = vec![root().join("crates")];
+        let mut stack: Vec<PathBuf> = members().iter().map(|m| root().join(m)).collect();
         while let Some(dir) = stack.pop() {
             for entry in fs::read_dir(dir).unwrap() {
                 let path = entry.unwrap().path();
@@ -326,7 +344,14 @@ mod tests {
     #[test]
     fn every_dependency_is_pinned() {
         let found = manifests();
-        assert!(found.len() > 3, "found {} manifests", found.len());
+        assert!(
+            found.len() > 3
+                && found
+                    .iter()
+                    .any(|(at, _)| at == "firmware/enforcer/Cargo.toml"),
+            "found {:?}",
+            found.iter().map(|(at, _)| at).collect::<Vec<_>>()
+        );
         for (at, m) in found {
             for (name, spec) in dependencies(&m) {
                 assert!(
@@ -341,17 +366,31 @@ mod tests {
     /// safety path must not pull in the database or the catalogue.
     #[test]
     fn the_lab_crate_needs_only_serde_and_toml() {
-        assert_eq!(runtime_dependencies("lab"), ["serde", "toml"]);
+        assert_eq!(runtime_dependencies("crates/lab"), ["serde", "toml"]);
     }
 
     /// Reading the records is parsing and checking; the database comes after, in the warehouse. The
     /// lab log is JSON, chained by sha256.
     #[test]
     fn parsing_records_needs_no_database() {
-        assert!(runtime_dependencies("warehouse").contains(&"duckdb".to_string()));
+        assert!(runtime_dependencies("crates/warehouse").contains(&"duckdb".to_string()));
         assert_eq!(
-            runtime_dependencies("records"),
+            runtime_dependencies("crates/records"),
             ["serde", "serde_json", "sha2", "tentzhen-lab", "toml"]
+        );
+    }
+
+    /// The enforcer's logic goes into the Pico's firmware, so it depends on nothing at run time,
+    /// and its build script reads the limits through crates/lab alone.
+    #[test]
+    fn the_enforcer_depends_on_nothing_at_run_time() {
+        assert_eq!(
+            runtime_dependencies("firmware/enforcer"),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            dependencies_of("firmware/enforcer", "build-dependencies"),
+            ["sha2", "tentzhen-lab"]
         );
     }
 }
