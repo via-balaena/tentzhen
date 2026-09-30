@@ -283,6 +283,55 @@ impl Supply {
             .into_iter()
             .find(|&r| r > self.max_amps.get())
     }
+
+    /// The limits the Pico enforcer's build script compiles in (`firmware/enforcer`). A value that
+    /// is not a whole number of millivolts or milliamps is refused, so what the enforcer compiles
+    /// in is the file's value exactly.
+    pub fn millis(&self) -> Result<SupplyMillis, String> {
+        Ok(SupplyMillis {
+            max_millivolts: millis("supply.max_volts", self.max_volts.get(), "millivolts")?,
+            max_milliamps: millis("supply.max_amps", self.max_amps.get(), "milliamps")?,
+            max_setpoint_millivolts: millis(
+                "supply.dps.max_setpoint_volts",
+                self.dps.max_setpoint_volts.get(),
+                "millivolts",
+            )?,
+            max_current_limit_milliamps: millis(
+                "supply.dps.current_limit_amps",
+                self.dps.current_limit_amps.get(),
+                "milliamps",
+            )?,
+            reenable: self.reenable,
+        })
+    }
+}
+
+/// The supply's limits in whole millivolts and milliamps: [`Supply::millis`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SupplyMillis {
+    /// `supply.max_volts`: a reading above it trips the output.
+    pub max_millivolts: u32,
+    /// `supply.max_amps`: a reading above it trips the output.
+    pub max_milliamps: u32,
+    /// `supply.dps.max_setpoint_volts`: a setpoint above it is refused.
+    pub max_setpoint_millivolts: u32,
+    /// `supply.dps.current_limit_amps`: a current limit above it is refused.
+    pub max_current_limit_milliamps: u32,
+    pub reenable: Reenable,
+}
+
+/// `x` in thousandths, `unit`, when it is a whole number of them that fits a u32. A whole number of
+/// thousandths, divided by 1000, gives back the nearest double to it, which is what the file's
+/// decimal parses to; any other value does not.
+fn millis(at: &str, x: f64, unit: &str) -> Result<u32, String> {
+    let m = (x * 1000.0).round();
+    if m / 1000.0 == x && (1.0..=f64::from(u32::MAX)).contains(&m) {
+        Ok(m as u32)
+    } else {
+        Err(format!(
+            "{at}: the enforcer compiles in whole {unit}, and {x} is not a whole number of {unit}"
+        ))
+    }
 }
 
 impl Limits {
@@ -790,8 +839,8 @@ mod tests {
         }
         refused(
             &with(
-                "{ policy = \"Jon, 2026-09-28\" }",
-                "{ policy = \"Jon, 2026-09-28\", extra = 1 }",
+                "{ policy = \"Jon, 2026-09-30\" }",
+                "{ policy = \"Jon, 2026-09-30\", extra = 1 }",
             ),
             "unknown field `extra`",
         );
@@ -965,8 +1014,8 @@ mod tests {
             BTreeMap::from([("min_input_volts".into(), 1.8)]),
         );
         let text = with(
-            "basis.reenable = { policy = \"Jon, 2026-09-28\" }",
-            "basis.reenable = { policy = \"Jon, 2026-09-28\", rests_on = [\"DPS5005#input-range\", \"RP2350#x\"] }",
+            "basis.reenable = { policy = \"Jon, 2026-09-30\" }",
+            "basis.reenable = { policy = \"Jon, 2026-09-30\", rests_on = [\"DPS5005#input-range\", \"RP2350#x\"] }",
         );
         let l = Limits::parse(&text).unwrap();
         l.check_with_claims(|c| shared.get(c)).unwrap();
@@ -1095,10 +1144,50 @@ mod tests {
         }
         refused(
             &with(
-                "basis.reenable = { policy = \"Jon, 2026-09-28\" }",
-                "basis.reenable = { policy = \"Jon, 2026-09-28\", rests_on = [\"RP2350#io-supply\"], at_most = \"RP2350#io-supply.max_io_supply_volts\" }",
+                "basis.reenable = { policy = \"Jon, 2026-09-30\" }",
+                "basis.reenable = { policy = \"Jon, 2026-09-30\", rests_on = [\"RP2350#io-supply\"], at_most = \"RP2350#io-supply.max_io_supply_volts\" }",
             ),
             "a choice has no at_most",
         );
+    }
+
+    /// The enforcer holds whole millivolts and milliamps, so a value between two of them is
+    /// refused rather than rounded either way.
+    #[test]
+    fn the_enforcer_s_limits_are_whole_millivolts_and_milliamps() {
+        let l = Limits::parse(&repo()).unwrap();
+        assert_eq!(
+            l.supply.millis().unwrap(),
+            SupplyMillis {
+                max_millivolts: 3400,
+                max_milliamps: 200,
+                max_setpoint_millivolts: 3400,
+                max_current_limit_milliamps: 200,
+                reenable: Reenable::Agent,
+            }
+        );
+        for (x, m) in [
+            (0.001, 1),
+            (0.2, 200),
+            (3.4, 3400),
+            (3.3995, 0),
+            (0.0005, 0),
+        ] {
+            assert_eq!(
+                millis("x", x, "millivolts").ok(),
+                (m > 0).then_some(m),
+                "{x}"
+            );
+        }
+        assert_eq!(millis("x", 4_294_967.295, "millivolts"), Ok(u32::MAX));
+        assert!(millis("x", 4_294_967.296, "millivolts").is_err());
+        let mut s = Limits::parse(&repo()).unwrap().supply;
+        s.dps.max_setpoint_volts = Volts::try_from(3.3995).unwrap();
+        let err = s.millis().unwrap_err();
+        assert!(err.starts_with("supply.dps.max_setpoint_volts: "), "{err}");
+        let mut s = Limits::parse(&repo()).unwrap().supply;
+        s.dps.current_limit_amps = Amps::try_from(0.1995).unwrap();
+        let err = s.millis().unwrap_err();
+        assert!(err.starts_with("supply.dps.current_limit_amps: "), "{err}");
     }
 }
