@@ -395,6 +395,10 @@ FROM silver.claim c
 LEFT JOIN r USING (claim);
 COMMENT ON VIEW gold.claim_grades IS 'Every claim on a part or a build version, with its grade on each axis: in simulation (proven, checked, tested) and on the bench (measured, trusted), each the strongest its referents give. No referent reads ''unknown''.';
 
+CREATE VIEW gold.claim_values AS
+SELECT claim, name, amount FROM silver.claim_value;
+COMMENT ON VIEW gold.claim_values IS 'The numbers each claim states, for readers that write them into the claim''s words.';
+
 CREATE VIEW gold.grade_coverage AS
 SELECT coalesce(part, build || '/v' || version)                            AS subject,
        count(*)                                                            AS claims,

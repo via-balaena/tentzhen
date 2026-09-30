@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>supply v1 · Tentzhen</title>
+<link rel="icon" href="../../../img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500&amp;display=swap">
+<link rel="stylesheet" href="../../../style.css">
+</head>
+<body>
+
+<header class="column site-header">
+  <a class="brand" href="../../../index.html" aria-label="Tentzhen home">
+    <img src="../../../img/mark-black.svg" alt="">
+    <span class="wordmark">TENTZHEN</span>
+  </a>
+  <nav class="site-nav" aria-label="Main">
+    <a href="../../../builds/index.html">BUILDS</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/vision.md">VISION</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">INSTRUMENT</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/verification.md">VERIFICATION</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/roadmap.md">ROADMAP</a>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
+  </nav>
+</header>
+
+<main class="column spec">
+<p class="crumbs"><a href="../../index.html">BUILDS</a> / SUPPLY / V1</p>
+<h1 class="spec-title">supply</h1>
+<p class="spec-meta"><span class="state draft">v1 · draft</span><span class="versions">versions <span class="here">v1</span></span></p>
+<p class="spec-does">A programmable DC supply for Pico and 3.3 V circuits, driven by an agent: a bench supply feeds a DPS5005 running OpenDPS, whose output passes a fuse and the Pico enforcer, which holds it under lab/limits.toml's [supply] limits.</p>
+<h2>Parts</h2>
+<table class="spec-table">
+<thead><tr><th>QTY</th><th>PART</th><th>FORM</th><th></th></tr></thead>
+<tbody>
+<tr><td>1</td><td>bench-supply</td><td></td><td class="muted"></td></tr>
+<tr><td>1</td><td>DPS5005</td><td>running OpenDPS</td><td class="muted"></td></tr>
+<tr><td>1</td><td>fuse, 5x20 mm, 250 mA, fast-acting</td><td></td><td class="muted"></td></tr>
+<tr><td>1</td><td>fuse holder, 5x20 mm, inline</td><td></td><td class="muted"></td></tr>
+<tr><td>1</td><td>binding posts, red and black</td><td></td><td class="muted"></td></tr>
+<tr><td>1</td><td>wire, 18 AWG, silicone</td><td></td><td class="muted"></td></tr>
+</tbody>
+</table>
+<h2>Uses</h2>
+<ul class="refs">
+<li><a href="../../enforcer/v1/index.html">enforcer v1</a></li>
+</ul>
+<h2>Walkthrough</h2>
+<p class="notice">At your own risk: not certified or calibrated test equipment. <a href="../../../legal/index.html">Legal</a></p>
+<ol class="steps">
+<li><p>Set the bench supply to [supply.upstream].volts in lab/limits.toml, with its output off, and wire it to the DPS5005's input.</p><p class="expect"><span>EXPECT</span>The DPS5005's display lights when the bench supply's output is on.</p><p class="agent"><span>AGENTS</span>Setting a supply is a hardware action: within lab/limits.toml, and logged.</p></li>
+<li><p>Before wiring the serial header, measure its TX pin against GND with the DPS5005 on.</p><p class="expect"><span>EXPECT</span>3.3 V or less when idle. OpenDPS does not say what level the header uses, and the Pico's pins take at most the RP2350's I/O supply.</p><p class="agent"><span>AGENTS</span>If it reads above 3.3 V, stop: the header needs a level shifter, and this version has none.</p></li>
+<li><p>Wire the DPS5005's output through the fuse to the enforcer's shunt, and the enforcer's OUT+ and GND to the binding posts. Connect the DPS5005's serial header to the enforcer's UART1 only, and fit no other module to it.</p><p class="agent"><span>AGENTS</span>No other device may connect to the DPS5005's serial header: whatever holds it can raise the module's own limits and reflash it.</p></li>
+<li><p>Walk through builds/enforcer's steps with nothing connected to the binding posts.</p></li>
+</ol>
+<h2>Claims</h2>
+<table class="spec-table claims">
+<thead><tr><th>CLAIM</th><th>SIMULATION</th><th>ON THE BENCH</th></tr></thead>
+<tbody>
+<tr><td>Its output stays at or below [supply]'s max_volts and max_amps, whatever the agent sends</td><td><span class="grade unknown">unknown</span></td><td><span class="grade unknown">unknown</span></td></tr>
+<tr><td>If the enforcer loses power or resets, the output is off. A hang turns it off only once the RP2350's watchdog resets the chip (plan step 9)</td><td><span class="grade unknown">unknown</span></td><td><span class="grade unknown">unknown</span></td></tr>
+</tbody>
+</table>
+</main>
+
+<footer class="site-footer">
+  <div class="column">
+    <span>腾振 TENTZHEN · A VIA BALAENA PROJECT</span>
+    <span>MIT OR APACHE-2.0 · <a href="../../../legal/index.html">LEGAL</a></span>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB.COM/VIA-BALAENA/TENTZHEN</a>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,71 @@
+build = "supply"
+version = 1
+# draft: may still change. published: frozen; any change is a new version.
+status = "draft"
+does = "A programmable DC supply for Pico and 3.3 V circuits, driven by an agent: a bench supply feeds a DPS5005 running OpenDPS, whose output passes a fuse and the Pico enforcer, which holds it under lab/limits.toml's [supply] limits."
+
+# The chain, as lab/limits.toml sets each layer: the bench supply at [supply.upstream].volts into
+# the DPS5005's input; the DPS5005 at [supply.dps]'s setpoint and current limit; its output through
+# the [supply.fuse] fuse into the enforcer's shunt; the enforcer's switch to the output terminals.
+# The DPS5005's serial header goes to the enforcer alone: its own over-voltage and over-current
+# settings sit on that link (docs/prior-art.md), and OpenDPS takes firmware over it.
+
+[[line]]
+part = "bench-supply"
+qty = 1
+
+[[line]]
+part = "DPS5005"
+form = "running OpenDPS"
+qty = 1
+
+[[line]]
+commodity = "fuse, 5x20 mm, 250 mA, fast-acting"
+qty = 1
+
+[[line]]
+commodity = "fuse holder, 5x20 mm, inline"
+qty = 1
+
+[[line]]
+commodity = "binding posts, red and black"
+qty = 1
+
+[[line]]
+commodity = "wire, 18 AWG, silicone"
+qty = 1
+
+[[uses]]
+build = "enforcer"
+version = 1
+
+# The walkthrough, for a person or an agent. `expect` is what you should see; until someone has
+# done the step, it is a prediction.
+
+[[step]]
+do = "Set the bench supply to [supply.upstream].volts in lab/limits.toml, with its output off, and wire it to the DPS5005's input."
+expect = "The DPS5005's display lights when the bench supply's output is on."
+agent = "Setting a supply is a hardware action: within lab/limits.toml, and logged."
+
+[[step]]
+do = "Before wiring the serial header, measure its TX pin against GND with the DPS5005 on."
+expect = "3.3 V or less when idle. OpenDPS does not say what level the header uses, and the Pico's pins take at most the RP2350's I/O supply."
+agent = "If it reads above 3.3 V, stop: the header needs a level shifter, and this version has none."
+
+[[step]]
+do = "Wire the DPS5005's output through the fuse to the enforcer's shunt, and the enforcer's OUT+ and GND to the binding posts. Connect the DPS5005's serial header to the enforcer's UART1 only, and fit no other module to it."
+agent = "No other device may connect to the DPS5005's serial header: whatever holds it can raise the module's own limits and reflash it."
+
+[[step]]
+do = "Walk through builds/enforcer's steps with nothing connected to the binding posts."
+
+# What this build claims. None is shown yet: the enforcer has no firmware (plan step 9) and nothing
+# has been measured (plan step 10).
+
+[[claim]]
+id = "holds-the-ceiling"
+says = "Its output stays at or below [supply]'s max_volts and max_amps, whatever the agent sends"
+
+[[claim]]
+id = "off-when-the-enforcer-is"
+says = "If the enforcer loses power or resets, the output is off. A hang turns it off only once the RP2350's watchdog resets the chip (plan step 9)"
