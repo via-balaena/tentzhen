@@ -32,12 +32,16 @@ flowchart LR
 | rule | held by |
 |---|---|
 | Schema first: every file in `parts/`, `builds/` and `lab/` is loaded into the warehouse, and so are `trusted-base.toml` and `DISCLAIMER.md`, or CI fails. A record is parsed by its schema on the way in; a drawing is kept as it is. A folder's README is not a record. | `every_file_in_the_records_folders_is_loaded` |
-| Every schema refuses a key it doesn't know. | `every_table_refuses_a_key_it_does_not_know`, in `crates/records` and in `crates/lab` |
+| Every schema refuses a key it doesn't know. | `every_table_refuses_a_key_it_does_not_know`, in `crates/records` and in `crates/lab`; for the lab log and the measurement records, `a_log_entry_keeps_its_shape` and `a_measurement_record_keeps_its_shape` |
 | A rule a record states in a comment is a check or a test. | the tests in `crates/lab` and `crates/records`, for `lab/limits.toml`. Nothing holds this for new files: `unknown`. |
-| Every file the warehouse loads is in bronze with its sha256, and every silver row traces to one. | `every_row_traces_to_the_bytes_it_came_from`, for the five silver tables with a `record` column; the rest reference one of those by foreign key, directly or through another table. |
+| Every file the warehouse loads is in bronze with its sha256, and every silver row traces to one. | `every_row_traces_to_the_bytes_it_came_from`, for the six silver tables with a `record` column; the rest reference one of those by foreign key, directly or through another table. |
 | Each lab-log entry names the sha256 of the line before it, so an entry edited, dropped or moved is refused. The chain cannot see a change to the last entry, entries cut from the end, or a chain rewritten from an edit on: the next rule covers those on `main`. | `an_edited_dropped_or_moved_entry_breaks_the_chain` in `crates/records`, and the warehouse's keys on `silver.lab_log_entry` (`the_database_refuses_what_the_records_refuse`) |
 | `main`'s lab log only grows: each of its files is the start of the same file in a PR. | the Quality Gate's step "The lab log only grows", which `the_lab_log_step_passes_only_an_append` runs against a scratch repo |
 | Two writers on one machine cannot chain to the same entry. | `appends_from_many_threads_keep_one_chain` |
+| A claim's `record` referent names a measurement record, `lab/records/<id>.toml`, which lists the claim's subject among the devices it measured. | `a_record_referent_names_a_record_that_measured_its_subject` and `load_holds_claims_to_the_records_on_disk` in `crates/records`; the warehouse's foreign key to `silver.measurement` holds only that the record exists (`the_database_refuses_what_the_records_refuse`) |
+| A measurement record cites the lab-log entries it came from, first and last, by the sha256 of their lines, and its id starts with the first's UTC day. Each device and meter it names has a record, and each meter's accuracy is a claim on the meter's own record. | `a_record_names_what_the_catalogue_and_its_log_hold`, and the warehouse's keys on `silver.measurement` and `silver.measurement_device` (`the_database_refuses_what_the_records_refuse`) |
+| A raw ADC code in a record's results (`input_codes`) sits beside the value converted from it (`input_volts`). Nothing holds the reverse, that a value read from an ADC keeps its code: `unknown`. | `a_raw_code_sits_beside_its_converted_value` |
+| A merged measurement record never changes. | the Quality Gate's step "A measurement record never changes", which `the_record_step_passes_only_a_new_record` runs against a scratch repo |
 | A grade comes from its referents, never typed. | `no_record_can_type_a_grade`, `grades_derive_from_referents`, `every_limit_gets_the_weakest_grade_of_its_claims` |
 | A limit rests only on claims that exist, and a rule reads numbers only from the claims its value rests on, so its grade covers them. | `a_value_rests_on_claims_that_exist` and `a_rule_reads_only_the_claims_its_value_rests_on` in `crates/lab`, `the_limits_are_held_to_the_claims_they_cite` in `crates/records`, and the warehouse's foreign key to `silver.claim` (`the_database_refuses_what_the_records_refuse`) |
 | A limit with an `at_most` is no more than the number it names, a value of a claim the limit rests on. | `a_value_stays_at_most_the_number_it_names` in `crates/lab`, `the_limits_are_held_to_the_claims_they_cite` in `crates/records`, and the warehouse's foreign keys from `silver.lab_limit_at_most` (`the_database_refuses_what_the_records_refuse`) |
@@ -60,17 +64,19 @@ test and path it names up to the proposal below must exist.
 - **One claim model.** Parts and builds carry `[[claim]]`, landing in `silver.claim` and
   `silver.referent` and graded by `gold.claim_grades`. The lab's limits cite them
   (`silver.lab_limit_rests_on`), and `gold.limit_grades` takes their bench grade.
-- **Only the lab's limits cite claims,** through `rests_on`. Claims have a citation
-  (`<part>#<id>`, `<build>/v<n>#<id>`), but no other record has a field that cites one.
+- **Only the lab's limits and a record's meters cite claims,** through `rests_on` and
+  `accuracy`. Claims have a citation (`<part>#<id>`, `<build>/v<n>#<id>`), but no other record has
+  a field that cites one.
 - **The trusted base is data,** in `trusted-base.toml`: each entry has an id, and a `trusted`
   referent is that id, held by a foreign key.
-- **`record` referents resolve to nothing.** A claim can name a measurement record, but no format
-  or store for records exists yet: step 5b. The lab log they are to cite has a format, a loader
-  and a writer, and no entries, since nothing has touched hardware.
-- **A lab-log entry is only as trustworthy as the machine that wrote it.** Every field is what its
-  writer says, `by` included. Commits are signed, but an agent that can commit there signs with the
-  person's key: Claude's commits on this repo carry Jon's signature. What `main` adds is that an
-  entry cannot change once merged. Nothing checks that an entry's `limits_sha256` names a version
+- **A `record` referent is a key,** into the measurement records, and none exist yet: nothing has
+  touched hardware, so the lab log they cite has no entries either.
+- **A measured grade does not look at the meter.** `gold.claim_grades` gives `measured` to any
+  claim with a `record` referent, whatever the grade of the claim that gives its meter's accuracy.
+- **A lab-log entry or a measurement record is only as trustworthy as the machine that wrote it.**
+  Every field is what its writer says, `by` included. Commits are signed, but an agent that can
+  commit there signs with the person's key: Claude's commits on this repo carry Jon's signature.
+  What `main` adds is that neither can change once merged. Nothing checks that an entry's `limits_sha256` names a version
   of `lab/limits.toml`.
 - **The Pico voltage ceiling rests on the RP2350 alone** (`RP2350#io-supply`), 230 mV under its
   rated and absolute maximum of 3.63 V. No claim covers another part on the supply, and
@@ -141,5 +147,8 @@ Each step is one PR, done when its check passes:
      edited, dropped or moved is refused, and so is a change to `main`'s log that is not an
      append. Done: `an_edited_dropped_or_moved_entry_breaks_the_chain`,
      `the_lab_log_step_passes_only_an_append`.
-   - **5b. Measurement records:** one file per experiment, each citing the log entries it came
-     from.
+   - **5b. Measurement records:** one file per experiment, `lab/records/<id>.toml`, each citing
+     the log entries it came from. Done when a claim's `record` names a record that measured its
+     subject, and a merged record cannot change. Done:
+     `a_record_referent_names_a_record_that_measured_its_subject`, the warehouse's key from
+     `silver.referent` to `silver.measurement`, `the_record_step_passes_only_a_new_record`.
