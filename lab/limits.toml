@@ -1,12 +1,12 @@
 # What the hardware below any agent will allow.
 #
 # The Pico enforcer compiles the [supply] values in (firmware/enforcer, through crates/lab alone),
-# so nothing at run time can raise them. Kani checks its logic up to a bound, but it runs on no
-# hardware yet, so none of these limits is enforced by anything: `unknown`. Raising a limit is a
-# change to this file, which a person is to approve (CLAUDE.md, "Safety and permission rules").
-# That is a convention, not enforced: the branch rules require no approval, and agents work
-# through the same GitHub account as the person, so a required review could not tell them apart.
-# Nothing drives a supply or a load until the values it needs are set; the load has none yet.
+# so nothing at run time can raise them. Kani checks its logic, but no hardware runs it yet, so none
+# of these limits is enforced by anything: `unknown`. Raising a limit is a change to this file,
+# which a person is to approve (CLAUDE.md, "Safety and permission rules"). That is a convention, not
+# enforced: the branch rules require no approval, and agents work through the same GitHub account as
+# the person, so a required review could not tell them apart. Nothing drives a supply or a load
+# until the values it needs are set; the load has none yet.
 #
 # Every value has a basis beside it, as data. It is one of:
 #   policy = "..."   a person's decision, and where it is recorded

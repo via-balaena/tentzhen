@@ -30,7 +30,7 @@ The published spec sheet will carry a grade and a referent on every number.
 | Bitstream reproducibility | `unknown` → `measured` in Phase 0 | build twice from a pinned Nix toolchain, compare hashes |
 | VexRiscv soft core | `trusted` | riscv-formal covers only the `FormalSimple` config (rv32i, no CSR/MMU/caches), bounded to 20–30 cycles; LiteX's variants are not covered |
 | Soft-core firmware (Rust) | `checked` on pure logic | Kani (no inline asm support) |
-| Pico limit enforcer | `checked` limit logic + `trusted` kernel isolation | Kani on the limit arithmetic; see Tock below |
+| Pico limit enforcer | `checked` limit logic + `trusted` kernel isolation | Kani on the limit logic (`firmware/enforcer`), for one input from any state; see Tock below |
 | Host tools (Rust) | `tested`, `checked` where it pays | unit tests, Kani |
 | Analog front end | `measured` | ngspice first, then the bench |
 | ADC/DAC modules | `measured` | incoming QA on every unit |
