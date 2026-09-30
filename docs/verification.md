@@ -86,7 +86,7 @@ whether the soft core should run Tock rather than bare metal is an open question
 ## Trusted base
 
 Everything assumed, not shown, is an entry in [`trusted-base.toml`](../trusted-base.toml). A claim
-or a lab fact that rests on one names its id as its `trusted` referent (`trusted = "dps5005"`),
-and one that names no entry is refused: by `crates/records`
+that rests on one names its id as its `trusted` referent (`trusted = "dps5005"`), and one that
+names no entry is refused: by `crates/records`
 (`a_trusted_referent_names_an_entry_in_the_trusted_base`) and by the warehouse's foreign keys
 (`the_database_refuses_what_the_records_refuse`). Shrinking the list is the long-term work.

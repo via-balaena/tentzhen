@@ -1,9 +1,9 @@
 # The trusted base: everything Tentzhen assumes and does not show. Shrinking it is the long-term
 # work (docs/verification.md).
 #
-# A claim or a lab fact that rests on an entry names its `id` as its `trusted` referent, which
-# grades it `trusted`. crates/records refuses a `trusted` that names no entry here, and so does
-# the warehouse, by foreign key. An id is lowercase letters, digits and hyphens, used once.
+# A claim that rests on an entry names its `id` as its `trusted` referent, which grades it
+# `trusted`. crates/records refuses a `trusted` that names no entry here, and so does the
+# warehouse, by foreign key. An id is lowercase letters, digits and hyphens, used once.
 
 [[entry]]
 id = "silicon"
