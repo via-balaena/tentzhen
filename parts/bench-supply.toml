@@ -1,0 +1,10 @@
+part = "bench-supply"
+kind = "product"
+# Described by what it has to do, not by make: any adjustable supply that meets the claims below
+# and lab/limits.toml's [supply.upstream] will do.
+is = "adjustable DC bench power supply, feeding the DPS5005's input"
+
+[[claim]]
+id = "setting-error"
+says = "Its output is within `setting_error_volts` of its setting"
+values = { setting_error_volts = 0.5 }
