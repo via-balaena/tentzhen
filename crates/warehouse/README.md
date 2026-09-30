@@ -33,5 +33,9 @@ rests on. Which limits rest on a claim that is neither measured nor trusted:
 SELECT path, weakest_grade, rests_on FROM gold.limit_grades WHERE weakest_grade = 'unknown';
 ```
 
+The lab log (`lab/log/`) is checked by `crates/records`, its chain included, then loaded: each
+hardware action in `silver.lab_log_entry`, and what it was asked and what happened in
+`silver.lab_log_value`.
+
 Data we may not share stays out: LCSC and JLCPCB data is joined in locally, per user, never
 loaded here (`docs/sourcing.md`).

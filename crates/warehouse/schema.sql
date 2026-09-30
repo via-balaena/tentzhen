@@ -224,6 +224,44 @@ CREATE TABLE silver.lab_limit_at_most (
 COMMENT ON TABLE silver.lab_limit_at_most IS 'A number a limit may not exceed: a value of a claim it rests on. crates/lab holds the limit to it.';
 COMMENT ON COLUMN silver.lab_limit_at_most.name IS 'The claim''s value, in silver.claim_value.';
 
+-- ---------------------------------------------------------------- silver: the lab log
+-- From lab/log/<yyyy-mm-dd>.jsonl, which crates/records has checked, chain and all.
+
+CREATE TABLE silver.lab_log_entry (
+    seq           INTEGER PRIMARY KEY CHECK (seq >= 1),
+    logged_at     TIMESTAMP NOT NULL,
+    by_kind       TEXT NOT NULL CHECK (by_kind IN ('person', 'agent')),
+    by_name       TEXT NOT NULL,
+    what          TEXT NOT NULL,
+    limits_sha256 TEXT NOT NULL CHECK (regexp_full_match(limits_sha256, '[0-9a-f]{64}')),
+    sha256        TEXT NOT NULL UNIQUE CHECK (regexp_full_match(sha256, '[0-9a-f]{64}')),
+    prev          TEXT UNIQUE REFERENCES silver.lab_log_entry (sha256),
+    record        TEXT NOT NULL,
+    CHECK ((seq = 1) = (prev IS NULL))
+);
+COMMENT ON TABLE silver.lab_log_entry IS 'Each hardware action in the lab log, oldest first. Each entry names the sha256 of the line before it.';
+COMMENT ON COLUMN silver.lab_log_entry.seq IS 'Its place in the log, from 1.';
+COMMENT ON COLUMN silver.lab_log_entry.logged_at IS 'The entry''s `at`, in UTC.';
+COMMENT ON COLUMN silver.lab_log_entry.by_kind IS 'Who acted, from the entry''s `by`: a person or an agent.';
+COMMENT ON COLUMN silver.lab_log_entry.what IS 'The action, such as supply.set.';
+COMMENT ON COLUMN silver.lab_log_entry.limits_sha256 IS 'The sha256 of lab/limits.toml as the host read it when the entry was written. Nothing checks that it names a version of that file.';
+COMMENT ON COLUMN silver.lab_log_entry.sha256 IS 'The sha256 of the entry''s line, which the next entry names as its prev.';
+COMMENT ON COLUMN silver.lab_log_entry.prev IS 'The sha256 of the line before it; NULL only for the first entry. Unique, so the log cannot fork.';
+COMMENT ON COLUMN silver.lab_log_entry.record IS 'The file in bronze.record this row came from.';
+
+CREATE TABLE silver.lab_log_value (
+    seq    INTEGER NOT NULL REFERENCES silver.lab_log_entry (seq),
+    side   TEXT NOT NULL CHECK (side IN ('params', 'result')),
+    name   TEXT NOT NULL,
+    amount DOUBLE,
+    text   TEXT,
+    flag   BOOLEAN,
+    PRIMARY KEY (seq, side, name),
+    CHECK ((amount IS NOT NULL)::INTEGER + (text IS NOT NULL)::INTEGER + (flag IS NOT NULL)::INTEGER = 1)
+);
+COMMENT ON TABLE silver.lab_log_value IS 'What each action was asked to do (params) and what happened (result): each a number, a word or a yes/no.';
+COMMENT ON COLUMN silver.lab_log_value.name IS 'A number''s name ends in its unit: set_volts.';
+
 -- ---------------------------------------------------------------- gold
 
 CREATE VIEW gold.latest AS

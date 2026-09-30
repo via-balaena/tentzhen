@@ -32,6 +32,8 @@ flowchart LR
     silver_lab_limit_input["silver.lab_limit_input"]
     silver_lab_limit_rests_on["silver.lab_limit_rests_on"]
     silver_lab_limit_at_most["silver.lab_limit_at_most"]
+    silver_lab_log_entry["silver.lab_log_entry"]
+    silver_lab_log_value["silver.lab_log_value"]
   end
   subgraph gold
     gold_latest["gold.latest"]
@@ -427,6 +429,54 @@ Constraints:
 - `FOREIGN KEY (path) REFERENCES silver.lab_limit(path)`
 - `FOREIGN KEY (path, claim) REFERENCES silver.lab_limit_rests_on(path, claim)`
 - `FOREIGN KEY (claim, "name") REFERENCES silver.claim_value(claim, "name")`
+
+### `silver.lab_log_entry` (table)
+
+Each hardware action in the lab log, oldest first. Each entry names the sha256 of the line before it.
+
+| column | type | null | about |
+|---|---|---|---|
+| `seq` | INTEGER | no | Its place in the log, from 1. |
+| `logged_at` | TIMESTAMP | no | The entry's `at`, in UTC. |
+| `by_kind` | VARCHAR | no | Who acted, from the entry's `by`: a person or an agent. |
+| `by_name` | VARCHAR | no |  |
+| `what` | VARCHAR | no | The action, such as supply.set. |
+| `limits_sha256` | VARCHAR | no | The sha256 of lab/limits.toml as the host read it when the entry was written. Nothing checks that it names a version of that file. |
+| `sha256` | VARCHAR | no | The sha256 of the entry's line, which the next entry names as its prev. |
+| `prev` | VARCHAR | yes | The sha256 of the line before it; NULL only for the first entry. Unique, so the log cannot fork. |
+| `record` | VARCHAR | no | The file in bronze.record this row came from. |
+
+Constraints:
+
+- `PRIMARY KEY(seq)`
+- `CHECK((seq >= 1))`
+- `CHECK((by_kind IN ('person', 'agent')))`
+- `CHECK(regexp_full_match(limits_sha256, '[0-9a-f]{64}'))`
+- `UNIQUE(sha256)`
+- `CHECK(regexp_full_match(sha256, '[0-9a-f]{64}'))`
+- `UNIQUE(prev)`
+- `FOREIGN KEY (prev) REFERENCES silver.lab_log_entry(sha256)`
+- `CHECK(((seq = 1) = (prev IS NULL)))`
+
+### `silver.lab_log_value` (table)
+
+What each action was asked to do (params) and what happened (result): each a number, a word or a yes/no.
+
+| column | type | null | about |
+|---|---|---|---|
+| `seq` | INTEGER | no |  |
+| `side` | VARCHAR | no |  |
+| `name` | VARCHAR | no | A number's name ends in its unit: set_volts. |
+| `amount` | DOUBLE | yes |  |
+| `text` | VARCHAR | yes |  |
+| `flag` | BOOLEAN | yes |  |
+
+Constraints:
+
+- `FOREIGN KEY (seq) REFERENCES silver.lab_log_entry(seq)`
+- `CHECK((side IN ('params', 'result')))`
+- `PRIMARY KEY(seq, side, "name")`
+- `CHECK((((CAST((amount IS NOT NULL) AS INTEGER) + CAST(("text" IS NOT NULL) AS INTEGER)) + CAST((flag IS NOT NULL) AS INTEGER)) = 1))`
 
 ## gold
 
