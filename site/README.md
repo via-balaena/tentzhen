@@ -18,6 +18,9 @@ does. Keep `--bind 127.0.0.1`; without it the server listens on every network in
   on any difference.
 - **Images** in `img/` are copies of files in `brand/`. The Quality Gate fails if a copy drifts,
   so change the file in `brand/` and copy it over.
-- **Fonts** load from Google Fonts: Chakra Petch, IBM Plex Sans, IBM Plex Mono. They are not
-  pinned or self-hosted yet.
-- **Hosting** is not set up. tentzhen.com is registered; nothing serves this directory yet.
+- **Fonts** are served from `fonts/`, with their licences; `fonts/README.md` says where each came
+  from. A page loads nothing from another site.
+- **Hosting:** GitHub Pages publishes this directory from main: when main's Quality Gate passes
+  on a push, from that commit, or when the workflow is run by hand, from main as it is
+  (`.github/workflows/pages.yml`). It is served at tentzhen.com once the domain's DNS points at
+  GitHub.

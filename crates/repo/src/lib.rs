@@ -395,6 +395,73 @@ mod tests {
         );
     }
 
+    /// Every workflow in .github/workflows, by file name, with its text.
+    fn workflows() -> Vec<(String, String)> {
+        let mut out: Vec<(String, String)> = fs::read_dir(root().join(".github/workflows"))
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .filter(|p| p.extension().is_some_and(|x| x == "yml"))
+            .map(|p| {
+                let name = p.file_name().unwrap().to_string_lossy().into_owned();
+                (name, fs::read_to_string(&p).unwrap())
+            })
+            .collect();
+        out.sort();
+        out
+    }
+
+    /// Every action a workflow uses is pinned to a commit, with the release it is in a comment
+    /// (CLAUDE.md: "Pin every dependency version"): a tag can be moved, a commit cannot.
+    #[test]
+    fn every_action_is_pinned_by_commit() {
+        let mut actions = 0;
+        for (file, text) in workflows() {
+            for line in text.lines() {
+                let Some((_, used)) = line.split_once("uses: ") else {
+                    continue;
+                };
+                actions += 1;
+                let (action, rest) = used.split_once('@').unwrap_or((used, ""));
+                let (sha, release) = rest.split_once(" # ").unwrap_or((rest, ""));
+                let pinned = sha.len() == 40
+                    && sha
+                        .chars()
+                        .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+                    && release.starts_with('v');
+                assert!(pinned, "{file}: {action} is not pinned by commit: {line:?}");
+            }
+        }
+        assert!(actions >= 7, "found {actions} actions");
+    }
+
+    /// tentzhen.com is published from main only, after main's Quality Gate passed on that commit:
+    /// the Pages workflow's guard names each condition. `branches: [main]` matches a branch's name
+    /// alone, which a pull request from a fork can share.
+    #[test]
+    fn the_pages_workflow_publishes_only_a_commit_main_s_gate_passed() {
+        let (_, gate) = workflows()
+            .into_iter()
+            .find(|(f, _)| f == "quality-gate.yml")
+            .unwrap();
+        assert!(gate.contains("\nname: Quality Gate\n"));
+        let (_, pages) = workflows()
+            .into_iter()
+            .find(|(f, _)| f == "pages.yml")
+            .unwrap();
+        for needed in [
+            "workflows: [Quality Gate]",
+            "github.event.workflow_run.conclusion == 'success'",
+            "github.event.workflow_run.event == 'push'",
+            "github.event.workflow_run.head_branch == 'main'",
+            "github.event.workflow_run.head_repository.full_name == github.repository",
+            "(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')",
+            "ref: ${{ github.event.workflow_run.head_sha || github.sha }}",
+            "path: site\n",
+        ] {
+            assert!(pages.contains(needed), "pages.yml lacks {needed:?}");
+        }
+    }
+
     /// The Kani harnesses and tests in the workspace, by package name.
     #[derive(Default)]
     struct Code {
