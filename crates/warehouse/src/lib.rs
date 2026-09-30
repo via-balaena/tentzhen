@@ -21,7 +21,7 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
             params![s.path, s.text],
         )?;
     }
-    // The trusted base first: claims and lab facts point at its entries.
+    // The trusted base first: claims point at its entries.
     for (i, e) in (1u32..).zip(&cat.trusted_base) {
         tx.execute(
             "INSERT INTO silver.trusted_entry VALUES (?, ?, ?, ?)",
@@ -139,12 +139,6 @@ fn load_referents(tx: &duckdb::Transaction, claim: &str, c: &Claim) -> duckdb::R
 }
 
 fn load_limits(tx: &duckdb::Transaction, limits: &Limits) -> duckdb::Result<()> {
-    for f in limits.facts() {
-        tx.execute(
-            "INSERT INTO silver.lab_fact VALUES (?, ?, ?, ?, ?)",
-            params![f.id.as_str(), f.says, f.trusted, f.record, LIMITS],
-        )?;
-    }
     let entries = limits.entries();
     for e in &entries {
         let (amount, unit, choice) = match e.value {
@@ -174,10 +168,10 @@ fn load_limits(tx: &duckdb::Transaction, limits: &Limits) -> duckdb::Result<()> 
                 params![e.path, input],
             )?;
         }
-        for f in &e.basis.rests_on {
+        for c in &e.basis.rests_on {
             tx.execute(
                 "INSERT INTO silver.lab_limit_rests_on VALUES (?, ?)",
-                params![e.path, f.as_str()],
+                params![e.path, c],
             )?;
         }
     }
@@ -256,7 +250,6 @@ mod tests {
             "SELECT count(*) FROM (SELECT record FROM silver.part \
              UNION ALL SELECT record FROM silver.build_version \
              UNION ALL SELECT record FROM silver.lab_limit \
-             UNION ALL SELECT record FROM silver.lab_fact \
              UNION ALL SELECT record FROM silver.trusted_entry) s \
              LEFT JOIN bronze.record r ON r.path = s.record WHERE r.path IS NULL",
         );
@@ -330,7 +323,7 @@ mod tests {
         );
     }
 
-    /// Each limit's weakest grade and the facts behind it, as gold.limit_grades gives them.
+    /// Each limit's weakest grade and the claims behind it, as gold.limit_grades gives them.
     fn grade(conn: &Connection, path: &str) -> (Option<String>, Option<String>) {
         conn.query_row(
             "SELECT weakest_grade, rests_on FROM gold.limit_grades WHERE path = ?",
@@ -340,12 +333,12 @@ mod tests {
         .unwrap()
     }
 
-    fn some(grade: &str, facts: &str) -> (Option<String>, Option<String>) {
-        (Some(grade.into()), Some(facts.into()))
+    fn some(grade: &str, claims: &str) -> (Option<String>, Option<String>) {
+        (Some(grade.into()), Some(claims.into()))
     }
 
     #[test]
-    fn every_limit_gets_the_weakest_grade_of_its_facts() {
+    fn every_limit_gets_the_weakest_grade_of_its_claims() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let conn = warehouse(&Catalogue::load(&root).unwrap());
         assert_eq!(
@@ -354,14 +347,22 @@ mod tests {
         );
         assert_eq!(
             grade(&conn, "supply.upstream.volts"),
-            some("unknown", "bench_setting_error, dps_input"),
+            some("unknown", "DPS5005#input-range, bench-supply#setting-error"),
             "the bench supply's setting error is not measured",
         );
         assert_eq!(
             grade(&conn, "supply.dps.current_limit_amps"),
-            some("trusted", "opendps_current_limit"),
+            some("trusted", "DPS5005#current-limit"),
         );
         assert_eq!(grade(&conn, "pico_3v3.max_volts"), (None, None));
+        assert_eq!(
+            one(
+                &conn,
+                "SELECT count(*) FROM gold.limit_grades WHERE weakest_grade IS NOT NULL"
+            ),
+            2,
+            "only those two rest on a claim",
+        );
     }
 
     #[test]
@@ -370,26 +371,21 @@ mod tests {
         let mut cat = Catalogue::load(&root).unwrap();
         let text = fs::read_to_string(root.join(LIMITS)).unwrap().replace(
             "basis.max_amps = { policy = \"CLAUDE.md, \\\"Default ceilings: 3.6 V and 200 mA\\\"\" }",
-            "basis.max_amps = { policy = \"x\", rests_on = [\"bench_setting_error\"] }",
+            "basis.max_amps = { policy = \"x\", rests_on = [\"bench-supply#setting-error\"] }",
         );
         cat.limits = Some(Limits::parse(&text).unwrap());
         let conn = warehouse(&cat);
-        assert_eq!(
-            grade(&conn, "pico_3v3.max_amps"),
-            some("unknown", "bench_setting_error")
-        );
-        // A copy, a copy of a copy that rests on a trusted fact too, and a rule's input.
-        assert_eq!(
-            grade(&conn, "supply.max_amps"),
-            some("unknown", "bench_setting_error")
-        );
+        let bench = "bench-supply#setting-error";
+        assert_eq!(grade(&conn, "pico_3v3.max_amps"), some("unknown", bench));
+        // A copy, a copy of a copy that rests on a trusted claim too, and a rule's input.
+        assert_eq!(grade(&conn, "supply.max_amps"), some("unknown", bench));
         assert_eq!(
             grade(&conn, "supply.dps.current_limit_amps"),
-            some("unknown", "bench_setting_error, opendps_current_limit"),
+            some("unknown", &format!("DPS5005#current-limit, {bench}")),
         );
         assert_eq!(
             grade(&conn, "supply.fuse.rating_amps"),
-            some("unknown", "bench_setting_error")
+            some("unknown", bench)
         );
         assert_eq!(grade(&conn, "pico_3v3.max_volts"), (None, None));
     }
@@ -685,19 +681,25 @@ mod tests {
             let sql = format!("INSERT INTO silver.referent VALUES ('k5', {values})");
             refused(conn.execute(&sql, []).map(|_| ()), why);
         }
+        conn.execute(
+            "INSERT INTO silver.lab_limit VALUES ('held', 1.0, 'V', NULL, 'policy', 'p', NULL, 'r')",
+            [],
+        )
+        .unwrap();
         refused(
             conn.execute(
-                "INSERT INTO silver.lab_fact VALUES ('f', 'x', 'nope', NULL, 'r')",
+                "INSERT INTO silver.lab_limit_rests_on VALUES ('held', 'RP2350#nope')",
                 [],
             )
             .map(|_| ()),
-            "a trusted lab fact names an entry in the trusted base",
+            "a limit rests on a claim that exists",
         );
-        // Each was refused for what it names: the same rows, naming the entry, are accepted.
+        // Each was refused for what it names: rows for the same claim and limit naming what
+        // exists are accepted.
         conn.execute_batch(
             "INSERT INTO silver.referent VALUES ('k5', 'trusted', NULL, 'entry'); \
              INSERT INTO silver.referent VALUES ('k5', 'test', 't', NULL); \
-             INSERT INTO silver.lab_fact VALUES ('f', 'x', 'entry', NULL, 'r')",
+             INSERT INTO silver.lab_limit_rests_on VALUES ('held', 'k5')",
         )
         .unwrap();
         let both =

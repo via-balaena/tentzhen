@@ -11,16 +11,17 @@
 #   policy = "..."   a person's decision, and where it is recorded
 #   same_as = "..."  a copy of another value, which it must equal
 #   rule = "..."     held to a rule in crates/lab, which names the values and facts it uses
-# and may add `rests_on`: the facts at the end of this file that the value relies on to do its
-# job. A fact's grade comes from its referent: a `record` of a bench measurement makes it
-# `measured`, the id of an entry in trusted-base.toml (`trusted`) makes it `trusted`, and
-# neither leaves it `unknown`. The warehouse gives each value the weakest grade among the facts it
-# rests on, through every value it comes from (gold.limit_grades).
+# and may add `rests_on`: the claims the value relies on to do its job, each on the part it is
+# about and cited as <part>#<id> (parts/). A claim's grade comes from its referents
+# (builds/README.md, "Claims"). The warehouse gives each value the weakest bench grade among the
+# claims it rests on, through every value it comes from (gold.limit_grades). A rule reads numbers
+# only from the claims its value rests on, so its grade covers them.
 #
 # crates/lab reads this file and refuses a key it does not know, a value that is not a finite
 # number above zero, a value without exactly one basis, a copy that differs from its original, a
-# DPS5005 setpoint or current limit above the supply's ceiling, an upstream voltage outside the
-# DPS5005's input rule, and a fuse that is not the next rating above max_amps.
+# DPS5005 setpoint or current limit above the supply's ceiling, and a fuse that is not the next
+# rating above max_amps. Given the claims (crates/records), it also refuses a claim cited that does
+# not exist and an upstream voltage outside the DPS5005's input rule.
 
 [pico_3v3]
 # Any Pico or 3.3 V circuit.
@@ -45,9 +46,9 @@ basis.reenable = { policy = "Jon, 2026-09-28" }
 [supply.upstream]
 # The bench supply feeding the DPS5005's input: the least input the DPS5005 needs for its highest
 # setpoint, plus the bench supply's setting error. For a 3.6 V output that is
-# max(6.0, 1.1 x 3.6 = 3.96) + 0.5 = 6.5 V.
+# max(6.0, 1.1 x 3.6 = 3.96) + 0.5 = 6.5 V, from the claims below.
 volts = 6.5
-basis.volts = { rule = "dps-input", rests_on = ["dps_input", "bench_setting_error"] }
+basis.volts = { rule = "dps-input", rests_on = ["DPS5005#input-range", "bench-supply#setting-error"] }
 # This layer does NOT hold the 3.6 V ceiling. Its input must be at least 6.0 V, already above
 # the ceiling, and how high its output can go if the layers above it fail is `unknown`: the
 # 1.1 x rule says what input the DPS5005 needs, not how far it can drive its output. Only the
@@ -63,7 +64,7 @@ basis.volts = { rule = "dps-input", rests_on = ["dps_input", "bench_setting_erro
 max_setpoint_volts = 3.6
 current_limit_amps = 0.200
 basis.max_setpoint_volts = { same_as = "supply.max_volts" }
-basis.current_limit_amps = { same_as = "supply.max_amps", rests_on = ["opendps_current_limit"] }
+basis.current_limit_amps = { same_as = "supply.max_amps", rests_on = ["DPS5005#current-limit"] }
 
 [supply.fuse]
 # In the DPS5005's output line. Fast-acting, the next 5 x 20 mm rating above max_amps, from the
@@ -75,24 +76,3 @@ speed = "fast"
 basis.size = { policy = "PR #11" }
 basis.rating_amps = { rule = "next-fuse-rating" }
 basis.speed = { policy = "PR #11" }
-
-# ------------------------------------------------------------------------------------------------
-# The facts the values above rest on, each graded by its referent.
-
-[fact.dps_input]
-# Joy-IT JT-DPS5005 manual, "Attention!" note, and datasheet: "Input voltage range 6 - 55 V".
-# Read 2026-09-28.
-says = "The DPS5005 needs an input within its range, and at least `ratio` times its output"
-min_volts = 6.0
-max_volts = 55.0
-ratio = 1.1
-trusted = "dps5005"
-
-[fact.opendps_current_limit]
-# OpenDPS README, read 2026-09-28.
-says = "OpenDPS regulates its output current to the limit set"
-trusted = "dps5005"
-
-[fact.bench_setting_error]
-says = "The bench supply's output is within `volts` of its setting"
-volts = 0.5

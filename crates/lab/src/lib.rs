@@ -1,9 +1,12 @@
 //! The lab's safety records. For now that is `lab/limits.toml`: what the hardware below any agent
-//! will allow, each value's basis, and the facts the values rest on. [`Limits::parse`] refuses a
-//! key it does not know, a value that is not a finite number above zero, a value without exactly
-//! one basis, a copy that differs from its original, a DPS5005 setpoint or current limit above the
-//! supply's ceiling, an upstream voltage outside the DPS5005's input rule, and a fuse that is not
-//! the next rating above `max_amps`.
+//! will allow, each value's basis, and the claims on parts the values rest on. [`Limits::parse`]
+//! refuses a key it does not know, a value that is not a finite number above zero, a value without
+//! exactly one basis, a copy that differs from its original, a DPS5005 setpoint or current limit
+//! above the supply's ceiling, and a fuse that is not the next rating above `max_amps`.
+//!
+//! The claims live in other records, which this crate does not read, so the Pico enforcer builds
+//! from the limits file alone. [`Limits::check_with_claims`] checks what needs them: that each
+//! claim cited exists, and an upstream voltage within the DPS5005's input rule.
 
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -59,7 +62,6 @@ macro_rules! quantity {
 
 quantity!(Volts, "volts", "V");
 quantity!(Amps, "amps", "A");
-quantity!(Ratio, "a ratio", "x");
 
 /// Each value's basis, keyed by the value's name in its table.
 pub type Bases = BTreeMap<String, Basis>;
@@ -69,7 +71,6 @@ pub type Bases = BTreeMap<String, Basis>;
 pub struct Limits {
     pub pico_3v3: Ceiling,
     pub supply: Supply,
-    pub fact: Facts,
 }
 
 #[derive(Debug, Deserialize)]
@@ -137,7 +138,7 @@ pub enum FuseSpeed {
     Fast,
 }
 
-/// Where a value comes from: exactly one of `policy`, `same_as` and `rule`, and the facts it
+/// Where a value comes from: exactly one of `policy`, `same_as` and `rule`, and the claims it
 /// relies on to do its job.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -148,13 +149,15 @@ pub struct Basis {
     pub same_as: Option<String>,
     /// The rule in this crate that this value is held to.
     pub rule: Option<Rule>,
+    /// Each cited as `<part>#<id>` or `<build>/v<n>#<id>`.
     #[serde(default)]
-    pub rests_on: Vec<FactId>,
+    pub rests_on: Vec<String>,
 }
 
-/// A rule a value is held to. Its check is in `check_values`, marked with its name;
-/// [`Rule::inputs`] and [`Rule::facts`] name what that check reads, kept in step by hand, and give
-/// the warehouse its lineage.
+/// A rule a value is held to. Its check is in `check_values` or, when it reads claims,
+/// `check_with_claims`, marked with its name. [`Rule::inputs`] names the values that check reads,
+/// kept in step by hand, and gives the warehouse its lineage. A rule reads numbers only from the
+/// claims its value rests on, so those need no list.
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum Rule {
@@ -163,52 +166,6 @@ pub enum Rule {
     DpsInput,
     /// The fuse: the next 5 x 20 mm rating above the supply's `max_amps`.
     NextFuseRating,
-}
-
-/// The facts at the end of `lab/limits.toml`.
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Facts {
-    pub dps_input: DpsInput,
-    pub opendps_current_limit: Behaviour,
-    pub bench_setting_error: SettingError,
-}
-
-#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum FactId {
-    DpsInput,
-    OpendpsCurrentLimit,
-    BenchSettingError,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DpsInput {
-    pub says: String,
-    pub min_volts: Volts,
-    pub max_volts: Volts,
-    pub ratio: Ratio,
-    pub trusted: Option<String>,
-    pub record: Option<String>,
-}
-
-/// A fact about how something behaves, with no number of its own.
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Behaviour {
-    pub says: String,
-    pub trusted: Option<String>,
-    pub record: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SettingError {
-    pub says: String,
-    pub volts: Volts,
-    pub trusted: Option<String>,
-    pub record: Option<String>,
 }
 
 /// A value as the warehouse stores it.
@@ -231,15 +188,6 @@ pub struct Entry<'a> {
     pub path: String,
     pub value: Value,
     pub basis: &'a Basis,
-}
-
-/// One fact and its referents: `record` (a bench measurement) or `trusted` (the id of an entry in
-/// trusted-base.toml, which crates/records checks). The warehouse grades it from them.
-pub struct Fact<'a> {
-    pub id: FactId,
-    pub says: &'a str,
-    pub trusted: Option<&'a str>,
-    pub record: Option<&'a str>,
 }
 
 impl Reenable {
@@ -291,23 +239,6 @@ impl Rule {
             Rule::NextFuseRating => &["supply.max_amps"],
         }
     }
-
-    pub fn facts(self) -> &'static [FactId] {
-        match self {
-            Rule::DpsInput => &[FactId::DpsInput, FactId::BenchSettingError],
-            Rule::NextFuseRating => &[],
-        }
-    }
-}
-
-impl FactId {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            FactId::DpsInput => "dps_input",
-            FactId::OpendpsCurrentLimit => "opendps_current_limit",
-            FactId::BenchSettingError => "bench_setting_error",
-        }
-    }
 }
 
 impl Basis {
@@ -332,10 +263,8 @@ impl Basis {
 
 impl Supply {
     /// The least the DPS5005's input may be for its highest setpoint, before any setting error.
-    pub fn dps_input_floor(&self, f: &DpsInput) -> f64 {
-        f.min_volts
-            .get()
-            .max(f.ratio.get() * self.dps.max_setpoint_volts.get())
+    pub fn dps_input_floor(&self, min_input_volts: f64, input_ratio: f64) -> f64 {
+        min_input_volts.max(input_ratio * self.dps.max_setpoint_volts.get())
     }
 
     /// The fuse rating the file asks for: the next one above `max_amps`.
@@ -430,37 +359,85 @@ impl Limits {
         out
     }
 
-    pub fn facts(&self) -> [Fact<'_>; 3] {
-        let f = &self.fact;
-        [
-            Fact {
-                id: FactId::DpsInput,
-                says: &f.dps_input.says,
-                trusted: f.dps_input.trusted.as_deref(),
-                record: f.dps_input.record.as_deref(),
-            },
-            Fact {
-                id: FactId::OpendpsCurrentLimit,
-                says: &f.opendps_current_limit.says,
-                trusted: f.opendps_current_limit.trusted.as_deref(),
-                record: f.opendps_current_limit.record.as_deref(),
-            },
-            Fact {
-                id: FactId::BenchSettingError,
-                says: &f.bench_setting_error.says,
-                trusted: f.bench_setting_error.trusted.as_deref(),
-                record: f.bench_setting_error.record.as_deref(),
-            },
-        ]
-    }
-
     fn check(&self) -> Result<(), String> {
         self.check_values()?;
-        self.check_bases()?;
-        for f in self.facts() {
-            if [Some(f.says), f.trusted, f.record].contains(&Some("")) {
-                return Err(format!("[fact.{}] has an empty string", f.id.as_str()));
+        self.check_bases()
+    }
+
+    /// Checks what needs the claims the values rest on: that each claim cited exists, and each rule
+    /// that reads claims. `claim(citation)` gives a claim's values by name, or `None` when there is
+    /// no such claim; crates/records passes the catalogue's. A rule reads only the claims its value
+    /// rests on, and a name stated by two of them is refused.
+    pub fn check_with_claims<'c>(
+        &self,
+        claim: impl Fn(&str) -> Option<&'c BTreeMap<String, f64>>,
+    ) -> Result<(), String> {
+        for e in self.entries() {
+            let mut read: BTreeMap<&str, (f64, &str)> = BTreeMap::new();
+            for c in &e.basis.rests_on {
+                let Some(values) = claim(c) else {
+                    return Err(format!("{}: rests on {c}, which is no claim", e.path));
+                };
+                for (name, v) in values {
+                    if let Some((_, first)) = read.insert(name, (*v, c)) {
+                        return Err(format!(
+                            "{}: {name} is stated by both {first} and {c}",
+                            e.path
+                        ));
+                    }
+                }
             }
+            if e.basis.rule == Some(Rule::DpsInput) {
+                self.check_dps_input(&e.path, &read)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Rule::DpsInput, reading the claims `at` rests on: their values by name, and who states each.
+    fn check_dps_input(&self, at: &str, read: &BTreeMap<&str, (f64, &str)>) -> Result<(), String> {
+        let get = |name: &str| {
+            read.get(name).copied().ok_or_else(|| {
+                format!("{at}: rule dps-input reads {name}, which no claim it rests on states")
+            })
+        };
+        let volts = |name: &str| {
+            let (v, by) = get(name)?;
+            Volts::try_from(v).map_err(|e| format!("{by}: {name}: {e}"))
+        };
+        let (min, max, err) = (
+            volts("min_input_volts")?,
+            volts("max_input_volts")?,
+            volts("setting_error_volts")?.get(),
+        );
+        let (ratio, by) = get("input_ratio")?;
+        if !(ratio > 1.0 && ratio.is_finite()) {
+            return Err(format!("{by}: input_ratio is {ratio}, not above 1"));
+        }
+        if min >= max {
+            return Err(format!(
+                "{}: min_input_volts {min} is not below max_input_volts {max}",
+                get("min_input_volts")?.1
+            ));
+        }
+        let s = &self.supply;
+        let (volts, least) = (
+            s.upstream.volts.get(),
+            s.dps_input_floor(min.get(), ratio) + err,
+        );
+        if volts < least {
+            return Err(format!(
+                "[supply.upstream] volts is {volts} V, below the {least} V the DPS5005 needs to \
+                 put out {}: at least {min}, and {ratio} x its output, plus the bench supply's \
+                 setting error of {err} V",
+                s.dps.max_setpoint_volts
+            ));
+        }
+        if volts + err > max.get() {
+            return Err(format!(
+                "[supply.upstream] volts is {volts} V, which with the bench supply's setting \
+                 error of {err} V can pass the DPS5005's maximum input of {max}"
+            ));
         }
         Ok(())
     }
@@ -477,40 +454,6 @@ impl Limits {
             return Err(format!(
                 "[supply.dps] current_limit_amps is {}, above [supply] max_amps {}",
                 s.dps.current_limit_amps, s.max_amps
-            ));
-        }
-        let f = &self.fact.dps_input;
-        if f.ratio.get() <= 1.0 {
-            return Err(format!(
-                "[fact.dps_input] ratio is {}, not above 1",
-                f.ratio
-            ));
-        }
-        if f.min_volts >= f.max_volts {
-            return Err(format!(
-                "[fact.dps_input] min_volts {} is not below max_volts {}",
-                f.min_volts, f.max_volts
-            ));
-        }
-        // Rule::DpsInput
-        let (f, err) = (
-            &self.fact.dps_input,
-            self.fact.bench_setting_error.volts.get(),
-        );
-        let (volts, least) = (s.upstream.volts.get(), s.dps_input_floor(f) + err);
-        if volts < least {
-            return Err(format!(
-                "[supply.upstream] volts is {volts} V, below the {least} V the DPS5005 needs to \
-                 put out {}: at least {}, and {} its output, plus the bench supply's setting \
-                 error of {err} V",
-                s.dps.max_setpoint_volts, f.min_volts, f.ratio
-            ));
-        }
-        if volts + err > f.max_volts.get() {
-            return Err(format!(
-                "[supply.upstream] volts is {volts} V, which with the bench supply's setting \
-                 error of {err} V can pass the DPS5005's maximum input of {}",
-                f.max_volts
             ));
         }
         // Rule::NextFuseRating
@@ -558,9 +501,17 @@ impl Limits {
             if b.policy.as_deref() == Some("") {
                 return Err(format!("{at}: its policy is empty"));
             }
-            for (i, f) in b.rests_on.iter().enumerate() {
-                if b.rests_on[..i].contains(f) {
-                    return Err(format!("{at}: rests on {} twice", f.as_str()));
+            for (i, c) in b.rests_on.iter().enumerate() {
+                let cited = c
+                    .split_once('#')
+                    .is_some_and(|(on, id)| !on.is_empty() && !id.is_empty() && !id.contains('#'));
+                if !cited {
+                    return Err(format!(
+                        "{at}: rests on {c:?}, which is not a claim's citation, <subject>#<id>"
+                    ));
+                }
+                if b.rests_on[..i].contains(c) {
+                    return Err(format!("{at}: rests on {c} twice"));
                 }
             }
             if let Some(p) = &b.same_as {
@@ -574,25 +525,18 @@ impl Limits {
                     return Err(format!("{at}: same_as {p}, but {:?} is not {v:?}", e.value));
                 }
             }
-            if let Some(r) = b.rule {
-                if r.target() != at {
-                    return Err(format!(
-                        "{at}: rule {} is for {}, not this",
-                        r.as_str(),
-                        r.target()
-                    ));
-                }
-                if let Some(f) = r.facts().iter().find(|f| !b.rests_on.contains(f)) {
-                    return Err(format!(
-                        "{at}: rule {} uses fact {}, so it must rest on it",
-                        r.as_str(),
-                        f.as_str()
-                    ));
-                }
+            if let Some(r) = b.rule
+                && r.target() != at
+            {
+                return Err(format!(
+                    "{at}: rule {} is for {}, not this",
+                    r.as_str(),
+                    r.target()
+                ));
             }
         }
-        // check_values holds every rule's value to it, so its basis must say so, or its grade
-        // would leave out the facts the rule reads.
+        // Every rule's value is held to it, so its basis must say so, or its grade would leave out
+        // the claims the rule reads.
         for r in Rule::ALL {
             if !entries
                 .iter()
@@ -652,6 +596,51 @@ mod tests {
         assert!(err.contains(because), "refused for another reason: {err}");
     }
 
+    type Claims = BTreeMap<String, BTreeMap<String, f64>>;
+
+    /// Claims like the ones the repo's limits cite, each with its values by name.
+    fn claims() -> Claims {
+        let values = |vs: &[(&str, f64)]| vs.iter().map(|(k, v)| (k.to_string(), *v)).collect();
+        BTreeMap::from([
+            (
+                "DPS5005#input-range".into(),
+                values(&[
+                    ("min_input_volts", 6.0),
+                    ("max_input_volts", 55.0),
+                    ("input_ratio", 1.1),
+                ]),
+            ),
+            ("DPS5005#current-limit".into(), values(&[])),
+            (
+                "bench-supply#setting-error".into(),
+                values(&[("setting_error_volts", 0.5)]),
+            ),
+        ])
+    }
+
+    /// `claims()` with one value set.
+    fn claims_with(claim: &str, name: &str, v: f64) -> Claims {
+        let mut c = claims();
+        c.get_mut(claim).unwrap().insert(name.into(), v);
+        c
+    }
+
+    /// Parses `text` and checks it against `claims`, as crates/records does with the catalogue's.
+    fn refused_with(text: &str, claims: &Claims, because: &str) {
+        let err = Limits::parse(text)
+            .and_then(|l| l.check_with_claims(|c| claims.get(c)))
+            .err()
+            .unwrap_or_else(|| panic!("accepted, but {because}"));
+        assert!(err.contains(because), "refused for another reason: {err}");
+    }
+
+    #[test]
+    fn the_repo_limits_hold_with_their_claims() {
+        let claims = claims();
+        let l = Limits::parse(&repo()).unwrap();
+        l.check_with_claims(|c| claims.get(c)).unwrap();
+    }
+
     #[test]
     fn the_repo_limits_load() {
         Limits::load(&root()).expect("lab/limits.toml loads");
@@ -669,7 +658,7 @@ mod tests {
                     format!("{at}.{k}")
                 };
                 match v {
-                    toml::Value::Table(_) if k == "basis" || path == "fact" => {}
+                    toml::Value::Table(_) if k == "basis" => {}
                     toml::Value::Table(sub) => leaves(sub, &path, out),
                     _ => out.push(path),
                 }
@@ -682,39 +671,6 @@ mod tests {
         in_file.sort();
         entries.sort();
         assert_eq!(in_file, entries);
-    }
-
-    /// `facts` lists the facts by hand; this holds it to the file's [fact.*] tables.
-    #[test]
-    fn every_fact_in_the_file_is_listed() {
-        let table: toml::Table = repo().parse().unwrap();
-        let mut in_file: Vec<&str> = table["fact"]
-            .as_table()
-            .unwrap()
-            .keys()
-            .map(|k| k.as_str())
-            .collect();
-        let l = Limits::parse(&repo()).unwrap();
-        let mut listed: Vec<&str> = l.facts().iter().map(|f| f.id.as_str()).collect();
-        in_file.sort();
-        listed.sort();
-        assert_eq!(in_file, listed);
-    }
-
-    // What the file's comments say about its own values.
-
-    #[test]
-    fn the_dps_needs_6_5_volts_in_for_3v6_out() {
-        let l = Limits::parse(&repo()).unwrap();
-        let floor = l.supply.dps_input_floor(&l.fact.dps_input);
-        assert_eq!(floor, 6.0);
-        assert_eq!(floor + l.fact.bench_setting_error.volts.get(), 6.5);
-    }
-
-    #[test]
-    fn the_dps_input_is_above_the_ceiling_it_would_have_to_hold() {
-        let l = Limits::parse(&repo()).unwrap();
-        assert!(l.supply.dps_input_floor(&l.fact.dps_input) > l.supply.max_volts.get());
     }
 
     // The rules: each one refuses a file that breaks it.
@@ -736,9 +692,6 @@ mod tests {
             "[supply.upstream]\n",
             "[supply.dps]\n",
             "[supply.fuse]\n",
-            "[fact.dps_input]\n",
-            "[fact.opendps_current_limit]\n",
-            "[fact.bench_setting_error]\n",
         ] {
             refused(
                 &with(table, &format!("{table}extra = 1\n")),
@@ -750,10 +703,6 @@ mod tests {
                 "{ policy = \"Jon, 2026-09-28\" }",
                 "{ policy = \"Jon, 2026-09-28\", extra = 1 }",
             ),
-            "unknown field `extra`",
-        );
-        refused(
-            &format!("{}[fact.extra]\n", repo()),
             "unknown field `extra`",
         );
     }
@@ -768,13 +717,6 @@ mod tests {
         refused(
             &with("rule = \"next-fuse-rating\"", "rule = \"next-fuse\""),
             "next-fuse",
-        );
-        refused(
-            &with(
-                "rests_on = [\"opendps_current_limit\"]",
-                "rests_on = [\"opendps_limit\"]",
-            ),
-            "opendps_limit",
         );
     }
 
@@ -804,17 +746,23 @@ mod tests {
     #[test]
     fn the_dps_gets_the_input_it_needs() {
         for low in ["5.9", "6.4"] {
-            refused(
+            refused_with(
                 &with("volts = 6.5", &format!("volts = {low}")),
+                &claims(),
                 "the DPS5005 needs",
             );
         }
         for high in ["54.6", "56"] {
-            refused(
+            refused_with(
                 &with("volts = 6.5", &format!("volts = {high}")),
+                &claims(),
                 "maximum input",
             );
         }
+        let raised = claims_with("DPS5005#input-range", "min_input_volts", 6.1);
+        refused_with(&repo(), &raised, "the DPS5005 needs");
+        let worse = claims_with("bench-supply#setting-error", "setting_error_volts", 0.6);
+        refused_with(&repo(), &worse, "the DPS5005 needs");
     }
 
     #[test]
@@ -855,7 +803,7 @@ mod tests {
         refused(
             &with(
                 "basis.speed = { policy = \"PR #11\" }",
-                "basis.speed = { rests_on = [\"dps_input\"] }",
+                "basis.speed = { rests_on = [\"DPS5005#input-range\"] }",
             ),
             "exactly one of policy, same_as and rule",
         );
@@ -904,21 +852,44 @@ mod tests {
         );
     }
 
+    const UPSTREAM_RESTS_ON: &str =
+        "rests_on = [\"DPS5005#input-range\", \"bench-supply#setting-error\"]";
+
     #[test]
-    fn a_value_rests_on_every_fact_its_rule_uses() {
-        refused(
-            &with(
-                "rests_on = [\"dps_input\", \"bench_setting_error\"]",
-                "rests_on = [\"dps_input\"]",
-            ),
-            "uses fact bench_setting_error",
+    fn a_rule_reads_only_the_claims_its_value_rests_on() {
+        refused_with(
+            &with(UPSTREAM_RESTS_ON, "rests_on = [\"DPS5005#input-range\"]"),
+            &claims(),
+            "reads setting_error_volts, which no claim it rests on states",
         );
+        let twice = claims_with("bench-supply#setting-error", "input_ratio", 1.2);
+        refused_with(
+            &repo(),
+            &twice,
+            "input_ratio is stated by both DPS5005#input-range and bench-supply#setting-error",
+        );
+    }
+
+    #[test]
+    fn a_value_rests_on_claims_that_exist() {
+        let current = "rests_on = [\"DPS5005#current-limit\"]";
+        refused_with(
+            &with(current, "rests_on = [\"DPS5005#current-limt\"]"),
+            &claims(),
+            "rests on DPS5005#current-limt, which is no claim",
+        );
+        for bad in ["DPS5005", "#input-range", "DPS5005#", "a#b#c"] {
+            refused(
+                &with(current, &format!("rests_on = [\"{bad}\"]")),
+                "which is not a claim's citation",
+            );
+        }
         refused(
             &with(
-                "rests_on = [\"dps_input\", \"bench_setting_error\"]",
-                "rests_on = [\"dps_input\", \"bench_setting_error\", \"dps_input\"]",
+                UPSTREAM_RESTS_ON,
+                "rests_on = [\"DPS5005#input-range\", \"bench-supply#setting-error\", \"DPS5005#input-range\"]",
             ),
-            "rests on dps_input twice",
+            "rests on DPS5005#input-range twice",
         );
     }
 
@@ -926,7 +897,7 @@ mod tests {
     fn a_rule_s_value_names_it() {
         refused(
             &with(
-                "basis.volts = { rule = \"dps-input\", rests_on = [\"dps_input\", \"bench_setting_error\"] }",
+                "basis.volts = { rule = \"dps-input\", rests_on = [\"DPS5005#input-range\", \"bench-supply#setting-error\"] }",
                 "basis.volts = { policy = \"someone\" }",
             ),
             "is held to rule dps-input, so its basis must name it",
@@ -941,12 +912,29 @@ mod tests {
     }
 
     #[test]
-    fn the_dps_input_fact_is_self_consistent() {
-        refused(&with("ratio = 1.1", "ratio = 0.11"), "not above 1");
-        refused(
-            &with("max_volts = 55.0", "max_volts = 5.0"),
-            "is not below max_volts",
-        );
+    fn the_dps_input_claim_is_self_consistent() {
+        let at = "DPS5005#input-range";
+        for (name, v, because) in [
+            (
+                "input_ratio",
+                0.11,
+                "DPS5005#input-range: input_ratio is 0.11, not above 1",
+            ),
+            ("input_ratio", 1.0, "not above 1"),
+            ("input_ratio", f64::NAN, "not above 1"),
+            (
+                "max_input_volts",
+                5.0,
+                "min_input_volts 6 V is not below max_input_volts 5 V",
+            ),
+            (
+                "min_input_volts",
+                -6.0,
+                "DPS5005#input-range: min_input_volts: volts must be",
+            ),
+        ] {
+            refused_with(&repo(), &claims_with(at, name, v), because);
+        }
     }
 
     #[test]
@@ -956,16 +944,5 @@ mod tests {
             "basis.max_volts = { same_as = \"supply.max_volts\" }",
         );
         refused(&text, "comes from itself");
-    }
-
-    #[test]
-    fn a_fact_has_no_empty_string() {
-        refused(
-            &with(
-                "says = \"OpenDPS regulates its output current to the limit set\"",
-                "says = \"\"",
-            ),
-            "[fact.opendps_current_limit] has an empty string",
-        );
     }
 }

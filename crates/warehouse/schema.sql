@@ -182,18 +182,6 @@ COMMENT ON COLUMN silver.claim_value.name IS 'Ends in its unit: min_volts, input
 -- ---------------------------------------------------------------- silver: the lab's limits
 -- From lab/limits.toml, which crates/lab has checked.
 
-CREATE TABLE silver.lab_fact (
-    fact        TEXT PRIMARY KEY,
-    says        TEXT NOT NULL,
-    trusted     TEXT REFERENCES silver.trusted_entry (entry),
-    measurement TEXT,
-    record      TEXT NOT NULL
-);
-COMMENT ON TABLE silver.lab_fact IS 'The facts the limits rest on, each with its referents.';
-COMMENT ON COLUMN silver.lab_fact.trusted IS 'The entry in the trusted base that assumes it.';
-COMMENT ON COLUMN silver.lab_fact.measurement IS 'A bench measurement record.';
-COMMENT ON COLUMN silver.lab_fact.record IS 'The file in bronze.record this row came from.';
-
 CREATE TABLE silver.lab_limit (
     path   TEXT PRIMARY KEY,
     amount DOUBLE,
@@ -220,11 +208,11 @@ CREATE TABLE silver.lab_limit_input (
 COMMENT ON TABLE silver.lab_limit_input IS 'The values each limit comes from: the original it copies, or its rule''s inputs.';
 
 CREATE TABLE silver.lab_limit_rests_on (
-    path TEXT NOT NULL REFERENCES silver.lab_limit (path),
-    fact TEXT NOT NULL REFERENCES silver.lab_fact (fact),
-    PRIMARY KEY (path, fact)
+    path  TEXT NOT NULL REFERENCES silver.lab_limit (path),
+    claim TEXT NOT NULL REFERENCES silver.claim (claim),
+    PRIMARY KEY (path, claim)
 );
-COMMENT ON TABLE silver.lab_limit_rests_on IS 'The facts a limit relies on to do its job.';
+COMMENT ON TABLE silver.lab_limit_rests_on IS 'The claims a limit relies on to do its job, on the parts they are about.';
 
 -- ---------------------------------------------------------------- gold
 
@@ -286,15 +274,6 @@ CREATE VIEW gold.where_used AS
 SELECT part, build, version, qty FROM gold.bom_exploded WHERE part IS NOT NULL;
 COMMENT ON VIEW gold.where_used IS 'Where each part ends up, directly or inside another build.';
 
-CREATE VIEW gold.lab_fact_grades AS
-SELECT fact, says,
-       CASE WHEN measurement IS NOT NULL THEN 'measured'
-            WHEN trusted IS NOT NULL THEN 'trusted'
-            ELSE 'unknown' END AS grade,
-       coalesce(measurement, trusted) AS evidence
-FROM silver.lab_fact;
-COMMENT ON VIEW gold.lab_fact_grades IS 'Each lab fact''s grade, from its referent. Neither referent reads ''unknown''.';
-
 CREATE VIEW gold.limit_grades AS
 WITH RECURSIVE reach (path, via) AS (
     SELECT path, path FROM silver.lab_limit
@@ -302,19 +281,19 @@ WITH RECURSIVE reach (path, via) AS (
     SELECT r.path, i.input FROM reach r JOIN silver.lab_limit_input i ON i.path = r.via
 ),
 rests AS (
-    SELECT r.path, g.fact, g.grade,
-           CASE g.grade WHEN 'unknown' THEN 0 WHEN 'trusted' THEN 1 ELSE 2 END AS strength
+    SELECT r.path, g.claim, g.bench_grade AS grade,
+           CASE g.bench_grade WHEN 'unknown' THEN 0 WHEN 'trusted' THEN 1 ELSE 2 END AS strength
     FROM reach r
     JOIN silver.lab_limit_rests_on o ON o.path = r.via
-    JOIN gold.lab_fact_grades g ON g.fact = o.fact
+    JOIN gold.claim_grades g ON g.claim = o.claim
 )
 SELECT l.path, l.amount, l.unit, l.choice, l.basis,
-       arg_min(s.grade, s.strength)                   AS weakest_grade,
-       string_agg(DISTINCT s.fact, ', ' ORDER BY s.fact) AS rests_on
+       arg_min(s.grade, s.strength)                     AS weakest_grade,
+       string_agg(DISTINCT s.claim, ', ' ORDER BY s.claim) AS rests_on
 FROM silver.lab_limit l
 LEFT JOIN rests s USING (path)
 GROUP BY l.path, l.amount, l.unit, l.choice, l.basis;
-COMMENT ON VIEW gold.limit_grades IS 'Each limit with the weakest grade among the facts it rests on, directly or through any value it comes from. NULL when it rests on no fact: nothing here claims it does its job.';
+COMMENT ON VIEW gold.limit_grades IS 'Each limit with the weakest bench grade (measured, trusted) among the claims it rests on, directly or through any value it comes from. NULL when it rests on no claim: nothing here claims it does its job.';
 
 -- ---------------------------------------------------------------- gold: the site's pages
 -- Views that exist for the site's pages. The site also reads gold.claim_grades above, and reads
