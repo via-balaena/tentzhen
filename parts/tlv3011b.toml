@@ -24,6 +24,15 @@ trusted = "maker-datasheets"
 values = { max_offset_volts = 0.009 }
 
 [[claim]]
+# Common-mode rejection ratio, VCM = (V-) - 0.2 V to (V+) + 0.2 V, VS = 5.5 V: 54 dB minimum, so the
+# offset moves by at most 10^(-54/20) = 0.001995 of the common-mode voltage. The offset above is
+# specified with the inputs at (V-); the datasheet gives this ratio only at a 5.5 V supply.
+id = "common-mode"
+says = "Its input offset moves by at most `common_mode_gain_ratio` of the inputs' common-mode voltage, over a range from 0.2 V below its negative supply to 0.2 V above its positive one"
+trusted = "maker-datasheets"
+values = { common_mode_gain_ratio = 0.001996 }
+
+[[claim]]
 # Input hysteresis voltage, TA = -40 to 125 degrees C: 2 mV minimum, 8 mV maximum.
 id = "hysteresis"
 says = "Its input hysteresis is from `min_hysteresis_volts` to `max_hysteresis_volts`"

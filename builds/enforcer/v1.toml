@@ -13,14 +13,16 @@ never_a_lab_target = "An agent that can flash it can change the limits it holds.
 #   SUPPLY -- AO3401A source; AO3401A drain -- OUT+, to the device under test
 #   AO3401A gate -- 100 kOhm -- SUPPLY, so the switch is open unless its gate is pulled down
 #   AO3401A gate -- AO3400A drain; AO3400A source -- GND
-#   EN, the AO3400A's gate: 1 kOhm from GP20, 4.7 kOhm to GND, the TLV3011B's OUT, and GP21
+#   EN, the AO3400A's gate: 1 kOhm from GP20, 4.7 kOhm to GND, and the TLV3011B's OUT
 #   TLV3011B: V+ to 3V3, V- to GND, REF to IN+; SUPPLY -- 18.2 kOhm -- IN- -- 10 kOhm -- GND
 #   INA239: VS to 3V3, VBUS to SUPPLY, SPI to SPI0 below, ALERT not connected
 #   DPS5005 serial header to UART1 below; the button from GP22 to GND
 #   100 nF from 3V3 to GND beside the INA239 and beside the TLV3011B
 #
 # The TLV3011B's output goes low, pulling EN low and opening the switch, when SUPPLY divided down
-# passes its reference. With the Pico unplugged, 3V3 is gone and the 4.7 kOhm holds EN low.
+# passes its reference. With the Pico unplugged, 3V3 is gone and the 4.7 kOhm holds EN low. No pin
+# reaches EN but GP20, through 1 kOhm, which the comparator can pull down at any drive: a pin wired
+# to EN directly could be driven high by firmware and hold the switch closed through a cut.
 
 [[line]]
 part = "RP2350"
@@ -135,12 +137,6 @@ net = "EN, through 1 kOhm: high closes the switch"
 required = true
 
 [[pin]]
-name = "GP21"
-board_pin = 27
-net = "EN, read back: low while GP20 is high means the comparator has cut the output"
-required = true
-
-[[pin]]
 name = "GP22"
 board_pin = 29
 net = "the button, to GND; pulled up by the RP2350"
@@ -180,7 +176,7 @@ expect = "OUT+ follows SUPPLY, less at most the switch's drop."
 
 [[step]]
 do = "With the jumper in place and nothing connected to OUT+, raise the DPS5005 in 10 mV steps from 3.3 V until OUT+ falls to 0 V, and note SUPPLY at that step."
-expect = "SUPPLY between 3.393 V and 3.61 V (the claim hardware-cut)."
+expect = "SUPPLY between 3.386 V and 3.617 V (the claim hardware-cut)."
 agent = "Setting the supply above lab/limits.toml's 3.4 V needs a person's approval in the session (CLAUDE.md), with nothing on OUT+. Log every setpoint, and record the result as a measurement record citing those entries."
 
 [[step]]
@@ -217,15 +213,17 @@ says = "In its limit logic a trip ends only by the button or, under reenable = \
 check = "tentzhen-enforcer only_the_button_or_an_agent_s_clear_ends_a_trip; Kani 0.67.0; one input from any state"
 
 [[claim]]
-# From TLV3011B#reference, #offset and #hysteresis, the divider's resistors, and the reference's
-# drift over a room within `room_half_span_kelvin` of 25 degrees C. The hysteresis counts in full
-# both ways. The bound on the low side can fall just under the 3.4 V ceiling, so a setpoint at the
-# ceiling can trip it; the high side stays under RP2350#io-supply's absolute maximum, 3.63 V.
+# From TLV3011B#reference, #offset, #common-mode and #hysteresis, the divider's resistors, and the
+# reference's drift over a room within `room_half_span_kelvin` of 25 degrees C. The hysteresis
+# counts in full both ways. The bound on the low side can fall just under the 3.4 V ceiling, so a
+# setpoint at the ceiling can trip it; the high side stays under RP2350#io-supply's absolute
+# maximum, 3.63 V. That no pin reaches EN but GP20, through series_ohms, is the circuit above,
+# which nothing checks.
 id = "hardware-cut"
 says = "Whatever the firmware does, the switch opens when SUPPLY rises past a threshold between `min_cut_volts` and `max_cut_volts`, set by a divider of `divider_top_ohms` over `divider_bottom_ohms` in resistors within `resistor_tolerance_ratio` of their value, in a room within `room_half_span_kelvin` of 25 degrees C"
 trusted = "maker-datasheets"
 test = "tentzhen-records the_enforcer_s_numbers_follow_from_its_parts"
-values = { min_cut_volts = 3.393, max_cut_volts = 3.61, divider_top_ohms = 18200.0, divider_bottom_ohms = 10000.0, resistor_tolerance_ratio = 0.001, room_half_span_kelvin = 10.0 }
+values = { min_cut_volts = 3.386, max_cut_volts = 3.617, divider_top_ohms = 18200.0, divider_bottom_ohms = 10000.0, resistor_tolerance_ratio = 0.001, room_half_span_kelvin = 10.0 }
 
 [[claim]]
 # From INA239#bus-voltage and #shunt-voltage: offset, gain error and half a step, plus the shunt's
@@ -254,10 +252,10 @@ values = { min_closed_volts = 2.5, max_on_ohms = 0.085 }
 
 [[claim]]
 # From RP2350#e9-pull-down and AO3400A#threshold: a GPIO left undriven on an A2 RP2350 can float
-# near 2.2 V, above the AO3400A's threshold, unless pulled to ground by 8.2 kOhm or less. GP21
-# reads EN, so its pad sits on EN too; the same pull-down holds EN out of the range it leaks in.
+# near 2.2 V, above the AO3400A's threshold, unless pulled to ground by 8.2 kOhm or less. GP20's
+# own pad sees ground through 1 kOhm and 4.7 kOhm, also within that.
 id = "open-when-undriven"
-says = "With GP20 not driven, `pull_down_ohms` from EN to ground holds the switch open, even on an RP2350 with erratum E9"
+says = "With GP20 not driven, `pull_down_ohms` from EN to ground holds the switch open, and GP20's pad sees ground through it and the series resistor, within what erratum E9 needs"
 trusted = "silicon"
 test = "tentzhen-records the_enforcer_s_numbers_follow_from_its_parts"
 values = { pull_down_ohms = 4700.0 }

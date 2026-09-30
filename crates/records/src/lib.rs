@@ -823,7 +823,8 @@ mod tests {
         };
 
         // The hardware cut: the divider's worst ratios, the reference's worst values over the
-        // room, and the comparator's offset and hysteresis, counted in full against the cut.
+        // room, and the comparator's offset and hysteresis, counted in full against the cut, with
+        // the offset's shift at the inputs' common mode, which sits at the reference.
         let (top, bottom) = (
             e("hardware-cut", "divider_top_ohms"),
             e("hardware-cut", "divider_bottom_ohms"),
@@ -835,8 +836,9 @@ mod tests {
             + v("TLV3011B#hysteresis", "max_hysteresis_volts");
         let least = bottom * (1.0 - tol) / (top * (1.0 + tol) + bottom * (1.0 - tol));
         let most = bottom * (1.0 + tol) / (top * (1.0 - tol) + bottom * (1.0 + tol));
-        let highest =
-            (v("TLV3011B#reference", "max_reference_volts") * (1.0 + drift) + slop) / least;
+        let top_ref = v("TLV3011B#reference", "max_reference_volts") * (1.0 + drift);
+        let slop = slop + top_ref * v("TLV3011B#common-mode", "common_mode_gain_ratio");
+        let highest = (top_ref + slop) / least;
         let lowest = (v("TLV3011B#reference", "min_reference_volts") * (1.0 - drift) - slop) / most;
         let max_cut = e("hardware-cut", "max_cut_volts");
         bounds(max_cut, highest, 1.0, 0.001, "max_cut_volts");
@@ -896,13 +898,14 @@ mod tests {
         assert!(block > s.upstream.volts.get());
         assert!(v("AO3401A#ratings", "max_gate_source_volts") > s.upstream.volts.get());
 
-        // The gate drive, and its pull-down against erratum E9.
+        // The gate drive, and its pull-down against erratum E9, which is at GP20's pad: the pad
+        // sees ground through the series resistor and the pull-down together.
         let pull_down = e("open-when-undriven", "pull_down_ohms");
-        assert!(pull_down <= v("RP2350#e9-pull-down", "max_pull_down_ohms"));
         let (drive, series) = (
             e("gate-drive", "drive_volts"),
             e("gate-drive", "series_ohms"),
         );
+        assert!(series + pull_down <= v("RP2350#e9-pull-down", "max_pull_down_ohms"));
         let high = drive * pull_down / (series + pull_down);
         bounds(
             e("gate-drive", "en_high_volts"),
