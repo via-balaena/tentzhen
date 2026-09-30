@@ -1,7 +1,8 @@
 //! The lab log: every hardware action, as CLAUDE.md asks ("Log every hardware action (what, when,
 //! parameters, result) to the lab's append-only log"). One JSON object per line, in
 //! `lab/log/<yyyy-mm-dd>.jsonl` by the UTC day of the action, written by [`append`]
-//! (`cargo run -p tentzhen -- log append`).
+//! (`cargo run -p tentzhen -- log append`). A line must be exactly as [`append`] writes its entry,
+//! which gives each key once.
 //!
 //! Each entry names the sha256 of the line before it, so an entry edited, dropped or moved breaks
 //! the chain at the entry after it, and [`parse`] refuses the log. The chain cannot see a change to
@@ -276,6 +277,14 @@ fn read_line(
     }
     let mut e: Entry = serde_json::from_str(line).map_err(|err| format!("{place}: {err}"))?;
     check_entry(place, day, &e)?;
+    // JSON lets a key appear twice, and parsing keeps one of them. A line exactly as the writer
+    // writes its entry has each key once.
+    if serde_json::to_string(&e).ok().as_deref() != Some(line) {
+        return Err(format!(
+            "{place}: the line is not as `tentzhen log append` writes it: a key given twice, or \
+             spacing or order changed by hand"
+        ));
+    }
     match (tail, &e.prev) {
         (None, None) if e.seq == 1 => {}
         (None, _) => {
@@ -508,6 +517,15 @@ mod tests {
         assert!(parse(&first(&|_| {})).is_ok(), "the control is accepted");
         let unknown = json(&entry(1, &at, None)).replacen('{', "{\"grade\":\"measured\",", 1);
         refused(&day(&[unknown]), "unknown field `grade`");
+        let written = json(&entry(1, &at, None));
+        for by_hand in [
+            written.replace("\"set_volts\":3.3", "\"set_volts\":3.3,\"set_volts\":9.9"),
+            written.replace(",\"by\"", ", \"by\""),
+            written.replace("3.3", "3.30"),
+        ] {
+            assert_ne!(by_hand, written);
+            refused(&day(&[by_hand]), "not as `tentzhen log append` writes it");
+        }
         for bad in [
             "2026-10-14 10:00:00Z",
             "2026-10-14T10:00:00+02:00",
