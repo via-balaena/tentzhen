@@ -167,8 +167,8 @@ impl Claim {
 /// Where the trusted base lives, relative to the repo root.
 pub const TRUSTED_BASE: &str = "trusted-base.toml";
 
-/// An entry in the trusted base: something assumed, not shown. A claim or a lab fact that rests on
-/// it names its `id` as its `trusted` referent, and a `trusted` that names no entry is refused.
+/// An entry in the trusted base: something assumed, not shown. A claim that rests on it names its
+/// `id` as its `trusted` referent, and a `trusted` that names no entry is refused.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Trusted {
@@ -325,10 +325,13 @@ impl Catalogue {
         cat.with_limits(limits)
     }
 
-    /// Adds the lab's limits, refusing a fact trusted to no entry in the trusted base.
+    /// Adds the lab's limits, refusing a value that rests on no claim here, or whose rule the claims
+    /// it rests on break ([`tentzhen_lab::Limits::check_with_claims`]).
     pub fn with_limits(mut self, limits: tentzhen_lab::Limits) -> Result<Self, String> {
+        limits
+            .check_with_claims(|c| self.claim(c).map(|c| &c.values))
+            .map_err(|e| format!("{}: {e}", tentzhen_lab::LIMITS))?;
         self.limits = Some(limits);
-        self.check_trusted()?;
         Ok(self)
     }
 
@@ -423,12 +426,25 @@ impl Catalogue {
         Ok(cat)
     }
 
+    /// The claim a citation names: `<part>#<id>`, or `<build>/v<n>#<id>`.
+    pub fn claim(&self, citation: &str) -> Option<&Claim> {
+        let (subject, id) = citation.split_once('#')?;
+        let claims = match self.parts.get(subject) {
+            Some(p) => &p.claim,
+            None => {
+                let (build, v) = subject.rsplit_once("/v")?;
+                &self.version(build, v.parse().ok()?)?.claim
+            }
+        };
+        claims.iter().find(|c| c.id == id)
+    }
+
     /// The trusted base's entry with this id.
     pub fn trusted(&self, id: &str) -> Option<&Trusted> {
         self.trusted_base.iter().find(|e| e.id == id)
     }
 
-    /// Every `trusted` referent, on a claim or a lab fact, names an entry in the trusted base.
+    /// Every claim's `trusted` referent names an entry in the trusted base.
     fn check_trusted<'a>(&'a self) -> Result<(), String> {
         let unknown = |t: Option<&'a str>| t.filter(|t| self.trusted(t).is_none());
         let claims = self.parts.values().map(|p| (&p.record, &p.claim)).chain(
@@ -445,15 +461,6 @@ impl Catalogue {
                         c.id
                     ));
                 }
-            }
-        }
-        for f in self.limits.iter().flat_map(|l| l.facts()) {
-            if let Some(t) = unknown(f.trusted) {
-                return Err(format!(
-                    "{}: [fact.{}] is trusted to {t:?}, which is no entry in {TRUSTED_BASE}",
-                    tentzhen_lab::LIMITS,
-                    f.id.as_str()
-                ));
             }
         }
         Ok(())
@@ -652,21 +659,6 @@ mod tests {
             err.contains("parts/rp2350.toml: claim a is trusted to \"nope\""),
             "{err}"
         );
-        // A lab fact: the repo's limits, with the first fact's entry renamed.
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let text = fs::read_to_string(root.join(tentzhen_lab::LIMITS)).unwrap();
-        let from = "trusted = \"dps5005\"";
-        assert!(text.contains(from), "{from:?} is not in the limits");
-        let limits = tentzhen_lab::Limits::parse(&text.replacen(from, "trusted = \"nope\"", 1));
-        let err = Catalogue::load(&root)
-            .unwrap()
-            .with_limits(limits.unwrap())
-            .err()
-            .unwrap_or_default();
-        assert!(
-            err.contains("lab/limits.toml: [fact.dps_input] is trusted to \"nope\""),
-            "{err}"
-        );
     }
 
     #[test]
@@ -694,23 +686,91 @@ mod tests {
         assert_eq!(ids, ["b", "a"], "entries keep the file's order");
     }
 
-    /// The trusted base states the DPS5005's numbers in words; lab/limits.toml must carry the same
-    /// ones.
+    fn repo() -> Catalogue {
+        Catalogue::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")).unwrap()
+    }
+
+    /// The trusted base states the DPS5005's numbers in words; its claim must carry the same ones.
     #[test]
     fn the_dps_input_numbers_are_the_trusted_base_s() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let cat = Catalogue::load(&root).unwrap();
-        let f = &cat.limits.as_ref().unwrap().fact.dps_input;
-        let entry = &cat.trusted(f.trusted.as_deref().unwrap()).unwrap().assumes;
+        let cat = repo();
+        let c = cat.claim("DPS5005#input-range").unwrap();
+        let entry = &cat.trusted(c.trusted.as_deref().unwrap()).unwrap().assumes;
+        let v = |name: &str| c.values[name];
         for said in [
-            format!("{}–{} V", f.min_volts.get(), f.max_volts.get()),
-            format!("{} ×", f.ratio.get()),
+            format!("{}–{} V", v("min_input_volts"), v("max_input_volts")),
+            format!("{} ×", v("input_ratio")),
         ] {
             assert!(
                 entry.contains(&said),
                 "the trusted base does not say {said:?}"
             );
         }
+    }
+
+    #[test]
+    fn a_citation_names_a_claim_on_a_part_or_a_build_version() {
+        let cat = repo();
+        assert_eq!(cat.claim("DPS5005#input-range").unwrap().id, "input-range");
+        assert_eq!(
+            cat.claim("debug-probe/v1#enumerates").unwrap().id,
+            "enumerates"
+        );
+        for none in [
+            "DPS5005#input-rnage",
+            "DPS5005",
+            "dps5005#input-range",
+            "debug-probe/v2#enumerates",
+            "debug-probe/vx#enumerates",
+            "debug-probe#enumerates",
+        ] {
+            assert!(cat.claim(none).is_none(), "{none}");
+        }
+    }
+
+    /// The limits are checked against the catalogue's own claims: change one and they are refused.
+    #[test]
+    fn the_limits_are_held_to_the_claims_they_cite() {
+        let refused = |cat: Catalogue, because: &str| {
+            let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+            let (limits, _) = tentzhen_lab::Limits::load(&root).unwrap();
+            let err = cat.with_limits(limits).err().unwrap_or_default();
+            assert!(err.contains(because), "{because}: {err}");
+        };
+        let mut raised = repo();
+        let dps = raised.parts.get_mut("DPS5005").unwrap();
+        dps.claim[0].values.insert("min_input_volts".into(), 7.0);
+        refused(
+            raised,
+            "lab/limits.toml: [supply.upstream] volts is 6.5 V, below the 7.5 V",
+        );
+        let mut gone = repo();
+        gone.parts.get_mut("DPS5005").unwrap().claim.remove(1);
+        refused(gone, "rests on DPS5005#current-limit, which is no claim");
+    }
+
+    // What lab/limits.toml's comments say about its values, with the claims they rest on.
+
+    fn dps_floor(cat: &Catalogue) -> f64 {
+        let v = &cat.claim("DPS5005#input-range").unwrap().values;
+        let limits = cat.limits.as_ref().unwrap();
+        limits
+            .supply
+            .dps_input_floor(v["min_input_volts"], v["input_ratio"])
+    }
+
+    #[test]
+    fn the_dps_needs_6_5_volts_in_for_3v6_out() {
+        let cat = repo();
+        let err = cat.claim("bench-supply#setting-error").unwrap().values["setting_error_volts"];
+        assert_eq!(dps_floor(&cat), 6.0);
+        assert_eq!(dps_floor(&cat) + err, 6.5);
+    }
+
+    #[test]
+    fn the_dps_input_is_above_the_ceiling_it_would_have_to_hold() {
+        let cat = repo();
+        assert!(dps_floor(&cat) > cat.limits.as_ref().unwrap().supply.max_volts.get());
     }
 
     #[test]

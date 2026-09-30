@@ -32,10 +32,11 @@ flowchart LR
 |---|---|
 | Schema first: every file in `parts/`, `builds/` and `lab/` is loaded into the warehouse, and so are `trusted-base.toml` and `DISCLAIMER.md`, or CI fails. A record is parsed by its schema on the way in; a drawing is kept as it is. A folder's README is not a record. | `every_file_in_the_records_folders_is_loaded` |
 | Every schema refuses a key it doesn't know. | `every_table_refuses_a_key_it_does_not_know`, in `crates/records` and in `crates/lab` |
-| A rule a record states in a comment is a check or a test. | the tests in `crates/lab`, for `lab/limits.toml`. Nothing holds this for new files: `unknown`. |
-| Every file the warehouse loads is in bronze with its sha256, and every silver row traces to one. | `every_row_traces_to_the_bytes_it_came_from`, for the five silver tables with a `record` column; the rest reference one of those by foreign key, directly or through another table. |
-| A grade comes from its referents, never typed. | `no_record_can_type_a_grade`, `grades_derive_from_referents`, `every_limit_gets_the_weakest_grade_of_its_facts` |
-| A `trusted` referent, on a claim or a lab fact, names an entry in the trusted base. | `a_trusted_referent_names_an_entry_in_the_trusted_base` in `crates/records`, and the warehouse's foreign keys to `silver.trusted_entry` (`the_database_refuses_what_the_records_refuse`) |
+| A rule a record states in a comment is a check or a test. | the tests in `crates/lab` and `crates/records`, for `lab/limits.toml`. Nothing holds this for new files: `unknown`. |
+| Every file the warehouse loads is in bronze with its sha256, and every silver row traces to one. | `every_row_traces_to_the_bytes_it_came_from`, for the four silver tables with a `record` column; the rest reference one of those by foreign key, directly or through another table. |
+| A grade comes from its referents, never typed. | `no_record_can_type_a_grade`, `grades_derive_from_referents`, `every_limit_gets_the_weakest_grade_of_its_claims` |
+| A limit rests only on claims that exist, and a rule reads numbers only from the claims its value rests on, so its grade covers them. | `a_value_rests_on_claims_that_exist` and `a_rule_reads_only_the_claims_its_value_rests_on` in `crates/lab`, `the_limits_are_held_to_the_claims_they_cite` in `crates/records`, and the warehouse's foreign key to `silver.claim` (`the_database_refuses_what_the_records_refuse`) |
+| A claim's `trusted` referent names an entry in the trusted base. | `a_trusted_referent_names_an_entry_in_the_trusted_base` in `crates/records`, and the warehouse's foreign keys to `silver.trusted_entry` (`the_database_refuses_what_the_records_refuse`) |
 | Readers of the warehouse read gold only. | `the_site_reads_only_gold`; the site is the only one so far. |
 | Every table and view says what it is, and the catalogue is generated. | `every_table_and_view_says_what_it_is`, `the_catalogue_is_current` |
 | The lab crate needs only serde and toml. | `the_lab_crate_needs_only_serde_and_toml` |
@@ -50,18 +51,17 @@ test and path it names up to the proposal below must exist.
 
 ## What the introspection shows
 
-- **Two claim models remain.** Parts and builds share one: `[[claim]]`, landing in `silver.claim`
-  and `silver.referent`, graded by `gold.claim_grades`. The lab's `[fact.*]` is still its own,
-  landing in `silver.lab_fact` and graded by `gold.lab_fact_grades`.
-- **Nothing cites a claim yet.** Claims have ids and a citation (`<part>#<id>`, `<build>/v<n>#<id>`),
-  and lab facts are still named only inside `lab/limits.toml`.
+- **One claim model.** Parts and builds carry `[[claim]]`, landing in `silver.claim` and
+  `silver.referent` and graded by `gold.claim_grades`. The lab's limits cite them
+  (`silver.lab_limit_rests_on`), and `gold.limit_grades` takes their bench grade.
+- **Only the lab's limits cite claims,** through `rests_on`. Claims have a citation
+  (`<part>#<id>`, `<build>/v<n>#<id>`), but no other record has a field that cites one.
 - **The trusted base is data,** in `trusted-base.toml`: each entry has an id, and a `trusted`
   referent is that id, held by a foreign key.
-- **`record` referents resolve to nothing.** Build claims and lab facts can name a measurement
-  record, but no format or store for records exists yet. That's the lab log in `roadmap.md`,
+- **`record` referents resolve to nothing.** A claim can name a measurement record, but no format
+  or store for records exists yet. That's the lab log in `roadmap.md`,
   Phase 0.
-- **Facts sit away from their parts.** The DPS5005's facts are in `lab/limits.toml`, and the
-  DPS5005 has no part record. The Pico ceiling rests on no fact at all (`gold.limit_grades`).
+- **The Pico ceiling rests on no claim** (`gold.limit_grades`): step 4 in the plan below.
 - **Three gold views have no reader:** `grade_coverage`, `where_used` and `limit_grades`
   (`docs/data-catalogue.md`).
 - **`main`'s Quality Gate did not run for the merge of #18,** for an unknown cause. The tree was
@@ -71,8 +71,8 @@ test and path it names up to the proposal below must exist.
 ## Proposal: one claim model
 
 Every graded statement becomes a claim on its subject, in one shape. Step 1 built it for parts and
-builds (`crates/records`, `Claim`), and step 2 made the trusted base data; the lab's facts join in
-step 3.
+builds (`crates/records`, `Claim`), step 2 made the trusted base data, and step 3 moved the lab's
+facts onto the parts they are about.
 
 ```toml
 [[claim]]
@@ -115,8 +115,10 @@ Each step is one PR, done when its check passes:
    `a_trusted_referent_names_an_entry_in_the_trusted_base`.
 3. **Lab facts become claims on parts:** `parts/dps5005.toml`, and a bench supply record. Done
    when `lab/limits.toml` has no `[fact.*]` and `gold.limit_grades` gives the same grades as
+   before. Done: `parts/dps5005.toml`, `parts/bench-supply.toml`, and
+   `every_limit_gets_the_weakest_grade_of_its_claims`, which holds every limit to the grade it had
    before.
-4. **A fact under the Pico ceiling:** the RP2350's rated I/O supply range, as a claim on
+4. **A claim under the Pico ceiling:** the RP2350's rated I/O supply range, as a claim on
    `parts/rp2350.toml`. Done when `pico_3v3.max_volts` rests on it.
 5. **Measurement records** with the lab log (`roadmap.md`, Phase 0). Done when a `record` referent
    is a foreign key.

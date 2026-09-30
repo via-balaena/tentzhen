@@ -1,0 +1,19 @@
+part = "DPS5005"
+kind = "module"
+is = "programmable step-down power supply"
+
+# In the programmable supply it runs OpenDPS, not the stock firmware (lab/limits.toml, [supply]).
+
+[[claim]]
+# Joy-IT JT-DPS5005 manual, "Attention!" note, and datasheet: "Input voltage range 6 - 55 V".
+# Read 2026-09-28.
+id = "input-range"
+says = "Needs an input from `min_input_volts` to `max_input_volts`, and at least `input_ratio` times its output"
+trusted = "dps5005"
+values = { min_input_volts = 6.0, max_input_volts = 55.0, input_ratio = 1.1 }
+
+[[claim]]
+# OpenDPS README, read 2026-09-28.
+id = "current-limit"
+says = "Running OpenDPS, it regulates its output current to the limit set"
+trusted = "dps5005"

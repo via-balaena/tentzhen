@@ -28,7 +28,6 @@ flowchart LR
     silver_claim["silver.claim"]
     silver_referent["silver.referent"]
     silver_claim_value["silver.claim_value"]
-    silver_lab_fact["silver.lab_fact"]
     silver_lab_limit["silver.lab_limit"]
     silver_lab_limit_input["silver.lab_limit_input"]
     silver_lab_limit_rests_on["silver.lab_limit_rests_on"]
@@ -39,7 +38,6 @@ flowchart LR
     gold_grade_coverage["gold.grade_coverage"]
     gold_bom_exploded["gold.bom_exploded"]
     gold_where_used["gold.where_used"]
-    gold_lab_fact_grades["gold.lab_fact_grades"]
     gold_limit_grades["gold.limit_grades"]
     gold_page["gold.page"]
     gold_page_line["gold.page_line"]
@@ -60,8 +58,7 @@ flowchart LR
   silver_line --> gold_bom_exploded
   silver_uses --> gold_bom_exploded
   gold_bom_exploded --> gold_where_used
-  silver_lab_fact --> gold_lab_fact_grades
-  gold_lab_fact_grades --> gold_limit_grades
+  gold_claim_grades --> gold_limit_grades
   silver_lab_limit --> gold_limit_grades
   silver_lab_limit_input --> gold_limit_grades
   silver_lab_limit_rests_on --> gold_limit_grades
@@ -352,25 +349,6 @@ Constraints:
 - `FOREIGN KEY (claim) REFERENCES silver.claim(claim)`
 - `PRIMARY KEY(claim, "name")`
 
-### `silver.lab_fact` (table)
-
-The facts the limits rest on, each with its referents.
-
-| column | type | null | about |
-|---|---|---|---|
-| `fact` | VARCHAR | no |  |
-| `says` | VARCHAR | no |  |
-| `trusted` | VARCHAR | yes | The entry in the trusted base that assumes it. |
-| `measurement` | VARCHAR | yes | A bench measurement record. |
-| `record` | VARCHAR | no | The file in bronze.record this row came from. |
-
-Constraints:
-
-- `PRIMARY KEY(fact)`
-- `FOREIGN KEY ("trusted") REFERENCES silver.trusted_entry(entry)`
-
-Read by: `gold.lab_fact_grades`.
-
 ### `silver.lab_limit` (table)
 
 Each limit and its basis: a person's decision (policy), a copy of another value (same_as), or a rule in crates/lab (rule).
@@ -417,18 +395,18 @@ Read by: `gold.limit_grades`.
 
 ### `silver.lab_limit_rests_on` (table)
 
-The facts a limit relies on to do its job.
+The claims a limit relies on to do its job.
 
 | column | type | null | about |
 |---|---|---|---|
 | `path` | VARCHAR | no |  |
-| `fact` | VARCHAR | no |  |
+| `claim` | VARCHAR | no |  |
 
 Constraints:
 
 - `FOREIGN KEY (path) REFERENCES silver.lab_limit(path)`
-- `FOREIGN KEY (fact) REFERENCES silver.lab_fact(fact)`
-- `PRIMARY KEY(path, fact)`
+- `FOREIGN KEY (claim) REFERENCES silver.claim(claim)`
+- `PRIMARY KEY(path, claim)`
 
 Read by: `gold.limit_grades`.
 
@@ -467,7 +445,7 @@ Every claim on a part or a build version, with its grade on each axis: in simula
 
 Reads: `silver.claim`, `silver.referent`.
 
-Read by: `gold.grade_coverage`, `crates/site`.
+Read by: `gold.grade_coverage`, `gold.limit_grades`, `crates/site`.
 
 ### `gold.grade_coverage` (view)
 
@@ -518,24 +496,9 @@ Reads: `gold.bom_exploded`.
 
 Read by: no crate yet.
 
-### `gold.lab_fact_grades` (view)
-
-Each lab fact's grade, from its referent. Neither referent reads 'unknown'.
-
-| column | type |
-|---|---|
-| `fact` | VARCHAR |
-| `says` | VARCHAR |
-| `grade` | VARCHAR |
-| `evidence` | VARCHAR |
-
-Reads: `silver.lab_fact`.
-
-Read by: `gold.limit_grades`.
-
 ### `gold.limit_grades` (view)
 
-Each limit with the weakest grade among the facts it rests on, directly or through any value it comes from. NULL when it rests on no fact: nothing here claims it does its job.
+Each limit with the weakest bench grade (measured, trusted) among the claims it rests on, directly or through any value it comes from. NULL when it rests on no claim: nothing here claims it does its job.
 
 | column | type |
 |---|---|
@@ -547,7 +510,7 @@ Each limit with the weakest grade among the facts it rests on, directly or throu
 | `weakest_grade` | VARCHAR |
 | `rests_on` | VARCHAR |
 
-Reads: `gold.lab_fact_grades`, `silver.lab_limit`, `silver.lab_limit_input`, `silver.lab_limit_rests_on`.
+Reads: `gold.claim_grades`, `silver.lab_limit`, `silver.lab_limit_input`, `silver.lab_limit_rests_on`.
 
 Read by: no crate yet.
 
