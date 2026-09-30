@@ -20,6 +20,7 @@ does. Keep `--bind 127.0.0.1`; without it the server listens on every network in
   so change the file in `brand/` and copy it over.
 - **Fonts** are served from `fonts/`, with their licences; `fonts/README.md` says where each came
   from. A page loads nothing from another site.
-- **Hosting:** GitHub Pages publishes this directory, as it is on main, once main's Quality Gate
-  has passed on that commit (`.github/workflows/pages.yml`). It is served at tentzhen.com once
-  the domain's DNS points at GitHub.
+- **Hosting:** GitHub Pages publishes this directory from main: when main's Quality Gate passes
+  on a push, from that commit, or when the workflow is run by hand, from main as it is
+  (`.github/workflows/pages.yml`). It is served at tentzhen.com once the domain's DNS points at
+  GitHub.
