@@ -62,8 +62,9 @@ flowchart LR
 | Every table and view says what it is, and the catalogue is generated. | `every_table_and_view_says_what_it_is`, `the_catalogue_is_current` |
 | The lab crate needs only serde and toml. | `the_lab_crate_needs_only_serde_and_toml` |
 | Parsing records needs no database. | `parsing_records_needs_no_database` |
-| Every dependency is pinned to one version. | `every_dependency_is_pinned`, for each crate's own; the rest by `Cargo.lock`, which CI builds with `--locked`; the compiler by `rust-toolchain.toml`. Kani by the version its step installs, which `a_code_referent_names_code_that_exists` reads. The workflow's actions are pinned by commit, and nothing checks that: `unknown`. |
+| Every dependency is pinned to one version. | `every_dependency_is_pinned`, for each crate's own; the rest by `Cargo.lock`, which CI builds with `--locked`; the compiler by `rust-toolchain.toml`. Kani by the version its step installs, which `a_code_referent_names_code_that_exists` reads. The workflows' actions by commit: `every_action_is_pinned_by_commit`. |
 | What is generated is what its generator writes: build pages, mural SVGs, the catalogue. The site's images are `brand/`'s files, byte for byte. | the Quality Gate's steps, and `the_catalogue_is_current` |
+| tentzhen.com serves `site/` as it is on main, published only after main's Quality Gate passed on that commit, never from a fork's branch named main. | `the_pages_workflow_publishes_only_a_commit_main_s_gate_passed`, which reads the Pages workflow's guard. That GitHub runs it as written is assumed, as the ruleset is. |
 | A published build version never changes. | the Quality Gate's step of that name |
 | `main` changes only through a PR that passes the Quality Gate. | the `main-protection` ruleset on GitHub |
 
