@@ -153,8 +153,8 @@ mod tests {
             .lines()
             .skip_while(|l| l.trim() != "run: |")
             .skip(1)
-            .take_while(|l| l.starts_with(&indent))
-            .map(|l| &l[indent.len()..])
+            .take_while(|l| l.starts_with(&indent) || l.trim().is_empty())
+            .map(|l| l.get(indent.len()..).unwrap_or_default())
             .filter(|l| !l.starts_with("git fetch"))
             .collect();
         assert!(script.len() > 3, "{script:?}");
@@ -177,10 +177,9 @@ mod tests {
             assert!(ok, "git {args:?}");
         };
         git(&["init", "-q", "-b", "main"]);
-        let day = dir.join("lab/log/2026-09-30.jsonl");
-        fs::write(&day, "one\ntwo\n").unwrap();
+        fs::write(dir.join("lab/limits.toml"), "limits").unwrap();
         git(&["add", "-A"]);
-        git(&["commit", "-q", "--no-verify", "-m", "main"]);
+        git(&["commit", "-q", "--no-verify", "-m", "main without a log"]);
         let passes = |change: &dyn Fn()| {
             change();
             let ok = Command::new("bash")
@@ -195,7 +194,21 @@ mod tests {
             git(&["clean", "-q", "-f", "-d"]);
             ok
         };
-        let write = |path: &Path, text: &str| fs::write(path, text).unwrap();
+        let write = |path: &Path, text: &str| {
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, text).unwrap();
+        };
+        let day = dir.join("lab/log/2026-09-30.jsonl");
+        assert!(passes(&|| write(&day, "one\n")), "main has no log yet");
+        write(&day, "one\ntwo\n");
+        git(&["add", "-A"]);
+        git(&[
+            "commit",
+            "-q",
+            "--no-verify",
+            "-m",
+            "main with a day of the log",
+        ]);
         assert!(passes(&|| {}), "nothing changed");
         assert!(
             passes(&|| write(&day, "one\ntwo\nthree\n")),

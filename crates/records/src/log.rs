@@ -36,8 +36,7 @@ pub struct Entry {
     pub by: String,
     /// The action, as words joined by dots: `supply.set`.
     pub what: String,
-    /// What the action was asked to do.
-    #[serde(default)]
+    /// What the action was asked to do. Written even when empty, as `{}`.
     pub params: BTreeMap<String, Datum>,
     /// What happened. Never empty.
     pub result: BTreeMap<String, Datum>,
@@ -519,6 +518,8 @@ mod tests {
         assert!(parse(&first(&|_| {})).is_ok(), "the control is accepted");
         let unknown = json(&entry(1, &at, None)).replacen('{', "{\"grade\":\"measured\",", 1);
         refused(&day(&[unknown]), "unknown field `grade`");
+        let no_params = json(&entry(1, &at, None)).replace("\"params\":{\"set_volts\":3.3},", "");
+        refused(&day(&[no_params]), "missing field `params`");
         let written = json(&entry(1, &at, None));
         for by_hand in [
             written.replace("\"set_volts\":3.3", "\"set_volts\":3.3,\"set_volts\":9.9"),
