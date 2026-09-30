@@ -36,7 +36,8 @@ Never do the following without explicit approval from the user in the current se
 - **Write irreversible settings:** OTP memory, eFuses, secure-boot keys, flash protection bits on
   any device.
 - **Command a power supply or load** beyond the limits in `lab/limits.toml` (create it before any
-  power automation). Default ceilings: 3.6 V and 200 mA for Pico/3.3 V circuits.
+  power automation). Default ceilings: 3.4 V and 200 mA for Pico/3.3 V circuits (why 3.4 V:
+  `lab/limits.toml`, `[pico_3v3]`).
 - **Flash firmware to a device** that is not listed as a lab target.
 - **Expose any service** outside the isolated lab network, or add internet access for instruments.
 

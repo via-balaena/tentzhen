@@ -699,6 +699,32 @@ mod tests {
         Limits::load(&root()).expect("lab/limits.toml loads");
     }
 
+    /// A policy that cites CLAUDE.md quotes it: the quote must be there, word for word.
+    #[test]
+    fn every_policy_quoting_claude_md_matches_it() {
+        let claude = fs::read_to_string(root().join("CLAUDE.md")).unwrap();
+        let l = Limits::parse(&repo()).unwrap();
+        let mut quoted = 0;
+        for e in l.entries() {
+            let Some(quote) = e
+                .basis
+                .policy
+                .as_deref()
+                .and_then(|p| p.strip_prefix("CLAUDE.md, "))
+            else {
+                continue;
+            };
+            let quote = quote.trim_matches('"');
+            assert!(
+                claude.contains(quote),
+                "{}: CLAUDE.md does not say {quote:?}",
+                e.path
+            );
+            quoted += 1;
+        }
+        assert_eq!(quoted, 2, "pico_3v3.max_volts and max_amps quote CLAUDE.md");
+    }
+
     /// `tables` lists values by hand; this holds it to the file, so no value goes without a basis
     /// check or a row in the warehouse.
     #[test]
@@ -775,8 +801,8 @@ mod tests {
 
     #[test]
     fn a_value_must_be_finite_and_above_zero() {
-        let key = "max_setpoint_volts = 3.6";
-        for bad in ["inf", "nan", "0.0", "-3.6"] {
+        let key = "max_setpoint_volts = 3.4";
+        for bad in ["inf", "nan", "0.0", "-3.4"] {
             refused(
                 &with(key, &format!("max_setpoint_volts = {bad}")),
                 "must be a finite number above 0",
@@ -787,7 +813,7 @@ mod tests {
     #[test]
     fn the_dps_stays_within_the_ceiling() {
         refused(
-            &with("max_setpoint_volts = 3.6", "max_setpoint_volts = 3.7"),
+            &with("max_setpoint_volts = 3.4", "max_setpoint_volts = 3.5"),
             "above [supply] max_volts",
         );
         refused(
@@ -1005,7 +1031,7 @@ mod tests {
     #[test]
     fn no_value_comes_from_itself() {
         let text = with(
-            "basis.max_volts.policy = \"CLAUDE.md, \\\"Default ceilings: 3.6 V and 200 mA\\\"\"",
+            "basis.max_volts.policy = \"CLAUDE.md, \\\"Default ceilings: 3.4 V and 200 mA\\\"\"",
             "basis.max_volts.same_as = \"supply.max_volts\"",
         );
         refused(&text, "comes from itself");
@@ -1015,11 +1041,11 @@ mod tests {
 
     #[test]
     fn a_value_stays_at_most_the_number_it_names() {
-        let lower = claims_with("RP2350#io-supply", "max_io_supply_volts", 3.5);
+        let lower = claims_with("RP2350#io-supply", "max_io_supply_volts", 3.3);
         refused_with(
             &repo(),
             &lower,
-            "pico_3v3.max_volts: is 3.6, above RP2350#io-supply's max_io_supply_volts of 3.5",
+            "pico_3v3.max_volts: is 3.4, above RP2350#io-supply's max_io_supply_volts of 3.3",
         );
         let mut unstated = claims();
         unstated.get_mut("RP2350#io-supply").unwrap().clear();
