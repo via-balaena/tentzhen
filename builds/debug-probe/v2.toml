@@ -1,0 +1,68 @@
+build = "debug-probe"
+version = 2
+# draft: may still change. published: frozen; any change is a new version.
+status = "draft"
+does = "Flashes and debugs a target over SWD, and bridges the target's UART to USB."
+changes = "The lab's probe is a Raspberry Pi Debug Probe, the accessory the debugprobe firmware is written for, in place of a Pico 2 running that firmware. v1 still shows how to make one from a Pico 2."
+
+# Raspberry Pi's documentation (raspberrypi/documentation at b01a5c1a6e, microcontrollers/
+# debug-probe, read 2026-10-02): the probe works at 3.3 V nominal; it comes with a USB cable and
+# three debug cables from its three-pin JST-SH ports, one to JST-SH, one to a female 0.1-inch
+# header, one to a male one; on the header cables, orange is TX/SC (out of the probe), black GND,
+# yellow RX/SD. Its "D" port is SWD, its "U" port UART. The schematic (RP-008194-DS) shows an
+# RP2040.
+[[line]]
+part = "RP2040"
+form = "Raspberry Pi Debug Probe, with its cables"
+qty = 1
+
+[firmware]
+name = "debugprobe"
+license = "MIT"
+source = "https://github.com/raspberrypi/debugprobe"
+release = "debugprobe-v2.3.1"
+file = "debugprobe.uf2"
+sha256 = "aae9585f456c28c00865eb3df4d4bfc184f8e7ae60ebed3cc32a32512521a1b8"
+
+# The walkthrough, for a person or an agent. `expect` is what you should see; until someone has
+# done the step, it is a prediction from the firmware source and Raspberry Pi's documentation.
+
+[[step]]
+do = "Plug the probe into the lab computer and read its firmware version."
+run = "system_profiler SPUSBDataType | grep -A 8 'Debug Probe (CMSIS-DAP)'"
+expect = "A device named “Debug Probe (CMSIS-DAP)” at version 2.31, which is firmware 2.3.1 (the documentation reads it as bcdDevice 2.31). An older version: the next three steps update it."
+
+[[step]]
+do = "Download the firmware and check its hash."
+run = """
+curl -LO https://github.com/raspberrypi/debugprobe/releases/download/debugprobe-v2.3.1/debugprobe.uf2
+shasum -a 256 debugprobe.uf2"""
+expect = "aae9585f456c28c00865eb3df4d4bfc184f8e7ae60ebed3cc32a32512521a1b8"
+
+[[step]]
+do = "Pinch the top off the probe's case, then hold BOOTSEL and plug it into the lab computer."
+expect = "A drive named RPI-RP2 appears."
+
+[[step]]
+do = "Copy debugprobe.uf2 onto the RPI-RP2 drive."
+expect = "The drive disappears, and the probe comes back as “Debug Probe (CMSIS-DAP)” at version 2.31."
+agent = "Flashing is a hardware action: only for a board on the lab-target list or with a person's approval, and logged."
+
+[[step]]
+do = "With the target powered off, connect the probe's D port to the target's SWD pins with the female header cable: orange to SWCLK, black to GND, yellow to SWDIO. Targets with 3.3 V logic only."
+
+[[step]]
+do = "Power the target and ask the probe what it sees."
+run = "probe-rs info"
+expect = "probe-rs finds the probe and reads the target's debug port."
+
+# What this build claims, and how each claim is known. A grade is never typed: it comes from the
+# referents present (proof, check, test; record, trusted), and with none it is unknown.
+
+[[claim]]
+id = "enumerates"
+says = "Enumerates over USB as “Debug Probe (CMSIS-DAP)”."
+
+[[claim]]
+id = "reads-swd"
+says = "Reads a 3.3 V target's debug port over SWD."
