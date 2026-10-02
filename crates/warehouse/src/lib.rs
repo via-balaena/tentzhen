@@ -146,7 +146,7 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
     for (i, l) in (1u32..).zip(&cat.sourcing) {
         tx.execute(
             "INSERT INTO silver.sourcing VALUES \
-             (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             params![
                 i,
                 l.part,
@@ -157,6 +157,7 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
                 l.item,
                 l.used,
                 l.salvaged_from,
+                l.authorized,
                 l.listing_checked.is_some(),
                 l.in_cart.is_some(),
                 l.ordered.is_some(),
@@ -1721,6 +1722,35 @@ mod tests {
             "a salvaged part is used already",
         );
         conn.execute(&salvaged("NULL", "NULL", false), []).unwrap();
+        // Where the maker lists a seller: with no seller named, and beside a salvaged part.
+        for (cols, vals, why) in [
+            ("authorized", "'a list'", "authorized names its seller"),
+            (
+                "store, authorized, salvaged_from",
+                "'Goodwill', 'a list', 'a printer'",
+                "an authorized distributor sells a part new",
+            ),
+        ] {
+            refused(
+                conn.execute(
+                    &format!(
+                        "INSERT INTO silver.sourcing (line_no, part, {cols}, listing_checked, \
+                         in_cart, ordered, arrived, record) VALUES (6, 'RP2350', {vals}, false, \
+                         false, false, true, 'lab/sourcing.toml')"
+                    ),
+                    [],
+                )
+                .map(|_| ()),
+                why,
+            );
+        }
+        conn.execute(
+            "INSERT INTO silver.sourcing (line_no, part, store, authorized, listing_checked, \
+             in_cart, ordered, arrived, record) VALUES (6, 'RP2350', 'Micro Center', 'a list', \
+             false, false, false, true, 'lab/sourcing.toml')",
+            [],
+        )
+        .unwrap();
         // A store with no shop, bought used.
         conn.execute(
             "INSERT INTO silver.sourcing (line_no, commodity, store, used, listing_checked, \

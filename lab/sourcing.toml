@@ -27,6 +27,11 @@
 # if any, but no shop. A thing already at hand, wherever it came from, is `arrived = true` with no
 # source.
 #
+# `authorized = "<where the maker lists this seller, read on what day>"` says the seller is one of
+# the maker's authorized distributors, for a thing bought new from a named seller. A part sold by
+# authorized sellers only needs it once its line names a source or reaches a stage; so does a part
+# whose claims rest on `maker-datasheets`, unless its claims move to `resold-parts`.
+#
 # Not held by anything: that a day is the day it happened, or that a part which passed incoming QA
 # passed it, since each field is its writer's word; what a commodity's QA record measured; and that
 # a part sold by authorized sellers only is bought from one, which the parts page says beside its
