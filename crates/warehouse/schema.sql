@@ -68,12 +68,14 @@ CREATE TABLE silver.line (
     part      TEXT REFERENCES silver.part (part),
     commodity TEXT,
     form      TEXT,
+    class     TEXT NOT NULL CHECK (class IN ('A', 'C', 'F', 'J', 'MP', 'PS', 'Q', 'R', 'S', 'U', 'W', 'XF')),
     qty       INTEGER NOT NULL CHECK (qty > 0),
     PRIMARY KEY (build, version, line_no),
     FOREIGN KEY (build, version) REFERENCES silver.build_version (build, version),
     CHECK ((part IS NULL) <> (commodity IS NULL))
 );
 COMMENT ON TABLE silver.line IS 'A build version''s bill of materials: a part or a commodity on each line, and how many.';
+COMMENT ON COLUMN silver.line.class IS 'The letter a schematic labels the thing with (R resistor, U integrated circuit, A a board or module), as crates/records lists them. crates/records holds that one thing has one class in every build that writes it; the database does not.';
 
 CREATE TABLE silver.uses (
     build        TEXT NOT NULL,
@@ -493,7 +495,8 @@ COMMENT ON VIEW gold.bench IS 'The build versions the lab builds, each once: the
 
 CREATE VIEW gold.bench_line AS
 WITH needed AS (
-    SELECT t.build, t.version, l.line_no, l.part, l.form, l.commodity, sum(l.qty * t.qty) AS qty
+    SELECT t.build, t.version, l.line_no, l.part, l.form, l.commodity, l.class,
+           sum(l.qty * t.qty) AS qty
     FROM gold.bench b
     JOIN gold.build_tree t ON t.root_build = b.build AND t.root_version = b.version
     JOIN silver.line l ON l.build = t.build AND l.version = t.version
@@ -502,7 +505,7 @@ WITH needed AS (
 ranked AS (
     SELECT *, row_number() OVER (ORDER BY build, version, line_no) AS n FROM needed
 )
-SELECT build, version, line_no, part, form, commodity, qty,
+SELECT build, version, line_no, part, form, commodity, class, qty,
        min(n) OVER (PARTITION BY part, form, commodity) AS parts_no
 FROM ranked;
 COMMENT ON VIEW gold.bench_line IS 'Every line the bench needs, in the build version that writes it, with how many: its qty times how many of that version the builds in gold.bench take. parts_no is its row on the parts list, shared by every line that buys the same thing (part and form, or commodity and form): the place of the first such line, by build, version and line.';
@@ -591,7 +594,7 @@ COMMENT ON VIEW gold.page_pin IS 'silver.pin, for build pages.';
 COMMENT ON VIEW gold.page_step IS 'silver.step, for build pages.';
 
 CREATE VIEW gold.page_parts AS
-SELECT b.parts_no, sum(b.qty) AS qty, b.part, b.form, b.commodity,
+SELECT b.parts_no, b.class, sum(b.qty) AS qty, b.part, b.form, b.commodity,
        p.datasheet, coalesce(p.authorized_only, false) AS authorized_only,
        s.shop, s.store, s.item, coalesce(s.used, false) AS used, s.salvaged_from, s.authorized,
        coalesce(s.status, 'specced') AS status, s.since, s.passed_qa
@@ -602,7 +605,7 @@ LEFT JOIN gold.sourcing_status s
       AND s.form IS NOT DISTINCT FROM b.form
       AND s.commodity IS NOT DISTINCT FROM b.commodity
 GROUP BY ALL;
-COMMENT ON VIEW gold.page_parts IS 'The parts page: each thing the bench needs once, with how many, where the lab buys it and how far it has got. No prices: CLAUDE.md keeps them out.';
+COMMENT ON VIEW gold.page_parts IS 'The parts page: each thing the bench needs once, with its class, how many, where the lab buys it and how far it has got. No prices: CLAUDE.md keeps them out.';
 
 CREATE VIEW gold.page_parts_used_in AS
 SELECT parts_no, build, version, sum(qty) AS qty FROM gold.bench_line GROUP BY ALL;

@@ -42,6 +42,93 @@ pub enum Kind {
     Product,
 }
 
+/// What kind of thing a line buys, by the letter a schematic labels it with (R4, C3, U15). The
+/// letters are the ones Wikipedia's "Reference designator" lists (revision 1367154339, read
+/// 2026-10-02), which says its list "does not necessarily comply with standards"; the standards it
+/// names, IEEE 315-1975 and ASME Y14.44-2008, are unread. One thing has one class in every build
+/// that writes it. A new letter is a variant here and a value in the warehouse's check on a line's
+/// class (`crates/warehouse/schema.sql`).
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
+pub enum Class {
+    #[serde(rename = "A")]
+    Assembly,
+    #[serde(rename = "C")]
+    Capacitor,
+    #[serde(rename = "F")]
+    Fuse,
+    #[serde(rename = "J")]
+    Connector,
+    #[serde(rename = "MP")]
+    Mechanical,
+    #[serde(rename = "PS")]
+    PowerSupply,
+    #[serde(rename = "Q")]
+    Transistor,
+    #[serde(rename = "R")]
+    Resistor,
+    #[serde(rename = "S")]
+    Switch,
+    #[serde(rename = "U")]
+    IntegratedCircuit,
+    #[serde(rename = "W")]
+    Wire,
+    #[serde(rename = "XF")]
+    FuseHolder,
+}
+
+impl Class {
+    pub const ALL: [Class; 12] = [
+        Class::Assembly,
+        Class::Capacitor,
+        Class::Fuse,
+        Class::Connector,
+        Class::Mechanical,
+        Class::PowerSupply,
+        Class::Transistor,
+        Class::Resistor,
+        Class::Switch,
+        Class::IntegratedCircuit,
+        Class::Wire,
+        Class::FuseHolder,
+    ];
+
+    /// The letter, as a build writes it.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Class::Assembly => "A",
+            Class::Capacitor => "C",
+            Class::Fuse => "F",
+            Class::Connector => "J",
+            Class::Mechanical => "MP",
+            Class::PowerSupply => "PS",
+            Class::Transistor => "Q",
+            Class::Resistor => "R",
+            Class::Switch => "S",
+            Class::IntegratedCircuit => "U",
+            Class::Wire => "W",
+            Class::FuseHolder => "XF",
+        }
+    }
+
+    /// What the letter stands for, in words.
+    pub fn means(self) -> &'static str {
+        match self {
+            Class::Assembly => "assembly: a board or module",
+            Class::Capacitor => "capacitor",
+            Class::Fuse => "fuse",
+            Class::Connector => "connector",
+            Class::Mechanical => "mechanical part",
+            Class::PowerSupply => "power supply",
+            Class::Transistor => "transistor",
+            Class::Resistor => "resistor",
+            Class::Switch => "switch",
+            Class::IntegratedCircuit => "integrated circuit",
+            Class::Wire => "wire or cable",
+            Class::FuseHolder => "fuse holder",
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Status {
@@ -84,6 +171,7 @@ pub struct Line {
     pub part: Option<String>,
     pub commodity: Option<String>,
     pub form: Option<String>,
+    pub class: Class,
     pub qty: u32,
 }
 
@@ -539,6 +627,7 @@ impl Catalogue {
                 cat.check_build(b)?;
             }
         }
+        cat.check_classes()?;
         cat.check_no_cycles()?;
         cat.check_trusted()?;
         Ok(cat)
@@ -659,6 +748,41 @@ impl Catalogue {
                     "{at}: uses {} v{}, which does not exist",
                     u.build, u.version
                 ));
+            }
+        }
+        Ok(())
+    }
+
+    /// One thing, a part and its form or a commodity and its form, has one class in every build
+    /// version that writes it, so the parts page lists it once, under one letter.
+    fn check_classes(&self) -> Result<(), String> {
+        type Thing<'a> = (Option<&'a str>, Option<&'a str>, Option<&'a str>);
+        let mut seen: BTreeMap<Thing, (Class, String)> = BTreeMap::new();
+        for b in self.builds.values().flatten() {
+            let at = format!("{} v{}", b.build, b.version);
+            for l in &b.line {
+                let key = (l.part.as_deref(), l.form.as_deref(), l.commodity.as_deref());
+                match seen.get(&key) {
+                    Some((class, first)) if *class != l.class => {
+                        let what = match (&l.part, &l.commodity, &l.form) {
+                            (Some(p), _, Some(f)) => format!("{p} as {f:?}"),
+                            (Some(p), _, None) => p.clone(),
+                            (None, Some(c), Some(f)) => format!("{c:?} as {f:?}"),
+                            (None, Some(c), None) => format!("{c:?}"),
+                            (None, None, _) => String::new(),
+                        };
+                        return Err(format!(
+                            "{at}: writes {what} as class {}, and {first} as class {}: one thing \
+                             has one class",
+                            l.class.as_str(),
+                            class.as_str()
+                        ));
+                    }
+                    Some(_) => {}
+                    None => {
+                        seen.insert(key, (l.class, at.clone()));
+                    }
+                }
             }
         }
         Ok(())
@@ -1305,7 +1429,7 @@ mod tests {
         let firmware = "name = \"f\"\nlicense = \"MIT\"\nsource = \"s\"\nrelease = \"r\"\nfile = \"f\"\nsha256 = \"0\"\n";
         for table in [
             "extra = 1\n".to_string(),
-            "[[line]]\nextra = 1\ncommodity = \"wire\"\nqty = 1\n".into(),
+            "[[line]]\nextra = 1\ncommodity = \"wire\"\nclass = \"W\"\nqty = 1\n".into(),
             "[[uses]]\nextra = 1\nbuild = \"b\"\nversion = 1\n".into(),
             format!("[firmware]\nextra = 1\n{firmware}"),
             "[[pin]]\nextra = 1\nname = \"p\"\nboard_pin = 1\nnet = \"n\"\nrequired = true\n"
@@ -1319,11 +1443,81 @@ mod tests {
 
     #[test]
     fn an_unrecorded_part_is_refused() {
-        let b = build("probe", 1, "[[line]]\npart = \"RP9999\"\nqty = 1\n");
+        let b = build(
+            "probe",
+            1,
+            "[[line]]\npart = \"RP9999\"\nclass = \"U\"\nqty = 1\n",
+        );
         let err = Catalogue::from_sources(&base(), &[src("parts/rp2350.toml", PART)], &[b])
             .err()
             .unwrap();
         assert!(err.contains("RP9999"), "{err}");
+    }
+
+    #[test]
+    fn a_line_gives_its_class_by_letter() {
+        let line = |class: &str| format!("[[line]]\ncommodity = \"wire\"\n{class}qty = 1\n");
+        for c in Class::ALL {
+            let b = build("probe", 1, &line(&format!("class = \"{}\"\n", c.as_str())));
+            let cat = Catalogue::from_sources(&base(), &[], &[b]).unwrap();
+            assert_eq!(cat.builds["probe"][0].line[0].class, c);
+        }
+        for (class, why) in [
+            ("", "missing field `class`"),
+            ("class = \"Z\"\n", "unknown variant `Z`"),
+            ("class = \"r\"\n", "unknown variant `r`"),
+        ] {
+            let b = build("probe", 1, &line(class));
+            let err = Catalogue::from_sources(&base(), &[], &[b]).err().unwrap();
+            assert!(err.contains(why), "{err}");
+        }
+    }
+
+    #[test]
+    fn one_thing_has_one_class() {
+        let line =
+            |what: &str, class: &str| format!("[[line]]\n{what}\nclass = \"{class}\"\nqty = 1\n\n");
+        let ina239 = "part = \"INA239\"\nkind = \"chip\"\nis = \"power monitor\"\n";
+        let pair = |a: String, b: String| {
+            Catalogue::from_sources(
+                &base(),
+                &[
+                    src("parts/rp2350.toml", PART),
+                    src("parts/ina239.toml", ina239),
+                ],
+                &[build("probe", 1, &a), build("rig", 1, &b)],
+            )
+        };
+        let board = "part = \"RP2350\"\nform = \"board\"";
+        let chip = "part = \"RP2350\"\nform = \"chip\"";
+        let wire = "commodity = \"wire\"";
+        // One class each, in one build or two; a part in two forms is two things, and so are two
+        // parts in one form, and two commodities.
+        assert!(pair(line(board, "A"), line(board, "A")).is_ok());
+        assert!(pair(line(board, "A") + &line(chip, "U"), line(wire, "W")).is_ok());
+        let other_board = "part = \"INA239\"\nform = \"board\"";
+        assert!(pair(line(board, "A"), line(other_board, "U")).is_ok());
+        assert!(pair(line(wire, "W"), line("commodity = \"glue\"", "MP")).is_ok());
+        assert!(
+            pair(
+                line(wire, "W") + &line("commodity = \"wire\"\nform = \"red\"", "J"),
+                String::new()
+            )
+            .is_ok()
+        );
+        for (a, b, what) in [
+            (line(board, "A"), line(board, "U"), "RP2350 as \"board\""),
+            (line(wire, "W"), line(wire, "J"), "\"wire\""),
+            (
+                line(board, "A") + &line(board, "U"),
+                String::new(),
+                "RP2350 as \"board\"",
+            ),
+        ] {
+            let err = pair(a, b).err().unwrap();
+            assert!(err.contains(&format!("writes {what} as class")), "{err}");
+            assert!(err.contains("one thing has one class"), "{err}");
+        }
     }
 
     #[test]

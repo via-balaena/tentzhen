@@ -12,27 +12,33 @@ does = "A programmable DC supply for Pico and 3.3 V circuits, driven by an agent
 
 [[line]]
 part = "bench-supply"
+class = "PS"
 qty = 1
 
 [[line]]
 part = "DPS5005"
 form = "running OpenDPS"
+class = "PS"
 qty = 1
 
 [[line]]
 commodity = "fuse, 5x20 mm, 250 mA, fast-acting"
+class = "F"
 qty = 1
 
 [[line]]
 commodity = "fuse holder, 5x20 mm, inline"
+class = "XF"
 qty = 1
 
 [[line]]
 commodity = "binding posts, red and black"
+class = "J"
 qty = 1
 
 [[line]]
 commodity = "wire, 18 AWG, silicone"
+class = "W"
 qty = 1
 
 [[uses]]

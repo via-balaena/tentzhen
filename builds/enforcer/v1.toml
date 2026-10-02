@@ -31,66 +31,81 @@ never_a_lab_target = "An agent that can flash it can change the limits it holds.
 [[line]]
 part = "RP2350"
 form = "board with the Pico 2 pinout and no radio"
+class = "A"
 qty = 1
 
 [[line]]
 part = "INA239"
 form = "VSSOP-10 on an adapter board"
+class = "U"
 qty = 1
 
 [[line]]
 part = "TLV3011B"
 form = "SOT-23-6 on an adapter board"
+class = "U"
 qty = 1
 
 [[line]]
 part = "AO3401A"
 form = "SOT-23 on an adapter board"
+class = "Q"
 qty = 1
 
 [[line]]
 part = "AO3400A"
 form = "SOT-23 on an adapter board"
+class = "Q"
 qty = 1
 
 [[line]]
 commodity = "resistor, 0.1 Ohm, 1 %, 0.25 W, the shunt"
+class = "R"
 qty = 1
 
 [[line]]
 commodity = "resistor, 18.2 kOhm, 0.1 %"
+class = "R"
 qty = 1
 
 [[line]]
 commodity = "resistor, 10 kOhm, 0.1 %"
+class = "R"
 qty = 1
 
 [[line]]
 commodity = "resistor, 100 kOhm, 1 %"
+class = "R"
 qty = 1
 
 [[line]]
 commodity = "resistor, 4.7 kOhm, 1 %"
+class = "R"
 qty = 1
 
 [[line]]
 commodity = "resistor, 1 kOhm, 1 %"
+class = "R"
 qty = 1
 
 [[line]]
 commodity = "capacitor, 100 nF, ceramic"
+class = "C"
 qty = 2
 
 [[line]]
 commodity = "push button, momentary, normally open"
+class = "S"
 qty = 1
 
 [[line]]
 commodity = "perfboard, 0.1 inch pitch"
+class = "MP"
 qty = 1
 
 [[line]]
 commodity = "wire, 22 AWG, solid"
+class = "W"
 qty = 1
 
 # The Pico's pins, from the RP2350 datasheet (build-date 2025-07-29), Table 3, "GPIO Bank 0

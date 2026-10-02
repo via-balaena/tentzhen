@@ -16,6 +16,7 @@ changes = "The lab's probe is a Raspberry Pi Debug Probe, the accessory the debu
 [[line]]
 part = "RP2040"
 form = "Raspberry Pi Debug Probe, with its cables"
+class = "A"
 qty = 1
 
 [firmware]
