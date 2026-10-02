@@ -34,10 +34,11 @@
 //!
 //! `authorized` says where the maker lists the seller as one of its authorized distributors, for a
 //! line that names a seller, new: `authorized = "raspberrypi.com approved resellers, read
-//! 2026-10-02"`. A line for a part sold by authorized sellers only (`authorized_only`), or whose
-//! claims rest on `maker-datasheets`, needs it once it names a source or reaches a stage, since
-//! that entry assumes an authorized distributor. Without it, such a part's claims move to
-//! `resold-parts` first. A line naming the part alone is not held to it: nothing is chosen.
+//! 2026-10-02"`. A line for a part sold by authorized sellers only (`authorized_only`) needs it
+//! once it names a source or reaches a stage. So does a line for a part whose claims rest on
+//! `maker-datasheets`, since that entry assumes an authorized distributor, unless the part's
+//! claims move to `resold-parts`. A line naming the part alone is not held to it: nothing is
+//! chosen.
 //!
 //! An AliExpress item number is the one aliexpress.com shows. On 2026-10-01 the i9's listing was
 //! item 1005007788475037 there and 3256807602160285 on aliexpress.us, 2^51 more, so a number of

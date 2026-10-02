@@ -139,14 +139,15 @@ Reviewed 2026-10-02 against the rule above: a part's mark comes off when a bench
 covers what its build relies on. A unit bought from anyone but an authorized distributor rests its
 claims on `resold-parts`, not `maker-datasheets`, which assumes one: `lab/sourcing.toml`'s
 `authorized` says where the maker lists a seller, and `crates/records` refuses a line that names a
-source or a stage for a part whose claims rest on `maker-datasheets` without it. The AO3401A and the
-AO3400A have lost the mark; the INA239, the TLV3011B and the RP2350 keep it, each for the reason it
-gives. The tests below are worth running on any unit, whatever its source, since they catch a wrong
-or remarked part. Passing them shows a part fit for what they check, and no more: "No amount of
-testing can confirm an item as authentic" (SAE AS6171A, scope, revised 2018-04-18). Each test is a
-hardware action, logged; an agent runs one only within `lab/limits.toml` or on a person's approval
-(`CLAUDE.md`). Code a Pico runs to read a part counts as flashing the Pico (`lab/targets.toml`), so
-it needs a person's approval until the Pico is a lab target.
+source or a stage without it, for a part sold by authorized sellers only, or for one whose claims
+rest on `maker-datasheets` unless they move to `resold-parts`. The AO3401A and the AO3400A have lost
+the mark; the INA239, the TLV3011B and the RP2350 keep it, each for the reason it gives. The tests
+below are worth running on any unit, whatever its source, since they catch a wrong or remarked part.
+Passing them shows a part fit for what they check, and no more: "No amount of testing can confirm an
+item as authentic" (SAE AS6171A, scope, revised 2018-04-18). Each test is a hardware action, logged;
+an agent runs one only within `lab/limits.toml` or on a person's approval (`CLAUDE.md`). Code a Pico
+runs to read a part counts as flashing the Pico (`lab/targets.toml`), so it needs a person's
+approval until the Pico is a lab target.
 
 - **INA239**, the enforcer's measurement. Read MANUFACTURER_ID (3Eh), which reads 5449h, "TI" in
   ASCII, and DEVICE_ID (3Fh), which reads 2391h (TI SLYS027A, Tables 7-20 and 7-21); then compare
@@ -170,11 +171,11 @@ it needs a person's approval until the Pico is a lab target.
   (`switch-blocks-upstream`), while the AO3400A, off, holds it on its drain through 100 kΩ (from the
   circuit). So, with its gate at its source, each passes under 1 µA at 6.5 V, the bench supply's own
   setting (IDSS, rated at 30 V and 25 °C). And the AO3401A, with its gate 2.5 V below its source,
-  drops under 17 mV at 200 mA, `[supply]`'s `max_amps` through its 85 mΩ (Alpha and Omega
-  datasheets, Rev 3.1). A person can run these; an agent cannot without approval, since
-  `lab/limits.toml` sets no limit for a part on the bench. **Mark off** (2026-10-02): these tests
-  cover what the enforcer relies on from the two, at the bench's temperature. A unit not from an
-  authorized distributor rests their claims on `resold-parts`.
+  drops under 17 mV at 200 mA, `[supply]`'s `max_amps` through its 85 mΩ, which the datasheet rates
+  at 2.5 A (Alpha and Omega datasheets, Rev 3.1). A person can run these; an agent cannot without
+  approval, since `lab/limits.toml` sets no limit for a part on the bench. **Mark off**
+  (2026-10-02): these tests cover what the enforcer relies on from the two, at the bench's
+  temperature. A unit not from an authorized distributor rests their claims on `resold-parts`.
 - **RP2350**, the debug probe's and the enforcer's microcontroller. In BOOTSEL, read its OTP with
   picotool, and only read it: writing OTP is irreversible and needs approval (`CLAUDE.md`). A blank
   part's OTP is "all zeroes, except for some basic device information pre-programmed during
