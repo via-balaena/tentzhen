@@ -28,7 +28,8 @@
 # source.
 #
 # `authorized = "<where the maker lists this seller, read on what day>"` says the seller is one of
-# the maker's authorized distributors, for a thing bought new from a named seller. A part sold by
+# the maker's authorized distributors, or the maker itself, for a thing bought new from a named
+# seller. A part sold by
 # authorized sellers only needs it once its line names a source or reaches a stage; so does a part
 # whose claims rest on `maker-datasheets`, unless its claims move to `resold-parts`.
 #
@@ -57,3 +58,12 @@ shop = "aliexpress"
 store = "RD Official Store"
 item = "1000004290003"
 ordered = true
+
+# The lab's debug probe (builds/debug-probe/v2). Jon, 2026-10-02: "i have a raspberry pi debug
+# probe", bought from "raspberry pi themselves".
+[[line]]
+part = "RP2040"
+form = "Raspberry Pi Debug Probe, with its cables"
+store = "Raspberry Pi"
+authorized = "sold by the maker itself (Jon, 2026-10-02)"
+arrived = true

@@ -24,9 +24,13 @@ never_a_lab_target = "An agent that can flash it can change the limits it holds.
 # reaches EN but GP20, through 1 kOhm, which the comparator can pull down at any drive: a pin wired
 # to EN directly could be driven high by firmware and hold the switch closed through a cut.
 
+# No radio on the board that holds the limits (Jon, 2026-10-02: "we can plan on a plain pico 2").
+# A Pico 2 W has the same pinout and none of its radio's pins (GP23, GP24, GP25, GP29) is wired
+# here, but GP23 powers its radio, and whether the radio stays off with GP23 left alone the Pico 2
+# W datasheet (build date 03/07/2026, section 2.1) does not say.
 [[line]]
 part = "RP2350"
-form = "board with the Pico 2 pinout"
+form = "board with the Pico 2 pinout and no radio"
 qty = 1
 
 [[line]]

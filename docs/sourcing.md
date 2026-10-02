@@ -141,13 +141,13 @@ claims on `resold-parts`, not `maker-datasheets`, which assumes one: `lab/sourci
 `authorized` says where the maker lists a seller, and `crates/records` refuses a line that names a
 source or a stage without it, for a part sold by authorized sellers only, or for one whose claims
 rest on `maker-datasheets` unless they move to `resold-parts`. The AO3401A and the AO3400A have lost
-the mark; the INA239, the TLV3011B and the RP2350 keep it, each for the reason it gives. The tests
-below are worth running on any unit, whatever its source, since they catch a wrong or remarked part.
-Passing them shows a part fit for what they check, and no more: "No amount of testing can confirm an
-item as authentic" (SAE AS6171A, scope, revised 2018-04-18). Each test is a hardware action, logged;
-an agent runs one only within `lab/limits.toml` or on a person's approval (`CLAUDE.md`). Code a Pico
-runs to read a part counts as flashing the Pico (`lab/targets.toml`), so it needs a person's
-approval until the Pico is a lab target.
+the mark; the INA239, the TLV3011B, the RP2350 and the RP2040 keep it, each for the reason it gives.
+The tests below are worth running on any unit, whatever its source, since they catch a wrong or
+remarked part. Passing them shows a part fit for what they check, and no more: "No amount of testing
+can confirm an item as authentic" (SAE AS6171A, scope, revised 2018-04-18). Each test is a hardware
+action, logged; an agent runs one only within `lab/limits.toml` or on a person's approval
+(`CLAUDE.md`). Code a Pico runs to read a part counts as flashing the Pico (`lab/targets.toml`), so
+it needs a person's approval until the Pico is a lab target.
 
 - **INA239**, the enforcer's measurement. Read MANUFACTURER_ID (3Eh), which reads 5449h, "TI" in
   ASCII, and DEVICE_ID (3Fh), which reads 2391h (TI SLYS027A, Tables 7-20 and 7-21); then compare
@@ -176,11 +176,14 @@ approval until the Pico is a lab target.
   approval, since `lab/limits.toml` sets no limit for a part on the bench. **Mark off**
   (2026-10-02): these tests cover what the enforcer relies on from the two, at the bench's
   temperature. A unit not from an authorized distributor rests their claims on `resold-parts`.
-- **RP2350**, the debug probe's and the enforcer's microcontroller. In BOOTSEL, read its OTP with
-  picotool, and only read it: writing OTP is irreversible and needs approval (`CLAUDE.md`). A blank
-  part's OTP is "all zeroes, except for some basic device information pre-programmed during
-  manufacturing test" (RP2350 datasheet, build-date 2025-07-29, chapter 13). Whether picotool's
-  reads load code onto the chip has not been checked here, so treat them as needing approval too.
-  **Keeps the mark:** no read can show a tampered chip or flash. Micro Center is on Raspberry Pi's
-  list of approved resellers for the Pico 2 and the Pico 2 W in the US, "for home"
-  (content-api.raspberrypi.com, read 2026-10-02).
+- **RP2350**, the enforcer's microcontroller, and the one `builds/debug-probe/v1` runs on. In
+  BOOTSEL, read its OTP with picotool, and only read it: writing OTP is irreversible and needs
+  approval (`CLAUDE.md`). A blank part's OTP is "all zeroes, except for some basic device
+  information pre-programmed during manufacturing test" (RP2350 datasheet, build-date 2025-07-29,
+  chapter 13). Whether picotool's reads load code onto the chip has not been checked here, so treat
+  them as needing approval too. **Keeps the mark:** no read can show a tampered chip or flash. Micro
+  Center is on Raspberry Pi's list of approved resellers for the Pico 2 and the Pico 2 W in the US,
+  "for home" (content-api.raspberrypi.com, read 2026-10-02).
+- **RP2040**, the microcontroller in the lab's debug probe (`builds/debug-probe/v2`). **Keeps the
+  mark,** as the RP2350 does: no read can show a tampered chip or flash, and the probe is one way
+  code reaches the lab's other boards. The lab's came from Raspberry Pi itself (Jon, 2026-10-02).

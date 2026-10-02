@@ -256,7 +256,7 @@ Each is a candidate, to be proposed where it lands:
 | machcnz's AD9226 module notes | the module's clipping defect and its fix | `scope.md` |
 | Kazumoto Kojima's i5ether | an Ethernet adapter for the extension board's P1; no license file, so we link to it and do not copy it | `scope.md` (planned) |
 | OpenDPS | the DPS5005's firmware | `lab/limits.toml`, `parts/dps5005.toml` |
-| Raspberry Pi debugprobe | the debug probe's firmware | `builds/debug-probe/v1.toml` |
+| Raspberry Pi debugprobe | the debug probe's firmware, on a Pico 2 (v1) or on Raspberry Pi's Debug Probe (v2) | `builds/debug-probe/v1.toml`, `builds/debug-probe/v2.toml` |
 | jlcparts | part data without an LCSC key | `roadmap.md` (planned) |
 
 ## People worth writing to

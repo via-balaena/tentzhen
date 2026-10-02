@@ -1142,15 +1142,14 @@ mod tests {
     fn a_citation_names_a_claim_on_a_part_or_a_build_version() {
         let cat = repo();
         assert_eq!(cat.claim("DPS5005#input-range").unwrap().id, "input-range");
-        assert_eq!(
-            cat.claim("debug-probe/v1#enumerates").unwrap().id,
-            "enumerates"
-        );
+        for version in ["debug-probe/v1#enumerates", "debug-probe/v2#enumerates"] {
+            assert_eq!(cat.claim(version).unwrap().id, "enumerates");
+        }
         for none in [
             "DPS5005#input-rnage",
             "DPS5005",
             "dps5005#input-range",
-            "debug-probe/v2#enumerates",
+            "debug-probe/v3#enumerates",
             "debug-probe/vx#enumerates",
             "debug-probe#enumerates",
         ] {

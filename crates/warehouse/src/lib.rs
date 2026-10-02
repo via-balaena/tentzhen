@@ -391,7 +391,8 @@ mod tests {
         );
         let unknown = one(
             &conn,
-            "SELECT unknown FROM gold.grade_coverage WHERE subject = 'debug-probe/v1'",
+            "SELECT CAST(sum(unknown) AS BIGINT) FROM gold.grade_coverage \
+             WHERE subject LIKE 'debug-probe/v%'",
         );
         assert_eq!(claims, unknown, "nothing about debug-probe is shown yet");
     }

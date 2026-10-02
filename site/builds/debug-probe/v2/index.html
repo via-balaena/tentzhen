@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>debug-probe v2 · Tentzhen</title>
+<link rel="icon" href="../../../img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../../style.css">
+</head>
+<body>
+
+<header class="column site-header">
+  <a class="brand" href="../../../index.html" aria-label="Tentzhen home">
+    <img src="../../../img/mark-black.svg" alt="">
+    <span class="wordmark">TENTZHEN</span>
+  </a>
+  <nav class="site-nav" aria-label="Main">
+    <a href="../../../builds/index.html">BUILDS</a>
+    <a href="../../../parts/index.html">PARTS</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/vision.md">VISION</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">INSTRUMENT</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/verification.md">VERIFICATION</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/roadmap.md">ROADMAP</a>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
+  </nav>
+</header>
+
+<main class="column spec">
+<p class="crumbs"><a href="../../index.html">BUILDS</a> / DEBUG-PROBE / V2</p>
+<h1 class="spec-title">debug-probe</h1>
+<p class="spec-meta"><span class="state draft">v2 · draft</span><span class="versions">versions <a href="../v1/index.html">v1</a> <span class="here">v2</span></span></p>
+<p class="spec-changes">Changed from v1: The lab's probe is a Raspberry Pi Debug Probe, the accessory the debugprobe firmware is written for, in place of a Pico 2 running that firmware. v1 still shows how to make one from a Pico 2.</p>
+<p class="spec-does">Flashes and debugs a target over SWD, and bridges the target's UART to USB.</p>
+<h2>Parts</h2>
+<table class="spec-table">
+<thead><tr><th>QTY</th><th>PART</th><th>FORM</th><th></th></tr></thead>
+<tbody>
+<tr><td>1</td><td><a href="https://datasheets.raspberrypi.com/rp2040/rp2040-datasheet.pdf">RP2040</a></td><td>Raspberry Pi Debug Probe, with its cables</td><td class="muted">authorized sellers only</td></tr>
+</tbody>
+</table>
+<h2>Firmware</h2>
+<dl class="facts">
+<div><dt>NAME</dt><dd><a href="https://github.com/raspberrypi/debugprobe">debugprobe</a> · MIT</dd></div>
+<div><dt>RELEASE</dt><dd>debugprobe-v2.3.1</dd></div>
+<div><dt>FILE</dt><dd>debugprobe.uf2</dd></div>
+<div><dt>SHA-256</dt><dd class="hash">aae9585f456c28c00865eb3df4d4bfc184f8e7ae60ebed3cc32a32512521a1b8</dd></div>
+</dl>
+<h2>Walkthrough</h2>
+<p class="notice">At your own risk: not certified or calibrated test equipment. <a href="../../../legal/index.html">Legal</a></p>
+<ol class="steps">
+<li><p>Download the firmware and check its hash. The probe may already run it; loading the pinned file anyway makes it the firmware this version names.</p><pre><code>curl -LO https://github.com/raspberrypi/debugprobe/releases/download/debugprobe-v2.3.1/debugprobe.uf2
+shasum -a 256 debugprobe.uf2</code></pre><p class="expect"><span>EXPECT</span>aae9585f456c28c00865eb3df4d4bfc184f8e7ae60ebed3cc32a32512521a1b8</p></li>
+<li><p>Pinch the top off the probe's case, then hold BOOTSEL and plug it, with its USB cable, into the computer it is used from (the lab's: a Raspberry Pi).</p><p class="expect"><span>EXPECT</span>A drive named RPI-RP2 appears.</p></li>
+<li><p>Copy debugprobe.uf2 onto the RPI-RP2 drive.</p><p class="expect"><span>EXPECT</span>The drive disappears, and the probe comes back as a USB device named “Debug Probe (CMSIS-DAP)”.</p><p class="agent"><span>AGENTS</span>Flashing is a hardware action: only for a board on the lab-target list or with a person's approval, and logged.</p></li>
+<li><p>With the target powered off, connect the probe's D port to the target's SWD pins with the female header cable: orange to SWCLK, black to GND, yellow to SWDIO. A board without a three-pin JST-SH debug connector, such as a Pico 2 that is not an H, needs a male header soldered to those three pins first (the documentation's getting-started page). Targets with 3.3 V logic only.</p></li>
+<li><p>Power the target and ask the probe what it sees.</p><pre><code>probe-rs info</code></pre><p class="expect"><span>EXPECT</span>probe-rs finds the probe and reads the target's debug port.</p></li>
+</ol>
+<h2>Claims</h2>
+<table class="spec-table claims">
+<thead><tr><th>CLAIM</th><th>SIMULATION</th><th>ON THE BENCH</th></tr></thead>
+<tbody>
+<tr><td>Enumerates over USB as “Debug Probe (CMSIS-DAP)”.</td><td><span class="grade unknown">unknown</span></td><td><span class="grade unknown">unknown</span></td></tr>
+<tr><td>Reads a 3.3 V target's debug port over SWD.</td><td><span class="grade unknown">unknown</span></td><td><span class="grade unknown">unknown</span></td></tr>
+</tbody>
+</table>
+</main>
+
+<footer class="site-footer">
+  <div class="column">
+    <span>腾振 TENTZHEN · A VIA BALAENA PROJECT</span>
+    <span>MIT OR APACHE-2.0 · <a href="../../../legal/index.html">LEGAL</a></span>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB.COM/VIA-BALAENA/TENTZHEN</a>
+  </div>
+</footer>
+
+</body>
+</html>
