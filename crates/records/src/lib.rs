@@ -438,7 +438,7 @@ impl Catalogue {
 
     /// Adds the lab's sourcing, after the measurement records its incoming QA cites. Refuses what
     /// [`sourcing::parse`] refuses, a line no build writes, and a `passed_qa` that names no record
-    /// of the part from on or after the day it arrived.
+    /// of the part from on or after each day its stages give.
     pub fn with_sourcing(mut self, file: Source) -> Result<Self, String> {
         let lines = sourcing::parse(&file)?;
         for l in &lines {

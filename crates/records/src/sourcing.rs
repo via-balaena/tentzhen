@@ -11,18 +11,19 @@
 //! item = "1005007788475037"       # the shop's item number (Amazon's ASIN, LCSC's C number)
 //! listing_checked = "2026-10-02"  # the UTC day a person checked the listing against the build
 //! in_cart = "2026-10-03"          # the UTC day it went in a cart
-//! ordered = "2026-10-04"          # the UTC day it was ordered
+//! ordered = true                  # ordered, on a day the line does not give
 //! arrived = "2026-10-20"          # the UTC day it arrived
 //! passed_qa = "2026-10-21-i9-qa"  # the measurement record of the incoming QA it passed
 //! ```
 //!
 //! Until its line reaches a stage, or with no line, a thing is specced: a build needs it. Its
-//! status is the last stage it has reached, never written: the warehouse works it out.
-//! Every stage is optional, since a part may be ordered without a cart or be on hand already, but
-//! the days run in the stages' order, the incoming QA's being its record's day, and a stage from
-//! `listing_checked` to `ordered` names the shop and the item. A status is the whole line's: one of
-//! two modules ordered cannot be told from both. Prices stay out, as everything else from a listing
-//! does (CLAUDE.md).
+//! status is the last stage it has reached, never written: the warehouse works it out. A stage is
+//! the UTC day it was reached, or `true` when the line gives no day; `false` is refused, since a
+//! stage not reached is left out. Every stage is optional, since a part may be ordered without a
+//! cart or be on hand already, but the days given run in the stages' order, the incoming QA's
+//! being its record's day, and a stage from `listing_checked` to `ordered` names the shop and the
+//! item. A status is the whole line's: one of two modules ordered cannot be told from both. Prices
+//! stay out, as everything else from a listing does (CLAUDE.md).
 //!
 //! An AliExpress item number is the one aliexpress.com shows. On 2026-10-01 the i9's listing was
 //! item 1005007788475037 there and 3256807602160285 on aliexpress.us, 2^51 more, so a number of
@@ -92,6 +93,46 @@ impl Shop {
     }
 }
 
+/// A stage a line has reached: on the UTC day it gives, or on a day it does not give (`true`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Stage {
+    On(String),
+    Reached,
+}
+
+impl Stage {
+    /// The day the line gives for it, if any.
+    pub fn day(&self) -> Option<&str> {
+        match self {
+            Stage::On(day) => Some(day),
+            Stage::Reached => None,
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Stage {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct Visit;
+        impl serde::de::Visitor<'_> for Visit {
+            type Value = Stage;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("a UTC day, like \"2026-10-14\", or true for a day not given")
+            }
+            fn visit_bool<E: serde::de::Error>(self, b: bool) -> Result<Stage, E> {
+                if b {
+                    Ok(Stage::Reached)
+                } else {
+                    Err(E::custom("false: leave a stage out until it is reached"))
+                }
+            }
+            fn visit_str<E: serde::de::Error>(self, s: &str) -> Result<Stage, E> {
+                Ok(Stage::On(s.into()))
+            }
+        }
+        d.deserialize_any(Visit)
+    }
+}
+
 /// One thing to buy, and how far it has got.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -105,14 +146,14 @@ pub struct Line {
     pub store: Option<String>,
     /// The shop's item number: on Amazon the ASIN, on LCSC the C number.
     pub item: Option<String>,
-    /// The UTC day a person checked the listing against the build.
-    pub listing_checked: Option<String>,
-    /// The UTC day it went in a cart.
-    pub in_cart: Option<String>,
-    /// The UTC day it was ordered.
-    pub ordered: Option<String>,
-    /// The UTC day it arrived.
-    pub arrived: Option<String>,
+    /// A person checked the listing against the build.
+    pub listing_checked: Option<Stage>,
+    /// It went in a cart.
+    pub in_cart: Option<Stage>,
+    /// It was ordered.
+    pub ordered: Option<Stage>,
+    /// It arrived.
+    pub arrived: Option<Stage>,
     /// The id of the measurement record of the incoming QA it passed.
     pub passed_qa: Option<String>,
     /// The file it came from, relative to the repo root. Set on load, never written in a record.
@@ -146,19 +187,19 @@ impl Line {
         self.part == l.part && self.form == l.form && self.commodity == l.commodity
     }
 
-    /// The stages a day marks, in their order.
-    fn days(&self) -> [(&'static str, &Option<String>); 4] {
+    /// The stages before incoming QA, in their order.
+    pub fn stages(&self) -> [(&'static str, Option<&Stage>); 4] {
         [
-            ("listing_checked", &self.listing_checked),
-            ("in_cart", &self.in_cart),
-            ("ordered", &self.ordered),
-            ("arrived", &self.arrived),
+            ("listing_checked", self.listing_checked.as_ref()),
+            ("in_cart", self.in_cart.as_ref()),
+            ("ordered", self.ordered.as_ref()),
+            ("arrived", self.arrived.as_ref()),
         ]
     }
 
     /// Holds it to `cat`: some build version writes its line, and its `passed_qa` names a
-    /// measurement record from on or after the day it arrived, which lists its part among the
-    /// devices it measured.
+    /// measurement record from on or after each day its stages give, which lists its part among
+    /// the devices it measured.
     pub(crate) fn check_in(&self, cat: &Catalogue) -> Result<(), String> {
         let (at, named) = (&self.record, self.named());
         let lines = || cat.builds.values().flatten().flat_map(|b| &b.line);
@@ -198,11 +239,11 @@ impl Line {
         }
         // A record's id starts with its UTC day (`measurement`).
         let qa_day = id.get(..10).unwrap_or_default();
-        if let Some((stage, day)) = self
-            .days()
-            .into_iter()
-            .find_map(|(s, d)| d.as_deref().filter(|d| *d > qa_day).map(|d| (s, d)))
-        {
+        if let Some((stage, day)) = self.stages().into_iter().find_map(|(s, d)| {
+            d.and_then(Stage::day)
+                .filter(|d| *d > qa_day)
+                .map(|d| (s, d))
+        }) {
             return Err(format!(
                 "{at}: {named} passed incoming QA on {qa_day}, before its {stage}, {day}"
             ));
@@ -263,16 +304,17 @@ pub fn parse(s: &Source) -> Result<Vec<Line>, String> {
             return Err(format!("{at}: {named} names a store but no shop"));
         }
         let mut last: Option<(&str, &str)> = None;
-        for (stage, day) in l.days() {
-            let Some(day) = day.as_deref() else { continue };
-            if !real_day(day) {
-                return Err(format!(
-                    "{at}: {named}'s {stage} is a UTC day, like 2026-10-14"
-                ));
-            }
+        for (stage, reached) in l.stages() {
+            let Some(reached) = reached else { continue };
             if stage != "arrived" && l.shop.is_none() {
                 return Err(format!(
                     "{at}: {named}'s {stage} needs the shop and the item number"
+                ));
+            }
+            let Some(day) = reached.day() else { continue };
+            if !real_day(day) {
+                return Err(format!(
+                    "{at}: {named}'s {stage} is a UTC day, like 2026-10-14, or true"
                 ));
             }
             if let Some((before, then)) = last
@@ -395,6 +437,27 @@ mod tests {
             ),
             "arrived, 2026-10-02, comes before its listing_checked, 2026-10-03",
         );
+
+        // A stage with no day: reached, and out of the days' order.
+        let undated = format!(
+            "[[line]]\n{PICO}{SHOP}listing_checked = \"2026-10-03\"\nordered = true\n\
+             arrived = \"2026-10-04\"\n"
+        );
+        let lines = parse(&src(SOURCING, &undated)).unwrap();
+        assert_eq!(lines[0].ordered, Some(Stage::Reached));
+        assert_eq!(lines[0].arrived, Some(Stage::On("2026-10-04".into())));
+        refused(
+            &format!("[[line]]\n{PICO}ordered = true\n"),
+            "ordered needs the shop and the item number",
+        );
+        refused(
+            &format!("[[line]]\n{PICO}{SHOP}ordered = false\n"),
+            "false: leave a stage out until it is reached",
+        );
+        refused(
+            &format!("[[line]]\n{PICO}{SHOP}ordered = 5\n"),
+            "expected a UTC day, like \"2026-10-14\", or true",
+        );
     }
 
     /// A lab log of one entry, on 2026-10-14, as `tentzhen log append` writes it.
@@ -500,5 +563,10 @@ mod tests {
             ),
             "passed incoming QA on 2026-10-14, before its arrived, 2026-10-15",
         );
+        // A stage with no day is not held to the record's.
+        with(&format!(
+            "[[line]]\n{PICO}{SHOP}arrived = true\npassed_qa = \"2026-10-14-pico-incoming\"\n"
+        ))
+        .unwrap();
     }
 }

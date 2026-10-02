@@ -359,25 +359,30 @@ CREATE TABLE silver.sourcing (
     shop            TEXT CHECK (shop IN ('aliexpress', 'amazon', 'lcsc', 'taobao')),
     store           TEXT,
     item            TEXT,
-    listing_checked DATE,
-    in_cart         DATE,
-    ordered         DATE,
-    arrived         DATE,
-    passed_qa       TEXT REFERENCES silver.measurement (measurement),
-    record          TEXT NOT NULL,
+    listing_checked    BOOLEAN NOT NULL,
+    in_cart            BOOLEAN NOT NULL,
+    ordered            BOOLEAN NOT NULL,
+    arrived            BOOLEAN NOT NULL,
+    listing_checked_on DATE CHECK (listing_checked_on IS NULL OR listing_checked),
+    in_cart_on         DATE CHECK (in_cart_on IS NULL OR in_cart),
+    ordered_on         DATE CHECK (ordered_on IS NULL OR ordered),
+    arrived_on         DATE CHECK (arrived_on IS NULL OR arrived),
+    passed_qa          TEXT REFERENCES silver.measurement (measurement),
+    record             TEXT NOT NULL,
     CHECK ((part IS NULL) <> (commodity IS NULL)),
     CHECK ((shop IS NULL) = (item IS NULL)),
     CHECK (store IS NULL OR shop IS NOT NULL),
-    CHECK (shop IS NOT NULL OR coalesce(listing_checked, in_cart, ordered) IS NULL),
-    CHECK (listing_checked <= in_cart AND listing_checked <= ordered AND listing_checked <= arrived
-           AND in_cart <= ordered AND in_cart <= arrived AND ordered <= arrived)
+    CHECK (shop IS NOT NULL OR NOT (listing_checked OR in_cart OR ordered)),
+    CHECK (listing_checked_on <= in_cart_on AND listing_checked_on <= ordered_on
+           AND listing_checked_on <= arrived_on AND in_cart_on <= ordered_on
+           AND in_cart_on <= arrived_on AND ordered_on <= arrived_on)
 );
-COMMENT ON TABLE silver.sourcing IS 'Where the lab buys each thing its builds need, and the UTC day it reached each stage. A thing with no row, or a row that has reached no stage, is specced.';
+COMMENT ON TABLE silver.sourcing IS 'Where the lab buys each thing its builds need, and which stages it has reached, each on the UTC day in its _on column when the file gives one. A thing with no row, or a row that has reached no stage, is specced.';
 COMMENT ON COLUMN silver.sourcing.line_no IS 'Its place in the file, from 1.';
 COMMENT ON COLUMN silver.sourcing.store IS 'The seller, as the listing names it.';
 COMMENT ON COLUMN silver.sourcing.item IS 'The shop''s item number: on Amazon the ASIN, on LCSC the C number. crates/records holds its shape.';
-COMMENT ON COLUMN silver.sourcing.listing_checked IS 'The UTC day a person checked the listing against the build.';
-COMMENT ON COLUMN silver.sourcing.passed_qa IS 'The measurement record of the incoming QA it passed. crates/records holds that it lists the part and is from on or after the day it arrived; the database holds that it exists.';
+COMMENT ON COLUMN silver.sourcing.listing_checked IS 'A person checked the listing against the build.';
+COMMENT ON COLUMN silver.sourcing.passed_qa IS 'The measurement record of the incoming QA it passed. crates/records holds that it lists the part and is from on or after each day the stages give; the database holds that it exists.';
 COMMENT ON COLUMN silver.sourcing.record IS 'The file in bronze.record this row came from.';
 
 -- ---------------------------------------------------------------- silver: what shows a claim
@@ -495,19 +500,22 @@ COMMENT ON VIEW gold.bench_line IS 'Every line the bench needs, in the build ver
 
 CREATE VIEW gold.sourcing_status AS
 SELECT s.line_no, s.part, s.form, s.commodity, s.shop, s.store, s.item,
-       CASE WHEN s.passed_qa IS NOT NULL       THEN 'passed incoming QA'
-            WHEN s.arrived IS NOT NULL         THEN 'arrived'
-            WHEN s.ordered IS NOT NULL         THEN 'ordered'
-            WHEN s.in_cart IS NOT NULL         THEN 'in cart'
-            WHEN s.listing_checked IS NOT NULL THEN 'listing checked'
-            ELSE 'specced' END                 AS status,
+       CASE WHEN s.passed_qa IS NOT NULL THEN 'passed incoming QA'
+            WHEN s.arrived               THEN 'arrived'
+            WHEN s.ordered               THEN 'ordered'
+            WHEN s.in_cart               THEN 'in cart'
+            WHEN s.listing_checked       THEN 'listing checked'
+            ELSE 'specced' END           AS status,
        CASE WHEN s.passed_qa IS NOT NULL THEN CAST(e.logged_at AS DATE)
-            ELSE coalesce(s.arrived, s.ordered, s.in_cart, s.listing_checked) END AS since,
+            WHEN s.arrived               THEN s.arrived_on
+            WHEN s.ordered               THEN s.ordered_on
+            WHEN s.in_cart               THEN s.in_cart_on
+            WHEN s.listing_checked       THEN s.listing_checked_on END AS since,
        s.passed_qa
 FROM silver.sourcing s
 LEFT JOIN silver.measurement m    ON m.measurement = s.passed_qa
 LEFT JOIN silver.lab_log_entry e  ON e.sha256 = m.log_first;
-COMMENT ON VIEW gold.sourcing_status IS 'Each line of the lab''s sourcing with its status, the last stage it has reached, never typed, and since, the UTC day it reached it: for incoming QA, the day of its record''s first lab-log entry; NULL while specced.';
+COMMENT ON VIEW gold.sourcing_status IS 'Each line of the lab''s sourcing with its status, the last stage it has reached, never typed, and since, the UTC day it reached that stage: for incoming QA, the day of its record''s first lab-log entry; NULL while specced, or when the file gives no day for that stage.';
 
 CREATE VIEW gold.limit_grades AS
 WITH RECURSIVE reach (path, via) AS (

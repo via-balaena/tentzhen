@@ -7,6 +7,7 @@ use duckdb::{Connection, params};
 use tentzhen_lab::{LIMITS, Limits, Value};
 use tentzhen_records::log::{Datum, Entry};
 use tentzhen_records::measurement::Measurement;
+use tentzhen_records::sourcing::Stage;
 use tentzhen_records::{Catalogue, Claim};
 
 pub mod catalogue;
@@ -144,7 +145,7 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
     // After the measurement records its incoming QA names.
     for (i, l) in (1u32..).zip(&cat.sourcing) {
         tx.execute(
-            "INSERT INTO silver.sourcing VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO silver.sourcing VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             params![
                 i,
                 l.part,
@@ -153,10 +154,14 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
                 l.shop.map(|s| s.as_str()),
                 l.store,
                 l.item,
-                l.listing_checked,
-                l.in_cart,
-                l.ordered,
-                l.arrived,
+                l.listing_checked.is_some(),
+                l.in_cart.is_some(),
+                l.ordered.is_some(),
+                l.arrived.is_some(),
+                l.listing_checked.as_ref().and_then(Stage::day),
+                l.in_cart.as_ref().and_then(Stage::day),
+                l.ordered.as_ref().and_then(Stage::day),
+                l.arrived.as_ref().and_then(Stage::day),
                 l.passed_qa,
                 l.record
             ],
@@ -994,6 +999,7 @@ mod tests {
             "arrived",
             "inspected",
             "none",
+            "undated",
         ]
         .iter()
         .map(|c| format!("[[line]]\ncommodity = \"{c}\"\nqty = 1\n\n"))
@@ -1015,7 +1021,8 @@ mod tests {
     #[test]
     fn a_status_comes_from_its_stages() {
         // Each line reaches every stage up to its own, on a day of its own, so the last one wins.
-        // `none` names a shop and has reached no stage; `wire` has no line.
+        // `none` names a shop and has reached no stage; `wire` has no line. `undated` was ordered on
+        // a day the file does not give, after its listing was checked on one it does.
         let stages = [
             "shop = \"lcsc\"\nitem = \"C2040\"\nlisting_checked = \"2026-09-01\"",
             "in_cart = \"2026-09-02\"",
@@ -1034,6 +1041,9 @@ mod tests {
             line("commodity = \"arrived\"", 4),
             line("commodity = \"inspected\"", 5),
             "[[line]]\ncommodity = \"none\"\nshop = \"lcsc\"\nitem = \"C2040\"\n\n".into(),
+            "[[line]]\ncommodity = \"undated\"\nshop = \"lcsc\"\nitem = \"C2040\"\n\
+             listing_checked = \"2026-09-01\"\nordered = true\n\n"
+                .into(),
         ]
         .concat();
         let conn = sourced("status", &["2026-09-21-kit-qa"], &sourcing);
@@ -1057,6 +1067,7 @@ mod tests {
                 row("arrived", "arrived", Some("2026-09-04")),
                 row("inspected", "passed incoming QA", Some("2026-09-21")),
                 row("none", "specced", None),
+                row("undated", "ordered", None),
                 row("RP2350", "ordered", Some("2026-09-03")),
                 row("wire", "specced", None),
             ]
@@ -1618,12 +1629,12 @@ mod tests {
              INSERT INTO silver.referent VALUES ('k7', 'record', NULL, NULL, 'm1')",
         )
         .unwrap();
-        // Part, form, commodity, shop, store, item, then the stages: listing_checked, in_cart,
-        // ordered, arrived, passed_qa.
+        // Part, form, commodity, shop, store, item; whether each stage is reached (listing_checked,
+        // in_cart, ordered, arrived), then the day of each; passed_qa.
         let sourcing = |line: &str| {
             format!("INSERT INTO silver.sourcing VALUES (9, {line}, 'lab/sourcing.toml')")
         };
-        let none = "NULL, NULL, NULL, NULL, NULL";
+        let none = "false, false, false, false, NULL, NULL, NULL, NULL, NULL";
         for (line, why) in [
             (
                 format!("'RP2350', NULL, 'wire', NULL, NULL, NULL, {none}"),
@@ -1650,12 +1661,21 @@ mod tests {
                 "a store comes with its shop",
             ),
             (
-                "'RP2350', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-10-02', NULL, NULL"
+                "'RP2350', NULL, NULL, NULL, NULL, NULL, false, false, true, false, \
+                 NULL, NULL, NULL, NULL, NULL"
                     .into(),
                 "an order names its shop",
             ),
             (
-                "'RP2350', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'nope'".into(),
+                "'RP2350', NULL, NULL, 'lcsc', NULL, 'C1', false, false, false, false, \
+                 NULL, NULL, '2026-10-02', NULL, NULL"
+                    .into(),
+                "a stage's day comes with the stage",
+            ),
+            (
+                "'RP2350', NULL, NULL, NULL, NULL, NULL, false, false, false, false, \
+                 NULL, NULL, NULL, NULL, 'nope'"
+                    .into(),
                 "incoming QA names a measurement record",
             ),
         ] {
@@ -1664,11 +1684,13 @@ mod tests {
         // Each pair of stages, the later a day before the earlier, with any stage between not
         // reached: listing_checked, in_cart, ordered, arrived.
         for (i, j) in [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)] {
-            let mut days = ["NULL"; 4];
+            let (mut reached, mut days) = (["false"; 4], ["NULL"; 4]);
+            (reached[i], reached[j]) = ("true", "true");
             days[i] = "'2026-10-03'";
             days[j] = "'2026-10-02'";
             let line = format!(
-                "'RP2350', NULL, NULL, 'lcsc', NULL, 'C1', {}, NULL",
+                "'RP2350', NULL, NULL, 'lcsc', NULL, 'C1', {}, {}, NULL",
+                reached.join(", "),
                 days.join(", ")
             );
             refused(
@@ -1676,10 +1698,11 @@ mod tests {
                 "the days run in the stages' order",
             );
         }
+        // A day given, a stage with none, and a day after both.
         conn.execute(
             &sourcing(
-                "'RP2350', NULL, NULL, 'lcsc', NULL, 'C1', '2026-10-02', NULL, '2026-10-03', \
-                 '2026-10-09', 'm1'",
+                "'RP2350', NULL, NULL, 'lcsc', NULL, 'C1', true, false, true, true, \
+                 '2026-10-02', NULL, NULL, '2026-10-09', 'm1'",
             ),
             [],
         )

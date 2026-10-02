@@ -610,7 +610,7 @@ Constraints:
 
 ### `silver.sourcing` (table)
 
-Where the lab buys each thing its builds need, and the UTC day it reached each stage. A thing with no row, or a row that has reached no stage, is specced.
+Where the lab buys each thing its builds need, and which stages it has reached, each on the UTC day in its _on column when the file gives one. A thing with no row, or a row that has reached no stage, is specced.
 
 | column | type | null | about |
 |---|---|---|---|
@@ -621,11 +621,15 @@ Where the lab buys each thing its builds need, and the UTC day it reached each s
 | `shop` | VARCHAR | yes |  |
 | `store` | VARCHAR | yes | The seller, as the listing names it. |
 | `item` | VARCHAR | yes | The shop's item number: on Amazon the ASIN, on LCSC the C number. crates/records holds its shape. |
-| `listing_checked` | DATE | yes | The UTC day a person checked the listing against the build. |
-| `in_cart` | DATE | yes |  |
-| `ordered` | DATE | yes |  |
-| `arrived` | DATE | yes |  |
-| `passed_qa` | VARCHAR | yes | The measurement record of the incoming QA it passed. crates/records holds that it lists the part and is from on or after the day it arrived; the database holds that it exists. |
+| `listing_checked` | BOOLEAN | no | A person checked the listing against the build. |
+| `in_cart` | BOOLEAN | no |  |
+| `ordered` | BOOLEAN | no |  |
+| `arrived` | BOOLEAN | no |  |
+| `listing_checked_on` | DATE | yes |  |
+| `in_cart_on` | DATE | yes |  |
+| `ordered_on` | DATE | yes |  |
+| `arrived_on` | DATE | yes |  |
+| `passed_qa` | VARCHAR | yes | The measurement record of the incoming QA it passed. crates/records holds that it lists the part and is from on or after each day the stages give; the database holds that it exists. |
 | `record` | VARCHAR | no | The file in bronze.record this row came from. |
 
 Constraints:
@@ -633,12 +637,16 @@ Constraints:
 - `PRIMARY KEY(line_no)`
 - `FOREIGN KEY (part) REFERENCES silver.part(part)`
 - `CHECK((shop IN ('aliexpress', 'amazon', 'lcsc', 'taobao')))`
+- `CHECK(((listing_checked_on IS NULL) OR listing_checked))`
+- `CHECK(((in_cart_on IS NULL) OR in_cart))`
+- `CHECK(((ordered_on IS NULL) OR ordered))`
+- `CHECK(((arrived_on IS NULL) OR arrived))`
 - `FOREIGN KEY (passed_qa) REFERENCES silver.measurement(measurement)`
 - `CHECK(((part IS NULL) != (commodity IS NULL)))`
 - `CHECK(((shop IS NULL) = (item IS NULL)))`
 - `CHECK(((store IS NULL) OR (shop IS NOT NULL)))`
-- `CHECK(((shop IS NOT NULL) OR (COALESCE(listing_checked, in_cart, ordered) IS NULL)))`
-- `CHECK(((listing_checked <= in_cart) AND (listing_checked <= ordered) AND (listing_checked <= arrived) AND (in_cart <= ordered) AND (in_cart <= arrived) AND (ordered <= arrived)))`
+- `CHECK(((shop IS NOT NULL) OR (NOT (listing_checked OR in_cart OR ordered))))`
+- `CHECK(((listing_checked_on <= in_cart_on) AND (listing_checked_on <= ordered_on) AND (listing_checked_on <= arrived_on) AND (in_cart_on <= ordered_on) AND (in_cart_on <= arrived_on) AND (ordered_on <= arrived_on)))`
 
 Read by: `gold.sourcing_status`.
 
@@ -817,7 +825,7 @@ Read by: `gold.page_parts`, `gold.page_parts_used_in`.
 
 ### `gold.sourcing_status` (view)
 
-Each line of the lab's sourcing with its status, the last stage it has reached, never typed, and since, the UTC day it reached it: for incoming QA, the day of its record's first lab-log entry; NULL while specced.
+Each line of the lab's sourcing with its status, the last stage it has reached, never typed, and since, the UTC day it reached that stage: for incoming QA, the day of its record's first lab-log entry; NULL while specced, or when the file gives no day for that stage.
 
 | column | type |
 |---|---|
