@@ -1,6 +1,7 @@
-//! Loads the catalogue's records, the lab's limits, the lab-target list, the lab log and the
-//! measurement records into DuckDB: bronze (the files as read), silver (typed rows the database
-//! itself constrains) and gold (views). The schema is `schema.sql`; this only fills it.
+//! Loads the catalogue's records, the lab's limits, the lab-target list, the lab log, the
+//! measurement records and the lab's sourcing into DuckDB: bronze (the files as read), silver
+//! (typed rows the database itself constrains) and gold (views). The schema is `schema.sql`; this
+//! only fills it.
 
 use duckdb::{Connection, params};
 use tentzhen_lab::{LIMITS, Limits, Value};
@@ -139,6 +140,27 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
     load_log(&tx, &cat.log)?;
     for m in cat.measurements.values() {
         load_measurement(&tx, m)?;
+    }
+    // After the measurement records its incoming QA names.
+    for (i, l) in (1u32..).zip(&cat.sourcing) {
+        tx.execute(
+            "INSERT INTO silver.sourcing VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            params![
+                i,
+                l.part,
+                l.form,
+                l.commodity,
+                l.shop.map(|s| s.as_str()),
+                l.store,
+                l.item,
+                l.listing_checked,
+                l.in_cart,
+                l.ordered,
+                l.arrived,
+                l.passed_qa,
+                l.record
+            ],
+        )?;
     }
     for (claim, c) in &claims {
         load_referents(&tx, claim, c)?;
@@ -377,7 +399,8 @@ mod tests {
              UNION ALL SELECT record FROM silver.trusted_entry \
              UNION ALL SELECT record FROM silver.lab_target \
              UNION ALL SELECT record FROM silver.lab_log_entry \
-             UNION ALL SELECT record FROM silver.measurement) s \
+             UNION ALL SELECT record FROM silver.measurement \
+             UNION ALL SELECT record FROM silver.sourcing) s \
              LEFT JOIN bronze.record r ON r.path = s.record WHERE r.path IS NULL",
         );
         assert_eq!(orphans, 0);
@@ -862,6 +885,214 @@ mod tests {
             ),
             2
         );
+    }
+
+    /// A build version of `name` that writes `extra`.
+    fn version(name: &str, v: u32, extra: &str) -> Source {
+        src(
+            &format!("builds/{name}/v{v}.toml"),
+            &format!(
+                "build = \"{name}\"\nversion = {v}\nstatus = \"draft\"\ndoes = \"a thing\"\n\
+                 changes = \"more\"\n{extra}"
+            ),
+        )
+    }
+
+    /// Each row of the parts page as (part or commodity, qty, status, since), and the build
+    /// versions it is used in, with how many each needs.
+    fn parts_page(conn: &Connection) -> Vec<(String, i64, String, Option<String>, String)> {
+        let mut stmt = conn
+            .prepare(
+                "SELECT coalesce(p.part, p.commodity), p.qty, p.status, CAST(p.since AS TEXT), \
+                 string_agg(u.build || ' v' || u.version || ' x' || u.qty, ', ' \
+                            ORDER BY u.build, u.version) \
+                 FROM gold.page_parts p JOIN gold.page_parts_used_in u USING (parts_no) \
+                 GROUP BY p.parts_no, p.part, p.commodity, p.qty, p.status, p.since \
+                 ORDER BY p.parts_no",
+            )
+            .unwrap();
+        stmt.query_map([], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+        })
+        .unwrap()
+        .collect::<duckdb::Result<_>>()
+        .unwrap()
+    }
+
+    /// The parts list buys for the newest version of each build, once: a build another build's
+    /// newest version uses is counted inside it, and an older version not at all, nor what only an
+    /// older version uses.
+    #[test]
+    fn the_parts_list_counts_each_build_once() {
+        let bench = build(
+            "bench",
+            "[[uses]]\nbuild = \"probe\"\nversion = 1\nqty = 2\n\n\
+             [[line]]\ncommodity = \"wire\"\nqty = 1\n",
+        );
+        let tool = |v: u32, qty: u32| {
+            let line = format!("[[line]]\npart = \"RP2350\"\nqty = {qty}\n");
+            if v == 1 {
+                build("tool", &line)
+            } else {
+                version("tool", v, &line)
+            }
+        };
+        let gizmo = build("gizmo", "[[line]]\ncommodity = \"glue\"\nqty = 1\n");
+        let rig = [
+            build("rig", "[[uses]]\nbuild = \"gizmo\"\nversion = 1\n"),
+            version("rig", 2, "[[line]]\ncommodity = \"tape\"\nqty = 1\n"),
+        ];
+        let cat = Catalogue::from_sources(
+            &base(),
+            &[src("parts/rp2350.toml", PART)],
+            &[
+                &[build("probe", PROBE), bench, tool(1, 7), tool(2, 3), gizmo],
+                &rig[..],
+            ]
+            .concat(),
+        )
+        .unwrap();
+        let conn = warehouse(&cat);
+        let bench: Vec<(String, i64)> = conn
+            .prepare("SELECT build, version FROM gold.bench ORDER BY build")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .collect::<duckdb::Result<_>>()
+            .unwrap();
+        let bv = |b: &str, v| (b.to_string(), v);
+        assert_eq!(
+            bench,
+            [bv("bench", 1), bv("gizmo", 1), bv("rig", 2), bv("tool", 2)]
+        );
+        let specced =
+            |what: &str, qty, used: &str| (what.into(), qty, "specced".into(), None, used.into());
+        assert_eq!(
+            parts_page(&conn),
+            [
+                specced("wire", 13, "bench v1 x1, probe v1 x12"),
+                specced("glue", 1, "gizmo v1 x1"),
+                specced("RP2350", 5, "probe v1 x2, tool v2 x3"),
+                specced("tape", 1, "rig v2 x1"),
+            ]
+        );
+    }
+
+    /// A probe build, and a kit of commodities, one for each stage, with `sourcing` and the records
+    /// of [`measured`].
+    fn sourced(test: &str, ids: &[&str], sourcing: &str) -> Connection {
+        let kit: String = [
+            "listed",
+            "carted",
+            "ordered",
+            "arrived",
+            "inspected",
+            "none",
+        ]
+        .iter()
+        .map(|c| format!("[[line]]\ncommodity = \"{c}\"\nqty = 1\n\n"))
+        .collect();
+        let cat = Catalogue::from_sources(
+            &base(),
+            &[src("parts/rp2350.toml", PART)],
+            &[build("probe", PROBE), build("kit", &kit)],
+        )
+        .unwrap();
+        let cat = measured(cat, test, ids)
+            .with_sourcing(src("lab/sourcing.toml", sourcing))
+            .unwrap();
+        warehouse(&cat)
+    }
+
+    /// A status is the last stage a line has reached, from the days its stages give and, for
+    /// incoming QA, its record's.
+    #[test]
+    fn a_status_comes_from_its_stages() {
+        // Each line reaches every stage up to its own, on a day of its own, so the last one wins.
+        let stages = [
+            "shop = \"lcsc\"\nitem = \"C2040\"\nlisting_checked = \"2026-09-01\"",
+            "in_cart = \"2026-09-02\"",
+            "ordered = \"2026-09-03\"",
+            "arrived = \"2026-09-04\"",
+            "passed_qa = \"2026-09-21-kit-qa\"",
+        ];
+        let line = |what: &str, reached: usize| {
+            format!("[[line]]\n{what}\n{}\n\n", stages[..reached].join("\n"))
+        };
+        let sourcing = [
+            line("part = \"RP2350\"", 3),
+            line("commodity = \"listed\"", 1),
+            line("commodity = \"carted\"", 2),
+            line("commodity = \"ordered\"", 3),
+            line("commodity = \"arrived\"", 4),
+            line("commodity = \"inspected\"", 5),
+        ]
+        .concat();
+        let conn = sourced("status", &["2026-09-21-kit-qa"], &sourcing);
+        let got: Vec<(String, String, Option<String>)> = parts_page(&conn)
+            .into_iter()
+            .map(|(what, _, status, since, _)| (what, status, since))
+            .collect();
+        let row = |what: &str, status: &str, since: Option<&str>| {
+            (
+                what.to_string(),
+                status.to_string(),
+                since.map(String::from),
+            )
+        };
+        assert_eq!(
+            got,
+            [
+                row("listed", "listing checked", Some("2026-09-01")),
+                row("carted", "in cart", Some("2026-09-02")),
+                row("ordered", "ordered", Some("2026-09-03")),
+                row("arrived", "arrived", Some("2026-09-04")),
+                row("inspected", "passed incoming QA", Some("2026-09-21")),
+                row("none", "specced", None),
+                row("RP2350", "ordered", Some("2026-09-03")),
+                row("wire", "specced", None),
+            ]
+        );
+        let qa: String = conn
+            .query_row(
+                "SELECT passed_qa FROM gold.page_parts WHERE commodity = 'inspected'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(qa, "2026-09-21-kit-qa");
+    }
+
+    /// Sourcing lines the parts page does not show.
+    const OFF_THE_PARTS_LIST: &str = "SELECT count(*) FROM silver.sourcing s WHERE NOT EXISTS ( \
+         SELECT 1 FROM gold.page_parts p WHERE p.part IS NOT DISTINCT FROM s.part \
+         AND p.form IS NOT DISTINCT FROM s.form AND p.commodity IS NOT DISTINCT FROM s.commodity)";
+
+    /// crates/records holds a sourcing line to a line some build version writes; this holds the
+    /// repo's to the parts list, which buys for the newest versions only. The control is a line
+    /// only an older version writes, which loads and is counted.
+    #[test]
+    fn every_sourcing_line_is_on_the_parts_list() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let conn = warehouse(&Catalogue::load(&root).unwrap());
+        assert!(one(&conn, "SELECT count(*) FROM silver.sourcing") >= 1);
+        assert_eq!(
+            one(&conn, OFF_THE_PARTS_LIST),
+            0,
+            "a line in lab/sourcing.toml is for a build's older version: drop it, or name the \
+             line as the newest version writes it"
+        );
+
+        let newer = version("probe", 2, "[[line]]\npart = \"RP2350\"\nqty = 1\n");
+        let cat = Catalogue::from_sources(
+            &base(),
+            &[src("parts/rp2350.toml", PART)],
+            &[build("probe", PROBE), newer],
+        )
+        .unwrap()
+        .with_sourcing(src("lab/sourcing.toml", "[[line]]\ncommodity = \"wire\"\n"))
+        .unwrap();
+        assert_eq!(one(&warehouse(&cat), OFF_THE_PARTS_LIST), 1);
     }
 
     /// Each claim's (sim grade, sim evidence, bench grade, bench evidence), by its id.
@@ -1377,6 +1608,63 @@ mod tests {
             "INSERT INTO silver.measurement_value VALUES ('m1', 'x', 1.0, NULL, NULL); \
              INSERT INTO silver.measurement_tool VALUES ('m1', 'probe-rs', '0.29.1'); \
              INSERT INTO silver.referent VALUES ('k7', 'record', NULL, NULL, 'm1')",
+        )
+        .unwrap();
+        // Part, form, commodity, shop, store, item, then the stages: listing_checked, in_cart,
+        // ordered, arrived, passed_qa.
+        let sourcing = |line: &str| {
+            format!("INSERT INTO silver.sourcing VALUES (9, {line}, 'lab/sourcing.toml')")
+        };
+        let none = "NULL, NULL, NULL, NULL, NULL";
+        for (line, why) in [
+            (
+                format!("'RP2350', NULL, 'wire', NULL, NULL, NULL, {none}"),
+                "a sourcing line names a part or a commodity, not both",
+            ),
+            (
+                format!("NULL, NULL, NULL, NULL, NULL, NULL, {none}"),
+                "a sourcing line names something",
+            ),
+            (
+                format!("'RP9999', NULL, NULL, NULL, NULL, NULL, {none}"),
+                "a sourcing line's part has a record",
+            ),
+            (
+                format!("'RP2350', NULL, NULL, 'ebay', NULL, '1', {none}"),
+                "a shop is one the records know",
+            ),
+            (
+                format!("'RP2350', NULL, NULL, 'lcsc', NULL, NULL, {none}"),
+                "a shop comes with its item number",
+            ),
+            (
+                format!("'RP2350', NULL, NULL, NULL, 'Maker', NULL, {none}"),
+                "a store comes with its shop",
+            ),
+            (
+                "'RP2350', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-10-02', NULL, NULL"
+                    .into(),
+                "an order names its shop",
+            ),
+            (
+                "'RP2350', NULL, NULL, 'lcsc', NULL, 'C1', '2026-10-03', NULL, '2026-10-02', \
+                 NULL, NULL"
+                    .into(),
+                "the days run in the stages' order, past a stage not reached",
+            ),
+            (
+                "'RP2350', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'nope'".into(),
+                "incoming QA names a measurement record",
+            ),
+        ] {
+            refused(conn.execute(&sourcing(&line), []).map(|_| ()), why);
+        }
+        conn.execute(
+            &sourcing(
+                "'RP2350', NULL, NULL, 'lcsc', NULL, 'C1', '2026-10-02', NULL, '2026-10-03', \
+                 '2026-10-09', 'm1'",
+            ),
+            [],
         )
         .unwrap();
     }

@@ -38,6 +38,7 @@ flowchart LR
     silver_measurement_device["silver.measurement_device"]
     silver_measurement_tool["silver.measurement_tool"]
     silver_measurement_value["silver.measurement_value"]
+    silver_sourcing["silver.sourcing"]
     silver_referent["silver.referent"]
   end
   subgraph gold
@@ -45,8 +46,12 @@ flowchart LR
     gold_claim_grades["gold.claim_grades"]
     gold_claim_values["gold.claim_values"]
     gold_grade_coverage["gold.grade_coverage"]
+    gold_build_tree["gold.build_tree"]
     gold_bom_exploded["gold.bom_exploded"]
     gold_where_used["gold.where_used"]
+    gold_bench["gold.bench"]
+    gold_bench_line["gold.bench_line"]
+    gold_sourcing_status["gold.sourcing_status"]
     gold_limit_grades["gold.limit_grades"]
     gold_page["gold.page"]
     gold_page_line["gold.page_line"]
@@ -55,6 +60,8 @@ flowchart LR
     gold_page_firmware["gold.page_firmware"]
     gold_page_pin["gold.page_pin"]
     gold_page_step["gold.page_step"]
+    gold_page_parts["gold.page_parts"]
+    gold_page_parts_used_in["gold.page_parts_used_in"]
     gold_legal["gold.legal"]
   end
   bronze -. crates/warehouse .-> silver
@@ -64,10 +71,19 @@ flowchart LR
   silver_referent --> gold_claim_grades
   silver_claim_value --> gold_claim_values
   gold_claim_grades --> gold_grade_coverage
-  silver_build_version --> gold_bom_exploded
+  silver_build_version --> gold_build_tree
+  silver_uses --> gold_build_tree
+  gold_build_tree --> gold_bom_exploded
   silver_line --> gold_bom_exploded
-  silver_uses --> gold_bom_exploded
   gold_bom_exploded --> gold_where_used
+  gold_latest --> gold_bench
+  silver_uses --> gold_bench
+  gold_bench --> gold_bench_line
+  gold_build_tree --> gold_bench_line
+  silver_line --> gold_bench_line
+  silver_lab_log_entry --> gold_sourcing_status
+  silver_measurement --> gold_sourcing_status
+  silver_sourcing --> gold_sourcing_status
   gold_claim_grades --> gold_limit_grades
   silver_lab_limit --> gold_limit_grades
   silver_lab_limit_input --> gold_limit_grades
@@ -83,6 +99,10 @@ flowchart LR
   silver_firmware --> gold_page_firmware
   silver_pin --> gold_page_pin
   silver_step --> gold_page_step
+  gold_bench_line --> gold_page_parts
+  gold_sourcing_status --> gold_page_parts
+  silver_part --> gold_page_parts
+  gold_bench_line --> gold_page_parts_used_in
   bronze_record --> gold_legal
   crates_site(["crates/site"])
   gold_claim_grades --> crates_site
@@ -147,7 +167,7 @@ Constraints:
 - `PRIMARY KEY(part)`
 - `CHECK((kind IN ('chip', 'module', 'product')))`
 
-Read by: `gold.page_line`.
+Read by: `gold.page_line`, `gold.page_parts`.
 
 ### `silver.build_version` (table)
 
@@ -172,7 +192,7 @@ Constraints:
 - `PRIMARY KEY(build, "version")`
 - `CHECK((("version" = 1) OR (changes IS NOT NULL)))`
 
-Read by: `gold.latest`, `gold.bom_exploded`, `gold.page`.
+Read by: `gold.latest`, `gold.build_tree`, `gold.page`.
 
 ### `silver.line` (table)
 
@@ -196,7 +216,7 @@ Constraints:
 - `FOREIGN KEY (build, "version") REFERENCES silver.build_version(build, "version")`
 - `CHECK(((part IS NULL) != (commodity IS NULL)))`
 
-Read by: `gold.bom_exploded`, `gold.page_line`.
+Read by: `gold.bom_exploded`, `gold.bench_line`, `gold.page_line`.
 
 ### `silver.uses` (table)
 
@@ -218,7 +238,7 @@ Constraints:
 - `FOREIGN KEY (build, "version") REFERENCES silver.build_version(build, "version")`
 - `FOREIGN KEY (uses_build, uses_version) REFERENCES silver.build_version(build, "version")`
 
-Read by: `gold.bom_exploded`, `gold.page_uses`, `gold.page_used_in`.
+Read by: `gold.build_tree`, `gold.bench`, `gold.page_uses`, `gold.page_used_in`.
 
 ### `silver.firmware` (table)
 
@@ -477,6 +497,8 @@ Constraints:
 - `FOREIGN KEY (prev) REFERENCES silver.lab_log_entry(sha256)`
 - `CHECK(((seq = 1) = (prev IS NULL)))`
 
+Read by: `gold.sourcing_status`.
+
 ### `silver.lab_log_value` (table)
 
 What each action was asked to do (params) and what happened (result): each a number, a word or a yes/no.
@@ -515,6 +537,8 @@ Constraints:
 - `PRIMARY KEY(measurement)`
 - `FOREIGN KEY (log_first) REFERENCES silver.lab_log_entry(sha256)`
 - `FOREIGN KEY (log_last) REFERENCES silver.lab_log_entry(sha256)`
+
+Read by: `gold.sourcing_status`.
 
 ### `silver.measurement_device` (table)
 
@@ -582,6 +606,40 @@ Constraints:
 - `PRIMARY KEY(measurement, "name")`
 - `CHECK((((CAST((amount IS NOT NULL) AS INTEGER) + CAST(("text" IS NOT NULL) AS INTEGER)) + CAST((flag IS NOT NULL) AS INTEGER)) = 1))`
 
+### `silver.sourcing` (table)
+
+Where the lab buys each thing its builds need, and the UTC day it reached each stage. A thing with no row is specced: nothing is chosen.
+
+| column | type | null | about |
+|---|---|---|---|
+| `line_no` | INTEGER | no | Its place in the file, from 1. |
+| `part` | VARCHAR | yes |  |
+| `form` | VARCHAR | yes |  |
+| `commodity` | VARCHAR | yes |  |
+| `shop` | VARCHAR | yes |  |
+| `store` | VARCHAR | yes | The seller. |
+| `item` | VARCHAR | yes | The shop's item number: on Amazon the ASIN, on LCSC the C number. crates/records holds its shape. |
+| `listing_checked` | DATE | yes | The UTC day a person checked the listing against the build. |
+| `in_cart` | DATE | yes |  |
+| `ordered` | DATE | yes |  |
+| `arrived` | DATE | yes |  |
+| `passed_qa` | VARCHAR | yes | The measurement record of the incoming QA it passed. crates/records holds that it lists the part and is from on or after the day it arrived; the database holds that it exists. |
+| `record` | VARCHAR | no | The file in bronze.record this row came from. |
+
+Constraints:
+
+- `PRIMARY KEY(line_no)`
+- `FOREIGN KEY (part) REFERENCES silver.part(part)`
+- `CHECK((shop IN ('aliexpress', 'amazon', 'lcsc', 'taobao')))`
+- `FOREIGN KEY (passed_qa) REFERENCES silver.measurement(measurement)`
+- `CHECK(((part IS NULL) != (commodity IS NULL)))`
+- `CHECK(((shop IS NULL) = (item IS NULL)))`
+- `CHECK(((store IS NULL) OR (shop IS NOT NULL)))`
+- `CHECK(((shop IS NOT NULL) OR (COALESCE(listing_checked, in_cart, ordered) IS NULL)))`
+- `CHECK(((listing_checked <= in_cart) AND (listing_checked <= ordered) AND (listing_checked <= arrived) AND (in_cart <= ordered) AND (in_cart <= arrived) AND (ordered <= arrived)))`
+
+Read by: `gold.sourcing_status`.
+
 ### `silver.referent` (table)
 
 What shows a claim: a proof, a bounded check or a test in simulation; a bench measurement record; or an entry in the trusted base.
@@ -620,7 +678,7 @@ The newest version of each build.
 
 Reads: `silver.build_version`.
 
-Read by: `gold.page`.
+Read by: `gold.bench`, `gold.page`.
 
 ### `gold.claim_grades` (view)
 
@@ -675,9 +733,25 @@ Reads: `gold.claim_grades`.
 
 Read by: no crate yet.
 
+### `gold.build_tree` (view)
+
+Every build version each build version is made of, itself included, and how many of it, through every build it uses. The records forbid `uses` loops, so the recursion ends.
+
+| column | type |
+|---|---|
+| `root_build` | VARCHAR |
+| `root_version` | INTEGER |
+| `build` | VARCHAR |
+| `version` | INTEGER |
+| `qty` | HUGEINT |
+
+Reads: `silver.build_version`, `silver.uses`.
+
+Read by: `gold.bom_exploded`, `gold.bench_line`.
+
 ### `gold.bom_exploded` (view)
 
-Every part and commodity a build version needs, through every build it uses, with quantities multiplied down the tree. The records forbid `uses` loops, so the recursion ends.
+Every part and commodity a build version needs, through every build it uses, with quantities multiplied down the tree.
 
 | column | type |
 |---|---|
@@ -688,7 +762,7 @@ Every part and commodity a build version needs, through every build it uses, wit
 | `form` | VARCHAR |
 | `qty` | HUGEINT |
 
-Reads: `silver.build_version`, `silver.line`, `silver.uses`.
+Reads: `gold.build_tree`, `silver.line`.
 
 Read by: `gold.where_used`.
 
@@ -706,6 +780,59 @@ Where each part ends up, directly or inside another build.
 Reads: `gold.bom_exploded`.
 
 Read by: no crate yet.
+
+### `gold.bench` (view)
+
+The build versions the lab builds, each once: the newest version of every build, less one that the newest version of another build uses, which is built inside that one.
+
+| column | type |
+|---|---|
+| `build` | VARCHAR |
+| `version` | INTEGER |
+
+Reads: `gold.latest`, `silver.uses`.
+
+Read by: `gold.bench_line`.
+
+### `gold.bench_line` (view)
+
+Every line the bench needs, in the build version that writes it, with how many: its qty times how many of that version the builds in gold.bench take. parts_no is its row on the parts list, shared by every line that buys the same thing (part and form, or commodity and form): the place of the first such line, by build, version and line.
+
+| column | type |
+|---|---|
+| `build` | VARCHAR |
+| `version` | INTEGER |
+| `line_no` | INTEGER |
+| `part` | VARCHAR |
+| `form` | VARCHAR |
+| `commodity` | VARCHAR |
+| `qty` | HUGEINT |
+| `parts_no` | BIGINT |
+
+Reads: `gold.bench`, `gold.build_tree`, `silver.line`.
+
+Read by: `gold.page_parts`, `gold.page_parts_used_in`.
+
+### `gold.sourcing_status` (view)
+
+Each line of the lab's sourcing with its status, the last stage it has reached, never typed, and since, the UTC day it reached it: for incoming QA, the day of its record's first lab-log entry; NULL while specced.
+
+| column | type |
+|---|---|
+| `line_no` | INTEGER |
+| `part` | VARCHAR |
+| `form` | VARCHAR |
+| `commodity` | VARCHAR |
+| `shop` | VARCHAR |
+| `store` | VARCHAR |
+| `item` | VARCHAR |
+| `status` | VARCHAR |
+| `since` | DATE |
+| `passed_qa` | VARCHAR |
+
+Reads: `silver.lab_log_entry`, `silver.measurement`, `silver.sourcing`.
+
+Read by: `gold.page_parts`.
 
 ### `gold.limit_grades` (view)
 
@@ -854,6 +981,45 @@ silver.step, for build pages.
 Reads: `silver.step`.
 
 Read by: `crates/site`.
+
+### `gold.page_parts` (view)
+
+The parts page: each thing the bench needs once, with how many, where the lab buys it and how far it has got. No prices: CLAUDE.md keeps them out.
+
+| column | type |
+|---|---|
+| `parts_no` | BIGINT |
+| `qty` | HUGEINT |
+| `part` | VARCHAR |
+| `form` | VARCHAR |
+| `commodity` | VARCHAR |
+| `datasheet` | VARCHAR |
+| `authorized_only` | BOOLEAN |
+| `shop` | VARCHAR |
+| `store` | VARCHAR |
+| `item` | VARCHAR |
+| `status` | VARCHAR |
+| `since` | DATE |
+| `passed_qa` | VARCHAR |
+
+Reads: `gold.bench_line`, `gold.sourcing_status`, `silver.part`.
+
+Read by: no crate yet.
+
+### `gold.page_parts_used_in` (view)
+
+The build versions that write each row of the parts page, and how many each needs.
+
+| column | type |
+|---|---|
+| `parts_no` | BIGINT |
+| `build` | VARCHAR |
+| `version` | INTEGER |
+| `qty` | HUGEINT |
+
+Reads: `gold.bench_line`.
+
+Read by: no crate yet.
 
 ### `gold.legal` (view)
 
