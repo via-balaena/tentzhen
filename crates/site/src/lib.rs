@@ -558,7 +558,11 @@ pub fn render_parts(conn: &Connection) -> duckdb::Result<String> {
         }
         let when = p.passed_qa.as_ref().or(p.since.as_ref());
         let status = match when {
-            Some(w) => format!("{} <span class=\"muted\">{}</span>", esc(&p.status), esc(w)),
+            Some(w) => format!(
+                "{} <span class=\"muted when\">{}</span>",
+                esc(&p.status),
+                esc(w)
+            ),
             None => esc(&p.status),
         };
         let _ = writeln!(
@@ -790,7 +794,7 @@ mod tests {
                  <a href=\"../builds/bench/v1/index.html\">bench v1</a></td>\
                  <td>LCSC <span class=\"item\">C2040</span><br>\
                  <span class=\"muted\">authorized sellers only</span></td>\
-                 <td>passed incoming QA <span class=\"muted\">2026-10-14-ina-incoming</span></td></tr>",
+                 <td>passed incoming QA <span class=\"muted when\">2026-10-14-ina-incoming</span></td></tr>",
                 "<tr><td>1</td><td>glue</td><td></td><td>\
                  <a href=\"../builds/bench/v1/index.html\">bench v1</a></td>\
                  <td>Hardware Store</td><td>arrived</td></tr>",
@@ -803,7 +807,7 @@ mod tests {
                 "<tr><td>6</td><td>wire</td><td></td><td>\
                  <a href=\"../builds/probe/v1/index.html\">probe v1</a></td>\
                  <td>Amazon · Maker <span class=\"item\">B0ABCDEFGH</span></td>\
-                 <td>ordered <span class=\"muted\">2026-10-02</span></td></tr>",
+                 <td>ordered <span class=\"muted when\">2026-10-02</span></td></tr>",
             ]
         );
         assert!(page.contains("<a href=\"../parts/index.html\">PARTS</a>"));
