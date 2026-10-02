@@ -13,10 +13,11 @@ Anywhere they are cheap, if incoming QA can check what the build relies on (`vis
 - **Anyone else:** a reseller, a used sale, a thrift store, a junked device, a drawer at home.
   `lab/sourcing.toml` records each as a shop's listing, a `store` with no listing, `used`,
   `salvaged_from` a device, or `arrived = true` with no source. Until incoming QA measures a part,
-  its claims are to rest on a `trusted-base.toml` entry that says where that trust comes from. One
-  such entry exists besides `maker-datasheets`, which assumes an authorized distributor:
-  `aliexpress-modules`, for the AD9226's and the AD9767's claims, since they come soldered to
-  modules bought on AliExpress. Nothing checks a part's entry against its source.
+  its claims rest on a `trusted-base.toml` entry that says where that trust comes from:
+  `maker-datasheets` for a part from an authorized distributor, `resold-parts` for one from anyone
+  else, and `aliexpress-modules` for the AD9226's and the AD9767's, which come soldered to modules
+  bought on AliExpress. A sourcing line for a part whose claims rest on `maker-datasheets` says
+  where the maker lists its seller (`authorized`), or `crates/records` refuses it.
 - **An authorized seller only**, for a part whose job no bench test on arrival can check, including
   one whose spec is finer than the bench can measure: the parts marked `authorized_only` in
   `parts/`.
@@ -135,10 +136,12 @@ content.
 ### The parts sold by authorized sellers only
 
 Reviewed 2026-10-02 against the rule above: a part's mark comes off when a bench test on arrival
-covers what its build relies on. For the four enforcer chips there is a step first: their claims
-rest on `maker-datasheets`, which assumes an authorized distributor, so a unit bought elsewhere
-needs a trusted-base entry of its own. All five keep the mark for now, each for the reason it gives.
-The tests below are still worth running on any unit, whatever its source, since they catch a wrong
+covers what its build relies on. A unit bought from anyone but an authorized distributor rests its
+claims on `resold-parts`, not `maker-datasheets`, which assumes one: `lab/sourcing.toml`'s
+`authorized` says where the maker lists a seller, and `crates/records` refuses a line that names a
+source or a stage for a part whose claims rest on `maker-datasheets` without it. The AO3401A and the
+AO3400A have lost the mark; the INA239, the TLV3011B and the RP2350 keep it, each for the reason it
+gives. The tests below are worth running on any unit, whatever its source, since they catch a wrong
 or remarked part. Passing them shows a part fit for what they check, and no more: "No amount of
 testing can confirm an item as authentic" (SAE AS6171A, scope, revised 2018-04-18). Each test is a
 hardware action, logged; an agent runs one only within `lab/limits.toml` or on a person's approval
@@ -162,14 +165,16 @@ it needs a person's approval until the Pico is a lab target.
   reference moves with temperature goes unmeasured.
 - **AO3401A**, the enforcer's switch, and **AO3400A**, its driver. A diode test finds each one's
   orientation, and a resistor and the supply its gate threshold at 250 µA: 0.5 V to 1.3 V below the
-  source for the AO3401A, 0.65 V to 1.45 V above it for the AO3400A (Alpha and Omega datasheets, Rev
-  3.1). If the DPS5005 fails, SUPPLY can rise toward the 6.5 V that `[supply.upstream]` feeds it,
-  and the AO3401A must then block it (`switch-blocks-upstream`), while the AO3400A, off, holds it on
-  its drain through 100 kΩ (from the circuit). The bench supply at that same 6.5 V can test each for
-  leakage while off. A person can run that test; an agent cannot without approval, since
-  `lab/limits.toml` sets no limit for a part on the bench. **Keep the mark for now:** with an
-  on-resistance check at the enforcer's current, these tests would cover what the enforcer relies on
-  from the two, but their claims rest on `maker-datasheets`, as above.
+  source for the AO3401A, 0.65 V to 1.45 V above it for the AO3400A. If the DPS5005 fails, SUPPLY
+  can rise toward the 6.5 V that `[supply.upstream]` feeds it, and the AO3401A must then block it
+  (`switch-blocks-upstream`), while the AO3400A, off, holds it on its drain through 100 kΩ (from the
+  circuit). So, with its gate at its source, each passes under 1 µA at 6.5 V, the bench supply's own
+  setting (IDSS, rated at 30 V and 25 °C). And the AO3401A, with its gate 2.5 V below its source,
+  drops under 17 mV at 200 mA, `[supply]`'s `max_amps` through its 85 mΩ (Alpha and Omega
+  datasheets, Rev 3.1). A person can run these; an agent cannot without approval, since
+  `lab/limits.toml` sets no limit for a part on the bench. **Mark off** (2026-10-02): these tests
+  cover what the enforcer relies on from the two, at the bench's temperature. A unit not from an
+  authorized distributor rests their claims on `resold-parts`.
 - **RP2350**, the debug probe's and the enforcer's microcontroller. In BOOTSEL, read its OTP with
   picotool, and only read it: writing OTP is irreversible and needs approval (`CLAUDE.md`). A blank
   part's OTP is "all zeroes, except for some basic device information pre-programmed during

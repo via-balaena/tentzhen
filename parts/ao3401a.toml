@@ -1,9 +1,9 @@
 part = "AO3401A"
 kind = "chip"
 is = "P-channel MOSFET, SOT-23"
-# Safety-critical: it is the Pico enforcer's output switch (builds/enforcer). Authorized sellers
-# only for now: its claims rest on maker-datasheets (docs/sourcing.md, "Incoming QA").
-authorized_only = true
+# Safety-critical: it is the Pico enforcer's output switch (builds/enforcer). Any seller, if it
+# passes the incoming QA in docs/sourcing.md; a unit not from an authorized distributor moves the
+# claims below to resold-parts (lab/sourcing.toml, `authorized`).
 datasheet = "https://www.aosmd.com/res/datasheets/AO3401A.pdf"
 
 # Every claim below: Alpha and Omega AO3401A datasheet, Rev 3.1, December 2023, read 2026-09-30.
