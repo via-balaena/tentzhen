@@ -8,10 +8,12 @@ drawing = "v1.svg"
 [[line]]
 part = "RP2350"
 form = "board with the Pico 2 pinout"
+class = "A"
 qty = 1
 
 [[line]]
 commodity = "jumper wire, female to female"
+class = "W"
 qty = 6
 
 [firmware]

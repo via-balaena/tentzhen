@@ -38,6 +38,8 @@ of record. Each part exists on its own, and several were built in 2026.
   found none that ties them to claims.
 - **Checking parts from any source** has industry standards, closed databases and open tests for
   single chips. We found nothing that publishes measured results by seller.
+- **Sorting parts by kind** has the class letters schematics label parts with (R, C, U), and a
+  free procurement code, UNSPSC, that fits neither our boards nor publishing.
 - **In Chinese,** there are many more open instruments, supplies and loads, several with one unit's
   accuracy measured and published, and agents on instruments from RIGOL and others. The pattern is
   the same: at most one unit's measurements behind some of the numbers, and every limit read in
@@ -133,6 +135,21 @@ Reddit, YouTube, and Chinese forums.
 
 We found nothing that publishes measured results by named seller. The closest, the DS18B20 study,
 names its sources and reports by family; the databases that do report by supplier are closed.
+
+## Sorting parts by kind
+
+Searched 2026-10-02, for how the parts page groups what the bench needs: a classification an
+electronics builder already reads, that the repo and the site may publish. Not seen: the standards
+themselves (IEEE 315-1975, ASME Y14.44-2008, IEC 81346-2:2019), and ECLASS.
+
+| work | closest part | different | source |
+|---|---|---|---|
+| Reference designator class letters (IEEE 315-1975, ASME Y14.44-2008) | the letters a schematic labels parts with: R resistor, C capacitor, U integrated circuit, A assembly, W wire | one level. The standards are unread; the list we read "does not necessarily comply with standards" | en.wikipedia.org, "Reference designator", revision 1367154339, **re-read** |
+| UNSPSC | a four-level code (segment, family, class, commodity) for anything bought | made for purchasing: 315 of its 158,464 rows are electronic components. In our reading, the bench's 30 rows fall in four segments, its five boards and modules share one code (32101502, printed circuit assemblies), and 14 of the 30 fit only roughly. The last terms published at unspsc.org give use "for User's individual use", without the right to "redistribute, compile or create derivative works" or to "combine the Materials with any other coding system" without written permission; its FAQ says embedding the codes needs "an addendum to the terms & conditions". UNDP, its owner, has run it since 2025. UNDP's terms of use, for everything downloaded from its sites unless special terms say otherwise, give "the User’s personal, non-commercial use, without any right to resell or redistribute them or to compile or create derivative works therefrom". unspsc.org redirected to an unrelated site on 2026-10-02 | undp.org/unspsc and its codeset UNv26.0801 (xlsx, sha256 `10f889fde3bfb4f73d9eca76b69e24e0ba009aa5684aba2d28f5703ce532d752`), **re-read**; undp.org/copyright-terms-use, read 2026-10-02, **re-read**; the unspsc.org terms and FAQ as the Internet Archive kept them on 2025-06-10, **re-read**; Wikipedia's "UNSPSC", revision 1335491644, for who runs it |
+| InvenTree; Part-DB | part categories in a tree | each user makes up the tree | inventree.org; docs.part-db.de |
+
+We use the letters, one level, in our own words (`Class` in `crates/records`). A deeper tree waits
+until the list is long enough to need one.
 
 ## Chinese-language sources
 

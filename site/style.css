@@ -194,6 +194,10 @@ h1, h2, h3, p { margin: 0; }
 .parts-list td a, .parts-list .item { white-space: nowrap; }
 .parts-list .item { font-family: var(--mono); font-size: 14px; }
 .parts-list .when { white-space: nowrap; }
+.parts-list th { padding-right: 24px; }
+.parts-list .class { font-family: var(--mono); font-size: 14px; color: var(--soft); }
+.parts-list .class abbr { text-decoration: none; }
+.parts-list tr.group:not(:first-child) td { padding-top: 34px; }
 
 /* ---------- legal ---------- */
 .notice { font-size: 14px; color: var(--muted); }

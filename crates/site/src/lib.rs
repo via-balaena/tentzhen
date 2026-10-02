@@ -11,6 +11,7 @@ use duckdb::{Connection, params};
 use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
+use tentzhen_records::Class;
 
 fn esc(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
@@ -456,10 +457,12 @@ fn shop_name(shop: &str) -> &str {
     }
 }
 
-/// A row of the parts page: parts_no, qty, part, form, commodity, datasheet, authorized_only, shop,
-/// store, item, used, salvaged_from, authorized, status, since, passed_qa (`gold.page_parts`).
+/// A row of the parts page: parts_no, class, qty, part, form, commodity, datasheet,
+/// authorized_only, shop, store, item, used, salvaged_from, authorized, status, since, passed_qa
+/// (`gold.page_parts`).
 struct PartsRow {
     parts_no: i64,
+    class: String,
     qty: i64,
     part: Option<String>,
     form: Option<String>,
@@ -477,34 +480,35 @@ struct PartsRow {
     passed_qa: Option<String>,
 }
 
-/// `site/parts/`: everything the bench needs, each thing once, with the builds that need it, where
-/// the lab buys it and how far it has got.
+/// `site/parts/`: everything the bench needs, each thing once, grouped by its class, with the
+/// builds that need it, where the lab buys it and how far it has got.
 pub fn render_parts(conn: &Connection) -> duckdb::Result<String> {
     let mut stmt = conn.prepare(
-        "SELECT parts_no, qty, part, form, commodity, datasheet, authorized_only, shop, store, \
-         item, used, salvaged_from, authorized, status, CAST(since AS TEXT), passed_qa \
+        "SELECT parts_no, class, qty, part, form, commodity, datasheet, authorized_only, shop, \
+         store, item, used, salvaged_from, authorized, status, CAST(since AS TEXT), passed_qa \
          FROM gold.page_parts \
-         ORDER BY parts_no",
+         ORDER BY class, parts_no",
     )?;
     let rows: Vec<PartsRow> = stmt
         .query_map([], |r| {
             Ok(PartsRow {
                 parts_no: r.get(0)?,
-                qty: r.get(1)?,
-                part: r.get(2)?,
-                form: r.get(3)?,
-                commodity: r.get(4)?,
-                datasheet: r.get(5)?,
-                authorized_only: r.get(6)?,
-                shop: r.get(7)?,
-                store: r.get(8)?,
-                item: r.get(9)?,
-                used: r.get(10)?,
-                salvaged_from: r.get(11)?,
-                authorized: r.get(12)?,
-                status: r.get(13)?,
-                since: r.get(14)?,
-                passed_qa: r.get(15)?,
+                class: r.get(1)?,
+                qty: r.get(2)?,
+                part: r.get(3)?,
+                form: r.get(4)?,
+                commodity: r.get(5)?,
+                datasheet: r.get(6)?,
+                authorized_only: r.get(7)?,
+                shop: r.get(8)?,
+                store: r.get(9)?,
+                item: r.get(10)?,
+                used: r.get(11)?,
+                salvaged_from: r.get(12)?,
+                authorized: r.get(13)?,
+                status: r.get(14)?,
+                since: r.get(15)?,
+                passed_qa: r.get(16)?,
             })
         })?
         .collect::<duckdb::Result<_>>()?;
@@ -523,9 +527,21 @@ pub fn render_parts(conn: &Connection) -> duckdb::Result<String> {
     }
 
     let mut h = String::from(
-        "<h1 class=\"spec-title\">Parts</h1>\n<table class=\"spec-table parts-list\">\n<thead><tr><th>QTY</th><th>PART</th><th>FORM</th><th>USED IN</th><th>SOURCE</th><th>STATUS</th></tr></thead>\n<tbody>\n",
+        "<h1 class=\"spec-title\">Parts</h1>\n<table class=\"spec-table parts-list\">\n<thead><tr><th>CLASS</th><th>QTY</th><th>PART</th><th>FORM</th><th>USED IN</th><th>SOURCE</th><th>STATUS</th></tr></thead>\n<tbody>\n",
     );
-    for p in &rows {
+    for (i, p) in rows.iter().enumerate() {
+        // A class's letter heads its group: the first row of each gets it, and the rest leave it
+        // out.
+        let first = i == 0 || rows[i - 1].class != p.class;
+        let class = if first {
+            let means = Class::ALL
+                .into_iter()
+                .find(|c| c.as_str() == p.class)
+                .map_or("", Class::means);
+            format!("<abbr title=\"{}\">{}</abbr>", esc(means), esc(&p.class))
+        } else {
+            String::new()
+        };
         let what = match (&p.part, &p.commodity) {
             (Some(part), _) => match &p.datasheet {
                 Some(url) => format!("<a href=\"{}\">{}</a>", esc(url), esc(part)),
@@ -573,11 +589,16 @@ pub fn render_parts(conn: &Connection) -> duckdb::Result<String> {
             ),
             None => esc(&p.status),
         };
+        // With no form, what it is spans both columns.
+        let what = match &p.form {
+            Some(form) => format!("<td>{what}</td><td>{}</td>", esc(form)),
+            None => format!("<td colspan=\"2\">{what}</td>"),
+        };
         let _ = writeln!(
             h,
-            "<tr><td>{}</td><td>{what}</td><td>{}</td><td>{}</td><td>{source}</td><td>{status}</td></tr>",
+            "<tr{}><td class=\"class\">{class}</td><td>{}</td>{what}<td>{}</td><td>{source}</td><td>{status}</td></tr>",
+            if first { " class=\"group\"" } else { "" },
             p.qty,
-            esc(p.form.as_deref().unwrap_or("")),
             used_in
                 .get(&p.parts_no)
                 .map(|v| v.join(", "))
@@ -746,16 +767,18 @@ mod tests {
         let probe = build(
             "probe",
             1,
-            "[[line]]\npart = \"RP2350\"\nqty = 1\n\n[[line]]\ncommodity = \"wire\"\nqty = 6\n",
+            "[[line]]\npart = \"RP2350\"\nclass = \"U\"\nqty = 1\n\n\
+             [[line]]\ncommodity = \"wire\"\nclass = \"W\"\nqty = 6\n",
         );
         let bench = build(
             "bench",
             1,
-            "[[uses]]\nbuild = \"probe\"\nversion = 1\n\n[[line]]\npart = \"RP2350\"\nqty = 1\n\n\
-             [[line]]\npart = \"INA239\"\nqty = 1\n\n\
-             [[line]]\ncommodity = \"glue\"\nqty = 1\n\n\
-             [[line]]\ncommodity = \"tape\"\nqty = 1\n\n\
-             [[line]]\ncommodity = \"cable\"\nqty = 1\n",
+            "[[uses]]\nbuild = \"probe\"\nversion = 1\n\n\
+             [[line]]\npart = \"RP2350\"\nclass = \"U\"\nqty = 1\n\n\
+             [[line]]\npart = \"INA239\"\nform = \"VSSOP-10\"\nclass = \"U\"\nqty = 1\n\n\
+             [[line]]\ncommodity = \"glue\"\nclass = \"MP\"\nqty = 1\n\n\
+             [[line]]\ncommodity = \"tape\"\nclass = \"MP\"\nqty = 1\n\n\
+             [[line]]\ncommodity = \"cable\"\nclass = \"W\"\nqty = 1\n",
         );
         // One lab-log entry, as `tentzhen log append` writes it, and the INA239's incoming QA.
         let entry = format!(
@@ -775,7 +798,7 @@ mod tests {
         );
         let sourcing = "[[line]]\ncommodity = \"wire\"\nshop = \"amazon\"\nstore = \"Maker\"\n\
                         item = \"B0ABCDEFGH\"\nordered = \"2026-10-02\"\n\n\
-                        [[line]]\npart = \"INA239\"\nshop = \"lcsc\"\nitem = \"C2040\"\n\
+                        [[line]]\npart = \"INA239\"\nform = \"VSSOP-10\"\nshop = \"lcsc\"\nitem = \"C2040\"\n\
                         authorized = \"ti.com distributors, read 2026-10-02\"\n\
                         arrived = \"2026-10-14\"\npassed_qa = \"2026-10-14-ina-incoming\"\n\n\
                         [[line]]\ncommodity = \"glue\"\nstore = \"Hardware Store\"\narrived = true\n\n\
@@ -791,29 +814,35 @@ mod tests {
         let mut conn = Connection::open_in_memory().unwrap();
         tentzhen_warehouse::load(&mut conn, &cat).unwrap();
         let page = render_parts(&conn).unwrap();
-        let rows: Vec<&str> = page.lines().filter(|l| l.starts_with("<tr><td>")).collect();
+        assert!(page.contains("<thead><tr><th>CLASS</th><th>QTY</th><th>PART</th><th>FORM</th>"));
+        // Grouped by class, in the letters' order, and in the bench's order within one; the letter
+        // heads its group, and what has no form spans the form's column.
+        let rows: Vec<&str> = page.lines().filter(|l| l.starts_with("<tr")).collect();
         assert_eq!(
             rows,
             [
-                "<tr><td>2</td><td>RP2350</td><td></td><td>\
+                "<tr class=\"group\"><td class=\"class\"><abbr title=\"mechanical part\">MP</abbr></td>\
+                 <td>1</td><td colspan=\"2\">glue</td><td>\
+                 <a href=\"../builds/bench/v1/index.html\">bench v1</a></td>\
+                 <td>Hardware Store</td><td>arrived</td></tr>",
+                "<tr><td class=\"class\"></td><td>1</td><td colspan=\"2\">tape</td><td>\
+                 <a href=\"../builds/bench/v1/index.html\">bench v1</a></td>\
+                 <td>Amazon · Maker <span class=\"item\">B0ABCDEFGH</span> · used</td><td>ordered</td></tr>",
+                "<tr class=\"group\"><td class=\"class\"><abbr title=\"integrated circuit\">U</abbr></td>\
+                 <td>2</td><td colspan=\"2\">RP2350</td><td>\
                  <a href=\"../builds/bench/v1/index.html\">bench v1</a>, \
                  <a href=\"../builds/probe/v1/index.html\">probe v1</a></td>\
                  <td><span class=\"muted\">authorized sellers only</span></td><td>specced</td></tr>",
-                "<tr><td>1</td><td>INA239</td><td></td><td>\
+                "<tr><td class=\"class\"></td><td>1</td><td>INA239</td><td>VSSOP-10</td><td>\
                  <a href=\"../builds/bench/v1/index.html\">bench v1</a></td>\
                  <td>LCSC <span class=\"item\">C2040</span><br>\
                  <span class=\"muted\">authorized seller: ti.com distributors, read 2026-10-02</span></td>\
                  <td>passed incoming QA <span class=\"muted when\">2026-10-14-ina-incoming</span></td></tr>",
-                "<tr><td>1</td><td>glue</td><td></td><td>\
-                 <a href=\"../builds/bench/v1/index.html\">bench v1</a></td>\
-                 <td>Hardware Store</td><td>arrived</td></tr>",
-                "<tr><td>1</td><td>tape</td><td></td><td>\
-                 <a href=\"../builds/bench/v1/index.html\">bench v1</a></td>\
-                 <td>Amazon · Maker <span class=\"item\">B0ABCDEFGH</span> · used</td><td>ordered</td></tr>",
-                "<tr><td>1</td><td>cable</td><td></td><td>\
+                "<tr class=\"group\"><td class=\"class\"><abbr title=\"wire or cable\">W</abbr></td>\
+                 <td>1</td><td colspan=\"2\">cable</td><td>\
                  <a href=\"../builds/bench/v1/index.html\">bench v1</a></td>\
                  <td>salvaged from a dead printer · Goodwill</td><td>arrived</td></tr>",
-                "<tr><td>6</td><td>wire</td><td></td><td>\
+                "<tr><td class=\"class\"></td><td>6</td><td colspan=\"2\">wire</td><td>\
                  <a href=\"../builds/probe/v1/index.html\">probe v1</a></td>\
                  <td>Amazon · Maker <span class=\"item\">B0ABCDEFGH</span></td>\
                  <td>ordered <span class=\"muted when\">2026-10-02</span></td></tr>",

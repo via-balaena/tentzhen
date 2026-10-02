@@ -208,11 +208,13 @@ A build version's bill of materials: a part or a commodity on each line, and how
 | `part` | VARCHAR | yes |  |
 | `commodity` | VARCHAR | yes |  |
 | `form` | VARCHAR | yes |  |
+| `class` | VARCHAR | no | The letter a schematic labels the thing with (R resistor, U integrated circuit, A a board or module), as crates/records lists them. crates/records holds that one thing has one class in every build version that writes it; the database does not. |
 | `qty` | INTEGER | no |  |
 
 Constraints:
 
 - `FOREIGN KEY (part) REFERENCES silver.part(part)`
+- `CHECK(("class" IN ('A', 'C', 'F', 'J', 'MP', 'PS', 'Q', 'R', 'S', 'U', 'W', 'XF')))`
 - `CHECK((qty > 0))`
 - `PRIMARY KEY(build, "version", line_no)`
 - `FOREIGN KEY (build, "version") REFERENCES silver.build_version(build, "version")`
@@ -822,6 +824,7 @@ Every line the bench needs, in the build version that writes it, with how many: 
 | `part` | VARCHAR |
 | `form` | VARCHAR |
 | `commodity` | VARCHAR |
+| `class` | VARCHAR |
 | `qty` | HUGEINT |
 | `parts_no` | BIGINT |
 
@@ -1003,11 +1006,12 @@ Read by: `crates/site`.
 
 ### `gold.page_parts` (view)
 
-The parts page: each thing the bench needs once, with how many, where the lab buys it and how far it has got. No prices: CLAUDE.md keeps them out.
+The parts page: each thing the bench needs once, with its class, how many, where the lab buys it and how far it has got. No prices: CLAUDE.md keeps them out.
 
 | column | type |
 |---|---|
 | `parts_no` | BIGINT |
+| `class` | VARCHAR |
 | `qty` | HUGEINT |
 | `part` | VARCHAR |
 | `form` | VARCHAR |

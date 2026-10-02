@@ -36,38 +36,46 @@ does = "Instrument #1 on module front ends (tier 2): two inputs and two outputs 
 [[line]]
 part = "LFE5U-45F"
 form = "Colorlight i9 v7.2 module, on the i5/i9 extension board"
+class = "A"
 qty = 1
 
 [[line]]
 part = "AD9226"
 form = "module with a 2x10 male header (5 V on pins 1 and 2), 3.3 V outputs and an SMA input"
+class = "A"
 qty = 2
 
 [[line]]
 part = "AD9767"
 form = "dual module with a 40-pin female header in the AN9767's order (5 V on pin 2), 3.3 V inputs and two BNC outputs"
+class = "A"
 qty = 1
 
 [[line]]
 commodity = "pin header, 2x15, 2.54 mm, male, straight"
+class = "J"
 qty = 4
 
 # 19 for each ADC module: its 14 signals, one 5 V and its 4 grounds (header pins 3, 4, 19, 20).
 [[line]]
 commodity = "jumper wire, female to female, 10 cm, for the ADC modules' male headers"
+class = "W"
 qty = 38
 
 # The DAC module's 32 signals, one 5 V and its 3 grounds (header pins 1, 37, 38).
 [[line]]
 commodity = "jumper wire, male to female, 10 cm, for the DAC module's female header"
+class = "W"
 qty = 36
 
 [[line]]
 commodity = "cable, USB-A to USB-C, with data lines"
+class = "W"
 qty = 1
 
 [[line]]
 commodity = "cable, BNC male to SMA male, 50 Ohm, from each output to an input"
+class = "W"
 qty = 2
 
 # The walkthrough, for a person or an agent. `expect` is what you should see; until someone has

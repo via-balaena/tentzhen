@@ -78,8 +78,17 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
         let key = (b.build.as_str(), b.version);
         for (i, l) in (1u32..).zip(&b.line) {
             tx.execute(
-                "INSERT INTO silver.line VALUES (?, ?, ?, ?, ?, ?, ?)",
-                params![key.0, key.1, i, l.part, l.commodity, l.form, l.qty],
+                "INSERT INTO silver.line VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                params![
+                    key.0,
+                    key.1,
+                    i,
+                    l.part,
+                    l.commodity,
+                    l.form,
+                    l.class.as_str(),
+                    l.qty
+                ],
             )?;
         }
         for (i, u) in (1u32..).zip(&b.uses) {
@@ -339,7 +348,7 @@ mod tests {
     use std::fs;
     use std::path::Path;
     use std::time::{Duration, UNIX_EPOCH};
-    use tentzhen_records::{Source, TRUSTED_BASE, log};
+    use tentzhen_records::{Class, Source, TRUSTED_BASE, log};
 
     fn src(path: &str, text: &str) -> Source {
         Source {
@@ -377,8 +386,8 @@ mod tests {
         conn.query_row(sql, [], |r| r.get(0)).unwrap()
     }
 
-    const PROBE: &str =
-        "[[line]]\npart = \"RP2350\"\nqty = 1\n\n[[line]]\ncommodity = \"wire\"\nqty = 6\n";
+    const PROBE: &str = "[[line]]\npart = \"RP2350\"\nclass = \"U\"\nqty = 1\n\n\
+         [[line]]\ncommodity = \"wire\"\nclass = \"W\"\nqty = 6\n";
 
     #[test]
     fn the_repo_loads() {
@@ -938,10 +947,10 @@ mod tests {
         let bench = build(
             "bench",
             "[[uses]]\nbuild = \"probe\"\nversion = 1\nqty = 2\n\n\
-             [[line]]\ncommodity = \"wire\"\nqty = 1\n",
+             [[line]]\ncommodity = \"wire\"\nclass = \"W\"\nqty = 1\n",
         );
         let tool = |v: u32, qty: u32| {
-            let line = format!("[[line]]\npart = \"RP2350\"\nqty = {qty}\n");
+            let line = format!("[[line]]\npart = \"RP2350\"\nclass = \"U\"\nqty = {qty}\n");
             if v == 1 {
                 build("tool", &line)
             } else {
@@ -950,12 +959,16 @@ mod tests {
         };
         let gizmo = build(
             "gizmo",
-            "[[line]]\ncommodity = \"glue\"\nqty = 1\n\n\
-             [[line]]\npart = \"RP2350\"\nform = \"chip\"\nqty = 1\n",
+            "[[line]]\ncommodity = \"glue\"\nclass = \"MP\"\nqty = 1\n\n\
+             [[line]]\npart = \"RP2350\"\nform = \"chip\"\nclass = \"U\"\nqty = 1\n",
         );
         let rig = [
             build("rig", "[[uses]]\nbuild = \"gizmo\"\nversion = 1\n"),
-            version("rig", 2, "[[line]]\ncommodity = \"tape\"\nqty = 1\n"),
+            version(
+                "rig",
+                2,
+                "[[line]]\ncommodity = \"tape\"\nclass = \"MP\"\nqty = 1\n",
+            ),
         ];
         let cat = Catalogue::from_sources(
             &base(),
@@ -992,6 +1005,15 @@ mod tests {
                 specced("tape", 1, "rig v2 x1"),
             ]
         );
+        // Each row keeps the class its lines give.
+        let classes: Vec<String> = conn
+            .prepare("SELECT class FROM gold.page_parts ORDER BY parts_no")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<duckdb::Result<_>>()
+            .unwrap();
+        assert_eq!(classes, ["W", "MP", "U", "U", "MP"]);
     }
 
     /// A probe build, and a kit of commodities, one for each stage, with `sourcing` and the records
@@ -1007,7 +1029,7 @@ mod tests {
             "undated",
         ]
         .iter()
-        .map(|c| format!("[[line]]\ncommodity = \"{c}\"\nqty = 1\n\n"))
+        .map(|c| format!("[[line]]\ncommodity = \"{c}\"\nclass = \"MP\"\nqty = 1\n\n"))
         .collect();
         let cat = Catalogue::from_sources(
             &base(),
@@ -1107,7 +1129,11 @@ mod tests {
              line as the newest version writes it"
         );
 
-        let newer = version("probe", 2, "[[line]]\npart = \"RP2350\"\nqty = 1\n");
+        let newer = version(
+            "probe",
+            2,
+            "[[line]]\npart = \"RP2350\"\nclass = \"U\"\nqty = 1\n",
+        );
         let cat = Catalogue::from_sources(
             &base(),
             &[src("parts/rp2350.toml", PART)],
@@ -1263,16 +1289,50 @@ mod tests {
             )
             .unwrap(),
         );
-        let both = "INSERT INTO silver.line VALUES ('probe', 1, 9, 'RP2350', 'wire', NULL, 1)";
+        let both = "INSERT INTO silver.line VALUES ('probe', 1, 9, 'RP2350', 'wire', NULL, 'U', 1)";
         refused(
             conn.execute(both, []).map(|_| ()),
             "a line names a part or a commodity, not both",
         );
-        let unrecorded = "INSERT INTO silver.line VALUES ('probe', 1, 9, 'RP9999', NULL, NULL, 1)";
+        let unrecorded =
+            "INSERT INTO silver.line VALUES ('probe', 1, 9, 'RP9999', NULL, NULL, 'U', 1)";
         refused(
             conn.execute(unrecorded, []).map(|_| ()),
             "a part must have a record",
         );
+        // Every letter crates/records knows, and no other.
+        for (i, c) in (10..).zip(Class::ALL) {
+            conn.execute(
+                "INSERT INTO silver.line VALUES ('probe', 1, ?, NULL, 'wire', NULL, ?, 1)",
+                params![i, c.as_str()],
+            )
+            .unwrap();
+        }
+        // And the check names exactly those letters.
+        let check: String = conn
+            .query_row(
+                "SELECT expression FROM duckdb_constraints() WHERE schema_name = 'silver' \
+                 AND table_name = 'line' AND constraint_type = 'CHECK' \
+                 AND list_contains(constraint_column_names, 'class')",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let mut letters: Vec<&str> = check.split('\'').skip(1).step_by(2).collect();
+        let mut ours: Vec<&str> = Class::ALL.iter().map(|c| c.as_str()).collect();
+        letters.sort_unstable();
+        ours.sort_unstable();
+        assert_eq!(letters, ours, "{check}");
+        for other in ["Z", "r", ""] {
+            refused(
+                conn.execute(
+                    "INSERT INTO silver.line VALUES ('probe', 1, 9, NULL, 'wire', NULL, ?, 1)",
+                    params![other],
+                )
+                .map(|_| ()),
+                "a class is one of the letters crates/records knows",
+            );
+        }
         let never = |why: &str| {
             format!(
                 "INSERT INTO silver.build_version VALUES \

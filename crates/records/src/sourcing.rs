@@ -651,10 +651,11 @@ mod tests {
         let claim =
             |on: &str| format!("\n[[claim]]\nid = \"a\"\nsays = \"x\"\ntrusted = \"{on}\"\n");
         let probe = "build = \"probe\"\nversion = 1\nstatus = \"draft\"\ndoes = \"a thing\"\n\n\
-                     [[line]]\npart = \"RP2350\"\nform = \"board\"\nqty = 1\n\n\
-                     [[line]]\ncommodity = \"wire\"\nqty = 6\n\n\
-                     [[line]]\npart = \"MON\"\nqty = 1\n\n[[line]]\npart = \"AMP\"\nqty = 1\n\n\
-                     [[line]]\npart = \"SAFE\"\nqty = 1\n";
+                     [[line]]\npart = \"RP2350\"\nform = \"board\"\nclass = \"A\"\nqty = 1\n\n\
+                     [[line]]\ncommodity = \"wire\"\nclass = \"W\"\nqty = 6\n\n\
+                     [[line]]\npart = \"MON\"\nclass = \"U\"\nqty = 1\n\n\
+                     [[line]]\npart = \"AMP\"\nclass = \"U\"\nqty = 1\n\n\
+                     [[line]]\npart = \"SAFE\"\nclass = \"U\"\nqty = 1\n";
         let cat = Catalogue::from_sources(
             &base,
             &[
