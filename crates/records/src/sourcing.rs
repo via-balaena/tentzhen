@@ -32,9 +32,9 @@
 //! hand, wherever it came from, is a line with `arrived = true` and no source. `used = false` is
 //! refused, as is `used` beside `salvaged_from`: a salvaged part is used already.
 //!
-//! `authorized` says where the maker lists the seller as one of its authorized distributors, for a
-//! line that names a seller, new: `authorized = "raspberrypi.com approved resellers, read
-//! 2026-10-02"`. A line for a part sold by authorized sellers only (`authorized_only`) needs it
+//! `authorized` says where the maker lists the seller as one of its authorized distributors, or
+//! that the maker sold it itself, for a line that names a seller, new: `authorized =
+//! "raspberrypi.com approved resellers, read 2026-10-02"`. A line for a part sold by authorized sellers only (`authorized_only`) needs it
 //! once it names a source or reaches a stage. So does a line for a part whose claims rest on
 //! `maker-datasheets`, since that entry assumes an authorized distributor, unless the part's
 //! claims move to `resold-parts`. A line naming the part alone is not held to it: nothing is
@@ -172,7 +172,8 @@ pub struct Line {
     pub used: bool,
     /// The device a part was taken out of.
     pub salvaged_from: Option<String>,
-    /// Where the maker lists the seller as an authorized distributor, and when that was read.
+    /// Where the maker lists the seller as an authorized distributor, or that the maker sold it
+    /// itself; and when, and by whose word.
     pub authorized: Option<String>,
     /// A person checked the listing against the build.
     pub listing_checked: Option<Stage>,

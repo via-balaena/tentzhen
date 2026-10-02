@@ -388,7 +388,7 @@ COMMENT ON COLUMN silver.sourcing.line_no IS 'Its place in the file, from 1.';
 COMMENT ON COLUMN silver.sourcing.store IS 'The seller, as the listing names it, or, with no shop, its own name: a store in town, a thrift store, a person.';
 COMMENT ON COLUMN silver.sourcing.used IS 'Bought secondhand.';
 COMMENT ON COLUMN silver.sourcing.salvaged_from IS 'The device a part was taken out of; used, and with no shop.';
-COMMENT ON COLUMN silver.sourcing.authorized IS 'Where the maker lists the seller as an authorized distributor, and when that was read: a seller''s, for a part sold new. crates/records holds that a part sold by authorized sellers only, or whose claims rest on maker-datasheets, gives it once a source or a stage is written.';
+COMMENT ON COLUMN silver.sourcing.authorized IS 'Where the maker lists the seller as an authorized distributor, or that the maker sold it itself, and when: a seller''s, for a part sold new. crates/records holds that a part sold by authorized sellers only, or whose claims rest on maker-datasheets, gives it once a source or a stage is written.';
 COMMENT ON COLUMN silver.sourcing.item IS 'The shop''s item number: on Amazon the ASIN, on LCSC the C number. crates/records holds its shape.';
 COMMENT ON COLUMN silver.sourcing.listing_checked IS 'A person checked the listing against the build.';
 COMMENT ON COLUMN silver.sourcing.passed_qa IS 'The measurement record of the incoming QA it passed. crates/records holds that it lists the part and is from on or after each day the stages give; the database holds that it exists.';

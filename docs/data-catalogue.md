@@ -623,7 +623,7 @@ Where the lab buys each thing its builds need, and which stages it has reached, 
 | `item` | VARCHAR | yes | The shop's item number: on Amazon the ASIN, on LCSC the C number. crates/records holds its shape. |
 | `used` | BOOLEAN | no | Bought secondhand. |
 | `salvaged_from` | VARCHAR | yes | The device a part was taken out of; used, and with no shop. |
-| `authorized` | VARCHAR | yes | Where the maker lists the seller as an authorized distributor, and when that was read: a seller's, for a part sold new. crates/records holds that a part sold by authorized sellers only, or whose claims rest on maker-datasheets, gives it once a source or a stage is written. |
+| `authorized` | VARCHAR | yes | Where the maker lists the seller as an authorized distributor, or that the maker sold it itself, and when: a seller's, for a part sold new. crates/records holds that a part sold by authorized sellers only, or whose claims rest on maker-datasheets, gives it once a source or a stage is written. |
 | `listing_checked` | BOOLEAN | no | A person checked the listing against the build. |
 | `in_cart` | BOOLEAN | no |  |
 | `ordered` | BOOLEAN | no |  |
