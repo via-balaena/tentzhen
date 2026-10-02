@@ -346,6 +346,45 @@ CREATE TABLE silver.measurement_value (
 COMMENT ON TABLE silver.measurement_value IS 'What each experiment found: each a number, a word or a yes/no.';
 COMMENT ON COLUMN silver.measurement_value.name IS 'A number''s name ends in its unit: input_volts. A raw ADC code, input_codes, sits beside the value converted from it; crates/records holds that.';
 
+-- ---------------------------------------------------------------- silver: the lab's sourcing
+-- From lab/sourcing.toml, which crates/records has checked against the builds and the measurement
+-- records. A line names a build's line by its part and form, or its commodity and form.
+-- crates/records refuses two lines for one thing; the database does not.
+
+CREATE TABLE silver.sourcing (
+    line_no         INTEGER PRIMARY KEY,
+    part            TEXT REFERENCES silver.part (part),
+    form            TEXT,
+    commodity       TEXT,
+    shop            TEXT CHECK (shop IN ('aliexpress', 'amazon', 'lcsc', 'taobao')),
+    store           TEXT,
+    item            TEXT,
+    listing_checked    BOOLEAN NOT NULL,
+    in_cart            BOOLEAN NOT NULL,
+    ordered            BOOLEAN NOT NULL,
+    arrived            BOOLEAN NOT NULL,
+    listing_checked_on DATE CHECK (listing_checked_on IS NULL OR listing_checked),
+    in_cart_on         DATE CHECK (in_cart_on IS NULL OR in_cart),
+    ordered_on         DATE CHECK (ordered_on IS NULL OR ordered),
+    arrived_on         DATE CHECK (arrived_on IS NULL OR arrived),
+    passed_qa          TEXT REFERENCES silver.measurement (measurement),
+    record             TEXT NOT NULL,
+    CHECK ((part IS NULL) <> (commodity IS NULL)),
+    CHECK ((shop IS NULL) = (item IS NULL)),
+    CHECK (store IS NULL OR shop IS NOT NULL),
+    CHECK (shop IS NOT NULL OR NOT (listing_checked OR in_cart OR ordered)),
+    CHECK (listing_checked_on <= in_cart_on AND listing_checked_on <= ordered_on
+           AND listing_checked_on <= arrived_on AND in_cart_on <= ordered_on
+           AND in_cart_on <= arrived_on AND ordered_on <= arrived_on)
+);
+COMMENT ON TABLE silver.sourcing IS 'Where the lab buys each thing its builds need, and which stages it has reached, each on the UTC day in its _on column when the file gives one. A thing with no row, or a row that has reached no stage, is specced.';
+COMMENT ON COLUMN silver.sourcing.line_no IS 'Its place in the file, from 1.';
+COMMENT ON COLUMN silver.sourcing.store IS 'The seller, as the listing names it.';
+COMMENT ON COLUMN silver.sourcing.item IS 'The shop''s item number: on Amazon the ASIN, on LCSC the C number. crates/records holds its shape.';
+COMMENT ON COLUMN silver.sourcing.listing_checked IS 'A person checked the listing against the build.';
+COMMENT ON COLUMN silver.sourcing.passed_qa IS 'The measurement record of the incoming QA it passed. crates/records holds that it lists the part and is from on or after each day the stages give; the database holds that it exists.';
+COMMENT ON COLUMN silver.sourcing.record IS 'The file in bronze.record this row came from.';
+
 -- ---------------------------------------------------------------- silver: what shows a claim
 -- After the measurement records, which a record referent names.
 
@@ -410,24 +449,73 @@ FROM gold.claim_grades
 GROUP BY ALL;
 COMMENT ON VIEW gold.grade_coverage IS 'How much of each part and build version is shown, and how.';
 
-CREATE VIEW gold.bom_exploded AS
-WITH RECURSIVE tree (root_build, root_version, build, version, mult) AS (
+CREATE VIEW gold.build_tree AS
+WITH RECURSIVE tree (root_build, root_version, build, version, qty) AS (
     SELECT build, version, build, version, 1 FROM silver.build_version
     UNION ALL
-    SELECT t.root_build, t.root_version, u.uses_build, u.uses_version, t.mult * u.qty
+    SELECT t.root_build, t.root_version, u.uses_build, u.uses_version, t.qty * u.qty
     FROM tree t
     JOIN silver.uses u ON u.build = t.build AND u.version = t.version
 )
+SELECT root_build, root_version, build, version, sum(qty) AS qty FROM tree GROUP BY ALL;
+COMMENT ON VIEW gold.build_tree IS 'Every build version each build version is made of, itself included, and how many of it, through every build it uses. The records forbid `uses` loops, so the recursion ends.';
+
+CREATE VIEW gold.bom_exploded AS
 SELECT t.root_build AS build, t.root_version AS version,
-       l.part, l.commodity, l.form, sum(l.qty * t.mult) AS qty
-FROM tree t
+       l.part, l.commodity, l.form, sum(l.qty * t.qty) AS qty
+FROM gold.build_tree t
 JOIN silver.line l ON l.build = t.build AND l.version = t.version
 GROUP BY ALL;
-COMMENT ON VIEW gold.bom_exploded IS 'Every part and commodity a build version needs, through every build it uses, with quantities multiplied down the tree. The records forbid `uses` loops, so the recursion ends.';
+COMMENT ON VIEW gold.bom_exploded IS 'Every part and commodity a build version needs, through every build it uses, with quantities multiplied down the tree.';
 
 CREATE VIEW gold.where_used AS
 SELECT part, build, version, qty FROM gold.bom_exploded WHERE part IS NOT NULL;
 COMMENT ON VIEW gold.where_used IS 'Where each part ends up, directly or inside another build.';
+
+CREATE VIEW gold.bench AS
+SELECT l.build, l.version
+FROM gold.latest l
+WHERE NOT EXISTS (
+    SELECT 1 FROM silver.uses u
+    JOIN gold.latest p ON p.build = u.build AND p.version = u.version
+    WHERE u.uses_build = l.build AND u.uses_version = l.version
+);
+COMMENT ON VIEW gold.bench IS 'The build versions the lab builds, each once: the newest version of every build, less one that the newest version of another build uses, which is built inside that one.';
+
+CREATE VIEW gold.bench_line AS
+WITH needed AS (
+    SELECT t.build, t.version, l.line_no, l.part, l.form, l.commodity, sum(l.qty * t.qty) AS qty
+    FROM gold.bench b
+    JOIN gold.build_tree t ON t.root_build = b.build AND t.root_version = b.version
+    JOIN silver.line l ON l.build = t.build AND l.version = t.version
+    GROUP BY ALL
+),
+ranked AS (
+    SELECT *, row_number() OVER (ORDER BY build, version, line_no) AS n FROM needed
+)
+SELECT build, version, line_no, part, form, commodity, qty,
+       min(n) OVER (PARTITION BY part, form, commodity) AS parts_no
+FROM ranked;
+COMMENT ON VIEW gold.bench_line IS 'Every line the bench needs, in the build version that writes it, with how many: its qty times how many of that version the builds in gold.bench take. parts_no is its row on the parts list, shared by every line that buys the same thing (part and form, or commodity and form): the place of the first such line, by build, version and line.';
+
+CREATE VIEW gold.sourcing_status AS
+SELECT s.line_no, s.part, s.form, s.commodity, s.shop, s.store, s.item,
+       CASE WHEN s.passed_qa IS NOT NULL THEN 'passed incoming QA'
+            WHEN s.arrived               THEN 'arrived'
+            WHEN s.ordered               THEN 'ordered'
+            WHEN s.in_cart               THEN 'in cart'
+            WHEN s.listing_checked       THEN 'listing checked'
+            ELSE 'specced' END           AS status,
+       CASE WHEN s.passed_qa IS NOT NULL THEN CAST(e.logged_at AS DATE)
+            WHEN s.arrived               THEN s.arrived_on
+            WHEN s.ordered               THEN s.ordered_on
+            WHEN s.in_cart               THEN s.in_cart_on
+            WHEN s.listing_checked       THEN s.listing_checked_on END AS since,
+       s.passed_qa
+FROM silver.sourcing s
+LEFT JOIN silver.measurement m    ON m.measurement = s.passed_qa
+LEFT JOIN silver.lab_log_entry e  ON e.sha256 = m.log_first;
+COMMENT ON VIEW gold.sourcing_status IS 'Each line of the lab''s sourcing with its status, the last stage it has reached, never typed, and since, the UTC day it reached that stage: for incoming QA, the day of its record''s first lab-log entry; NULL while specced, or when the file gives no day for that stage.';
 
 CREATE VIEW gold.limit_grades AS
 WITH RECURSIVE reach (path, via) AS (
@@ -491,6 +579,23 @@ CREATE VIEW gold.page_step     AS SELECT * FROM silver.step;
 COMMENT ON VIEW gold.page_firmware IS 'silver.firmware, for build pages.';
 COMMENT ON VIEW gold.page_pin IS 'silver.pin, for build pages.';
 COMMENT ON VIEW gold.page_step IS 'silver.step, for build pages.';
+
+CREATE VIEW gold.page_parts AS
+SELECT b.parts_no, sum(b.qty) AS qty, b.part, b.form, b.commodity,
+       p.datasheet, coalesce(p.authorized_only, false) AS authorized_only,
+       s.shop, s.store, s.item, coalesce(s.status, 'specced') AS status, s.since, s.passed_qa
+FROM gold.bench_line b
+LEFT JOIN silver.part p ON p.part = b.part
+LEFT JOIN gold.sourcing_status s
+       ON s.part IS NOT DISTINCT FROM b.part
+      AND s.form IS NOT DISTINCT FROM b.form
+      AND s.commodity IS NOT DISTINCT FROM b.commodity
+GROUP BY ALL;
+COMMENT ON VIEW gold.page_parts IS 'The parts page: each thing the bench needs once, with how many, where the lab buys it and how far it has got. No prices: CLAUDE.md keeps them out.';
+
+CREATE VIEW gold.page_parts_used_in AS
+SELECT parts_no, build, version, sum(qty) AS qty FROM gold.bench_line GROUP BY ALL;
+COMMENT ON VIEW gold.page_parts_used_in IS 'The build versions that write each row of the parts page, and how many each needs.';
 
 CREATE VIEW gold.legal AS
 SELECT body FROM bronze.record WHERE path = 'DISCLAIMER.md';

@@ -13,9 +13,9 @@ does. Keep `--bind 127.0.0.1`; without it the server listens on every network in
 
 - **Desktop first.** The rail down the left and the skyline at the bottom are laid out for a
   column of about 1440 px. Narrow screens are not designed yet.
-- **`builds/` is generated** from the records in `builds/` and `parts/` at the repo root by
-  `cargo run -p tentzhen-site`. Never edit it by hand: the Quality Gate regenerates it and fails
-  on any difference.
+- **`builds/`, `parts/` and `legal/` are generated** from the records at the repo root by
+  `cargo run -p tentzhen-site`. Never edit them by hand: the Quality Gate regenerates them and
+  fails on any difference.
 - **Images** in `img/` are copies of files in `brand/`. The Quality Gate fails if a copy drifts,
   so change the file in `brand/` and copy it over.
 - **Fonts** are served from `fonts/`, with their licences; `fonts/README.md` says where each came

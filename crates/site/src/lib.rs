@@ -1,9 +1,11 @@
-//! Generates tentzhen.com's build pages from the warehouse's gold views, and nothing else.
+//! Generates tentzhen.com's build pages and parts page from the warehouse's gold views, and nothing
+//! else.
 //!
-//! The records in `parts/` and `builds/` are loaded into DuckDB (crates/warehouse); every value on
-//! a page is read back out of a `gold.page*` view. Every build version gets a permanent page at
-//! `site/builds/<name>/v<N>/`; `site/builds/<name>/` sends you to the newest. Pages are output,
-//! never edited: the Quality Gate reruns this and fails if `site/` differs.
+//! The records in `parts/`, `builds/` and `lab/` are loaded into DuckDB (crates/warehouse); every
+//! value on a page is read back out of a `gold.page*` view. Every build version gets a permanent
+//! page at `site/builds/<name>/v<N>/`; `site/builds/<name>/` sends you to the newest. `site/parts/`
+//! lists everything the bench needs, and how far the lab has got buying it. Pages are output, never
+//! edited: the Quality Gate reruns this and fails if `site/` differs.
 
 use duckdb::{Connection, params};
 use std::fmt::Write as _;
@@ -45,6 +47,7 @@ fn page(up: &str, title: &str, body: &str) -> String {
   </a>
   <nav class="site-nav" aria-label="Main">
     <a href="{up}builds/index.html">BUILDS</a>
+    <a href="{up}parts/index.html">PARTS</a>
     <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/vision.md">VISION</a>
     <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">INSTRUMENT</a>
     <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/verification.md">VERIFICATION</a>
@@ -442,6 +445,124 @@ pub fn render_version(conn: &Connection, b: &PageRow) -> duckdb::Result<String> 
     Ok(page(up, &format!("{name} v{} · Tentzhen", b.version), &h))
 }
 
+/// A shop as the page writes it.
+fn shop_name(shop: &str) -> &str {
+    match shop {
+        "aliexpress" => "AliExpress",
+        "amazon" => "Amazon",
+        "lcsc" => "LCSC",
+        "taobao" => "Taobao",
+        other => other,
+    }
+}
+
+/// A row of the parts page: parts_no, qty, part, form, commodity, datasheet, authorized_only, shop,
+/// store, item, status, since, passed_qa (`gold.page_parts`).
+struct PartsRow {
+    parts_no: i64,
+    qty: i64,
+    part: Option<String>,
+    form: Option<String>,
+    commodity: Option<String>,
+    datasheet: Option<String>,
+    authorized_only: bool,
+    shop: Option<String>,
+    store: Option<String>,
+    item: Option<String>,
+    status: String,
+    since: Option<String>,
+    passed_qa: Option<String>,
+}
+
+/// `site/parts/`: everything the bench needs, each thing once, with the builds that need it, where
+/// the lab buys it and how far it has got.
+pub fn render_parts(conn: &Connection) -> duckdb::Result<String> {
+    let mut stmt = conn.prepare(
+        "SELECT parts_no, qty, part, form, commodity, datasheet, authorized_only, shop, store, \
+         item, status, CAST(since AS TEXT), passed_qa FROM gold.page_parts ORDER BY parts_no",
+    )?;
+    let rows: Vec<PartsRow> = stmt
+        .query_map([], |r| {
+            Ok(PartsRow {
+                parts_no: r.get(0)?,
+                qty: r.get(1)?,
+                part: r.get(2)?,
+                form: r.get(3)?,
+                commodity: r.get(4)?,
+                datasheet: r.get(5)?,
+                authorized_only: r.get(6)?,
+                shop: r.get(7)?,
+                store: r.get(8)?,
+                item: r.get(9)?,
+                status: r.get(10)?,
+                since: r.get(11)?,
+                passed_qa: r.get(12)?,
+            })
+        })?
+        .collect::<duckdb::Result<_>>()?;
+    let mut stmt = conn.prepare(
+        "SELECT parts_no, build, version FROM gold.page_parts_used_in \
+         ORDER BY parts_no, build, version",
+    )?;
+    let mut used_in: std::collections::BTreeMap<i64, Vec<String>> = Default::default();
+    for row in stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get(1)?, u32_at(r, 2)?)))? {
+        let (n, build, version): (i64, String, u32) = row?;
+        used_in.entry(n).or_default().push(format!(
+            "<a href=\"../builds/{0}/v{1}/index.html\">{0} v{1}</a>",
+            esc(&build),
+            version
+        ));
+    }
+
+    let mut h = String::from(
+        "<h1 class=\"spec-title\">Parts</h1>\n<table class=\"spec-table parts-list\">\n<thead><tr><th>QTY</th><th>PART</th><th>FORM</th><th>USED IN</th><th>SOURCE</th><th>STATUS</th></tr></thead>\n<tbody>\n",
+    );
+    for p in &rows {
+        let what = match (&p.part, &p.commodity) {
+            (Some(part), _) => match &p.datasheet {
+                Some(url) => format!("<a href=\"{}\">{}</a>", esc(url), esc(part)),
+                None => esc(part),
+            },
+            (None, Some(c)) => esc(c),
+            (None, None) => String::new(),
+        };
+        let mut source = String::new();
+        if let Some(shop) = &p.shop {
+            source = esc(shop_name(shop));
+            if let Some(store) = &p.store {
+                let _ = write!(source, " · {}", esc(store));
+            }
+            if let Some(item) = &p.item {
+                let _ = write!(source, " <span class=\"item\">{}</span>", esc(item));
+            }
+        }
+        // Kept beside a chosen source too: nothing checks that the source is an authorized one.
+        if p.authorized_only {
+            if !source.is_empty() {
+                source.push_str("<br>");
+            }
+            source.push_str("<span class=\"muted\">authorized sellers only</span>");
+        }
+        let when = p.passed_qa.as_ref().or(p.since.as_ref());
+        let status = match when {
+            Some(w) => format!("{} <span class=\"muted\">{}</span>", esc(&p.status), esc(w)),
+            None => esc(&p.status),
+        };
+        let _ = writeln!(
+            h,
+            "<tr><td>{}</td><td>{what}</td><td>{}</td><td>{}</td><td>{source}</td><td>{status}</td></tr>",
+            p.qty,
+            esc(p.form.as_deref().unwrap_or("")),
+            used_in
+                .get(&p.parts_no)
+                .map(|v| v.join(", "))
+                .unwrap_or_default()
+        );
+    }
+    h.push_str("</tbody>\n</table>\n");
+    Ok(page("../", "Parts · Tentzhen", &h))
+}
+
 /// `site/legal/`: DISCLAIMER.md, as the warehouse holds it.
 pub fn render_legal(markdown: &str) -> String {
     let mut body = String::from("<div class=\"prose\">\n");
@@ -450,8 +571,8 @@ pub fn render_legal(markdown: &str) -> String {
     page("../", "Legal · Tentzhen", &body)
 }
 
-/// Writes every generated file under `root/site/builds/` and `root/site/legal/`. Returns how many
-/// it wrote.
+/// Writes every generated file under `root/site/builds/`, `root/site/parts/` and
+/// `root/site/legal/`. Returns how many it wrote.
 pub fn write_site(conn: &Connection, root: &Path) -> Result<usize, String> {
     let out = root.join("site/builds");
     let write = |path: &Path, bytes: &[u8]| -> Result<(), String> {
@@ -471,6 +592,9 @@ pub fn write_site(conn: &Connection, root: &Path) -> Result<usize, String> {
     )?;
     n += 1;
     write(&out.join("index.html"), render_index(&pages).as_bytes())?;
+    n += 1;
+    let parts = render_parts(conn).map_err(|e| e.to_string())?;
+    write(&root.join("site/parts/index.html"), parts.as_bytes())?;
     n += 1;
     for b in &pages {
         let dir = out.join(&b.build).join(format!("v{}", b.version));
@@ -579,6 +703,93 @@ mod tests {
             "{page}"
         );
         assert!(render(&conn, "bench", 1).contains("<h2>Uses</h2>"));
+    }
+
+    /// The parts page lists each thing once, summed over the builds that write it, with where the
+    /// lab buys it and how far it has got. A part sold by authorized sellers only says so, with a
+    /// source chosen or without.
+    #[test]
+    fn the_parts_page_lists_each_thing_once() {
+        let chip = |name: &str| {
+            src(
+                &format!("parts/{}.toml", name.to_lowercase()),
+                &format!(
+                    "part = \"{name}\"\nkind = \"chip\"\nis = \"x\"\nauthorized_only = true\n"
+                ),
+            )
+        };
+        let probe = build(
+            "probe",
+            1,
+            "[[line]]\npart = \"RP2350\"\nqty = 1\n\n[[line]]\ncommodity = \"wire\"\nqty = 6\n",
+        );
+        let bench = build(
+            "bench",
+            1,
+            "[[uses]]\nbuild = \"probe\"\nversion = 1\n\n[[line]]\npart = \"RP2350\"\nqty = 1\n\n\
+             [[line]]\npart = \"INA239\"\nqty = 1\n",
+        );
+        // One lab-log entry, as `tentzhen log append` writes it, and the INA239's incoming QA.
+        let entry = format!(
+            "{{\"seq\":1,\"at\":\"2026-10-14T10:00:00Z\",\"by\":\"person:jon\",\"what\":\"part.look\",\
+             \"params\":{{}},\"result\":{{\"seen\":true}},\"limits_sha256\":\"{}\",\"prev\":null}}\n",
+            "a".repeat(64)
+        );
+        let cat =
+            Catalogue::from_sources(&base(), &[chip("RP2350"), chip("INA239")], &[probe, bench])
+                .unwrap()
+                .with_log(vec![src("lab/log/2026-10-14.jsonl", &entry)])
+                .unwrap();
+        let first = cat.log[0].sha256.clone();
+        let qa = format!(
+            "measures = \"x\"\nsetup = \"x\"\nlog = {{ first = \"{first}\", last = \"{first}\" }}\n\n\
+             [[device]]\npart = \"INA239\"\n\n[results]\nseen = true\n"
+        );
+        let sourcing = "[[line]]\ncommodity = \"wire\"\nshop = \"amazon\"\nstore = \"Maker\"\n\
+                        item = \"B0ABCDEFGH\"\nordered = \"2026-10-02\"\n\n\
+                        [[line]]\npart = \"INA239\"\nshop = \"lcsc\"\nitem = \"C2040\"\n\
+                        arrived = \"2026-10-14\"\npassed_qa = \"2026-10-14-ina-incoming\"\n";
+        let cat = cat
+            .with_measurements(vec![src("lab/records/2026-10-14-ina-incoming.toml", &qa)])
+            .unwrap()
+            .with_sourcing(src("lab/sourcing.toml", sourcing))
+            .unwrap();
+        let mut conn = Connection::open_in_memory().unwrap();
+        tentzhen_warehouse::load(&mut conn, &cat).unwrap();
+        let page = render_parts(&conn).unwrap();
+        let rows: Vec<&str> = page.lines().filter(|l| l.starts_with("<tr><td>")).collect();
+        assert_eq!(
+            rows,
+            [
+                "<tr><td>2</td><td>RP2350</td><td></td><td>\
+                 <a href=\"../builds/bench/v1/index.html\">bench v1</a>, \
+                 <a href=\"../builds/probe/v1/index.html\">probe v1</a></td>\
+                 <td><span class=\"muted\">authorized sellers only</span></td><td>specced</td></tr>",
+                "<tr><td>1</td><td>INA239</td><td></td><td>\
+                 <a href=\"../builds/bench/v1/index.html\">bench v1</a></td>\
+                 <td>LCSC <span class=\"item\">C2040</span><br>\
+                 <span class=\"muted\">authorized sellers only</span></td>\
+                 <td>passed incoming QA <span class=\"muted\">2026-10-14-ina-incoming</span></td></tr>",
+                "<tr><td>6</td><td>wire</td><td></td><td>\
+                 <a href=\"../builds/probe/v1/index.html\">probe v1</a></td>\
+                 <td>Amazon · Maker <span class=\"item\">B0ABCDEFGH</span></td>\
+                 <td>ordered <span class=\"muted\">2026-10-02</span></td></tr>",
+            ]
+        );
+        assert!(page.contains("<a href=\"../parts/index.html\">PARTS</a>"));
+    }
+
+    /// The home page is written by hand, and carries the nav every generated page does.
+    #[test]
+    fn the_home_page_s_nav_is_the_generated_one() {
+        let nav = |html: &str| {
+            let start = html.find("<nav class=\"site-nav\"").expect("a nav");
+            let end = start + html[start..].find("</nav>").expect("the nav's end");
+            html[start..end].to_string()
+        };
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let home = std::fs::read_to_string(root.join("site/index.html")).unwrap();
+        assert_eq!(nav(&home), nav(&page("", "", "")));
     }
 
     #[test]

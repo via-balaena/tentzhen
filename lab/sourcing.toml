@@ -1,0 +1,48 @@
+# The lab's sourcing: where each thing its builds need comes from, and how far it has got. The parts
+# page (site/parts/) lists everything the bench needs, with this beside it. Until its line here
+# reaches a stage, or with no line, a thing is specced: a build needs it.
+#
+#   [[line]]
+#   part = "LFE5U-45F"              # the line as a build writes it, word for word: a part
+#   form = "..."                    # and its form, or a commodity (and its form, if any)
+#   shop = "aliexpress"             # aliexpress, amazon, lcsc or taobao
+#   store = "..."                   # the seller, as the listing names it
+#   item = "1005007788475037"       # the shop's item number (Amazon's ASIN, LCSC's C number)
+#   listing_checked = "2026-10-02"  # the UTC day a person checked the listing against the build
+#   in_cart = "2026-10-03"          # the UTC day it went in a cart
+#   ordered = true                  # ordered, on a day the line does not give
+#   arrived = "2026-10-20"          # the UTC day it arrived
+#   passed_qa = "2026-10-21-i9-qa"  # the measurement record of the incoming QA it passed
+#
+# Nobody writes a status: it is the last stage reached, which the warehouse works out. A stage is
+# the UTC day it was reached, or `true` to say only that it was; one not reached is left out. Every
+# stage is optional, but the days given run in the stages' order, a stage up to `ordered` names the
+# shop and the item, and an AliExpress item number is under 2^51 (sourcing.rs says why):
+# crates/records holds these, and refuses any other field. Prices, and anything else from a listing,
+# stay out of the repo (CLAUDE.md); nothing stops one written in a comment or a store's name.
+#
+# Not held by anything: that a day is the day it happened, or that a part which passed incoming QA
+# passed it, since each field is its writer's word; what a commodity's QA record measured; and that
+# a part sold by authorized sellers only is bought from one, which the parts page says beside its
+# source. A status is the whole line's, so one of two modules ordered cannot be told from both.
+
+# The extension board's schematic is in wuxx/Colorlight-FPGA-Projects, whose README (at 5042201f,
+# read 2026-10-01) says "you can buy Colorlight i5 and 5A-75B on our aliexpress store" and links
+# this item as "Colorlight i5 & i9". wuxx's GitHub profile links muselab-tech.com. Nobody has
+# checked the listing against the build yet, or seen the store's name on it, so `store` waits.
+[[line]]
+part = "LFE5U-45F"
+form = "Colorlight i9 v7.2 module, on the i5/i9 extension board"
+shop = "aliexpress"
+item = "1005007788475037"
+
+# Jon named the store and sent the listing's link on 2026-10-01; its item number is from the link's
+# redirect, not the listing. Nobody has checked the listing against the build. Ordered: Jon, on
+# 2026-10-01, "i ordered the dps5005 already".
+[[line]]
+part = "DPS5005"
+form = "running OpenDPS"
+shop = "aliexpress"
+store = "RD Official Store"
+item = "1000004290003"
+ordered = true

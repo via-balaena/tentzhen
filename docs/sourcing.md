@@ -84,9 +84,9 @@ prices; … or any use of data mining, robots, or similar data gathering and ext
 ### What that means for Tentzhen
 
 - A person reads a listing. No tool here fetches or collects listings.
-- The repo holds a listing's item number (on Amazon, its ASIN) and store, and what we measured on
-  the parts that arrived. Screenshots, photos, titles, descriptions, prices and reviews stay out,
-  whichever the shop (`CLAUDE.md`).
+- The repo holds a listing's item number (on Amazon, its ASIN) and store, in `lab/sourcing.toml`
+  with how far each thing has got, and what we measured on the parts that arrived. Screenshots,
+  photos, titles, descriptions, prices and reviews stay out, whichever the shop (`CLAUDE.md`).
 - AliExpress's affiliate API, on an affiliate account and an approved app, is the route with its
   permission. Its agreement ties the API to promoting products, "for the purpose of driving the
   traffic for Seller(s)" (AliExpress Affiliate Program Service Agreement, read 2026-10-01); what

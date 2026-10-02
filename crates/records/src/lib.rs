@@ -3,10 +3,12 @@
 //! claims, in one shape: [`Claim`]. A claim assumed rather than shown names an entry in the trusted
 //! base, `trusted-base.toml`: [`Trusted`]. The lab log, every hardware action, is [`log`], and a
 //! claim's `record` names a measurement record: [`measurement`]. The boards an agent may flash are
-//! the lab-target list: [`target`].
+//! the lab-target list: [`target`]. Where the lab buys what its builds need, and how far each thing
+//! has got, is [`sourcing`].
 
 pub mod log;
 pub mod measurement;
+pub mod sourcing;
 pub mod target;
 
 use serde::Deserialize;
@@ -305,7 +307,7 @@ pub struct Catalogue {
     pub trusted_base: Vec<Trusted>,
     /// Every file exactly as read, the trusted base then records then drawings then site documents
     /// then the lab's limits then the lab-target list then the lab log then the measurement
-    /// records: the warehouse's bronze layer.
+    /// records then the lab's sourcing: the warehouse's bronze layer.
     pub sources: Vec<Source>,
     /// The lab's limits, checked. Set by [`Catalogue::with_limits`], which [`Catalogue::load`]
     /// calls; `from_sources` leaves it empty.
@@ -321,6 +323,10 @@ pub struct Catalogue {
     /// [`Catalogue::with_measurements`], which [`Catalogue::load`] calls, and which also holds
     /// every claim's `record` to them; `from_sources` leaves it empty and checks no `record`.
     pub measurements: BTreeMap<String, measurement::Measurement>,
+    /// The lab's sourcing, in the file's order, checked against the builds and the measurement
+    /// records. Set by [`Catalogue::with_sourcing`], which [`Catalogue::load`] calls;
+    /// `from_sources` leaves it empty.
+    pub sourcing: Vec<sourcing::Line>,
 }
 
 impl Catalogue {
@@ -376,7 +382,8 @@ impl Catalogue {
         cat.with_limits(limits)?
             .with_targets(target::read(root)?)?
             .with_log(log::read(root)?)?
-            .with_measurements(measurement::read(root)?)
+            .with_measurements(measurement::read(root)?)?
+            .with_sourcing(sourcing::read(root)?)
     }
 
     /// Adds the lab's limits, refusing what [`tentzhen_lab::Limits::check_with_claims`] refuses
@@ -426,6 +433,19 @@ impl Catalogue {
         }
         self.check_records()?;
         self.sources.extend(files);
+        Ok(self)
+    }
+
+    /// Adds the lab's sourcing, after the measurement records its incoming QA cites. Refuses what
+    /// [`sourcing::parse`] refuses, a line no build writes, and a `passed_qa` that names no record
+    /// of the part from on or after each day its stages give.
+    pub fn with_sourcing(mut self, file: Source) -> Result<Self, String> {
+        let lines = sourcing::parse(&file)?;
+        for l in &lines {
+            l.check_in(&self)?;
+        }
+        self.sourcing = lines;
+        self.sources.push(file);
         Ok(self)
     }
 
@@ -512,6 +532,7 @@ impl Catalogue {
             targets: Vec::new(),
             log: Vec::new(),
             measurements: BTreeMap::new(),
+            sourcing: Vec::new(),
         };
         for versions in cat.builds.values() {
             for b in versions {
@@ -957,6 +978,7 @@ mod tests {
             "builds",
             tentzhen_lab::LIMITS,
             target::TARGETS,
+            sourcing::SOURCING,
         ] {
             copy(&repo.join(path), &root.join(path));
         }
