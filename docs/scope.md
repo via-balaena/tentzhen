@@ -39,6 +39,16 @@ Research date for everything below: 2026-09-28, unless a line says otherwise.
 The soft core does not run Linux; 8 MB of SDRAM is reserved for the capture buffer. It runs
 bare-metal Rust or Tock.
 
+Not pursued (sources read 2026-10-02): the EBAZ4205, a used miner's board with a Zynq-7010, two
+ARM cores beside an FPGA. Its three headers carry 42 FPGA I/O; two inputs and two outputs take 60
+(`builds/digitizer/v1.toml`), and tier 3's ADC takes 33. Its Ethernet is 10/100. What it would
+add is 256 MB of DDR3 against the i9's 8 MB of SDRAM, wired to the ARM side. A U-Boot fork for
+the board (embed-me's) sets the DDR3 up from a generated register file, copyright Xilinx; GenZ,
+the open generator of such files, notes "ddr: DDR3, unsupported yet". Whether the open FPGA tools
+can write captures into it is `unknown`. The pins rule out two inputs and two outputs whatever the
+tools do; one input and one output fit, as in kushpet's build. Sources and the builds on it:
+`prior-art.md`, "A cheaper FPGA board".
+
 ## Against the reference
 
 | | Red Pitaya STEMlab 125-14 | Tentzhen #1, tier 2 (modules) | Tentzhen #1, tier 3 (front-end PCB) |

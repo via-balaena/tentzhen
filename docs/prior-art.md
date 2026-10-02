@@ -44,6 +44,9 @@ of record. Each part exists on its own, and several were built in 2026.
   from TI and Analog Devices, and most put out 1.8 V logic. The tricks around a cheap ADC,
   equalizing and averaging, are open in Red Pitaya's and Haasoscope Pro's code; calibrating two
   interleaved AD9226s is in nothing we found.
+- **A cheaper FPGA board,** the EBAZ4205, a used miner's board with a Zynq-7010, already carries
+  AD9226 builds, made with Vivado. A U-Boot fork for it sets up its DDR3 from a generated register
+  file, copyright Xilinx; GenZ, the open generator of such files, does not cover DDR3 yet.
 - **In Chinese,** there are many more open instruments, supplies and loads, several with one unit's
   accuracy measured and published, and agents on instruments from RIGOL and others. The pattern is
   the same: at most one unit's measurements behind some of the numbers, and every limit read in
@@ -178,6 +181,24 @@ makers' catalogues, and paywalled papers.
 | Haasoscope Pro | equalizes each unit with an FIR filter fit to a square wave, and stops at the anti-alias cutoff, since correcting past it "would just amplify noise"; has interleaved modes | GS/s, on its own boards | drandyhaas/HaasoscopePro at b7762c54 (MIT), `software/FIR_CALIBRATION_README.md`, **re-read** |
 | Red Pitaya's gateware | `red_pitaya_dfilt1`, a "Filter to equalize input analog chain"; decimation that averages: "Each sample is the average of skipped samples if DEC > 1" | — | RedPitaya-FPGA at 728a4f37; RedPitaya/Documentation at 5c39e718, **re-read** |
 | ngscopeclient's de-embed filter | removes a network's effect by applying its S-parameters in reverse, its gain capped by a "Max Gain" setting, 20 dB by default | on the host, after capture | ngscopeclient/scopehal at 8e3ebb11 (BSD-3-Clause), `DeEmbedFilter.cpp`, **re-read** |
+
+## A cheaper FPGA board
+
+Searched 2026-10-02, for the EBAZ4205 as instrument #1's FPGA board: a GitHub repository search for
+"ebaz4205" (the 30 with the most stars), the board's community repository, LiteX's files for it, the
+boot code of one Linux build for it, and the open tools for its chip. Why it was not taken:
+`scope.md`, "Architecture". Not seen: shops' listings and prices (CLAUDE.md, shop data), forums,
+Chinese-language sites, and the board's schematic: the pin count below comes from a project's pin
+table.
+
+| work | closest part | different | source |
+|---|---|---|---|
+| EBAZ4205 | the control board of Ebit's E9+ bitcoin miner, sold used: a Zynq-7010 (two ARM cores beside an FPGA), 256 MB of DDR3, and 10/100 Ethernet (an IP101GA) | three headers at 2.0 mm pitch, not 2.54 mm, with 42 FPGA I/O, 14 on each; they are its only power input (5–12 V) until a diode, D24, is fitted | xjtuecho/EBAZ4205 at 05cdb450 (MIT), README, **re-read**; the pin count from kushpet's table (next row) |
+| kushpet/ebaz4205-sdr | a 0–30 MHz SDR receiver: one AD9226 module, and optionally one DAC904 module, on an EBAZ4205. The FPGA runs a downconverter at 60 MS/s, decimating to 1 MS/s I/Q, and the ARM side streams it over TCP | one input, and one output with the DAC; Vivado and Vitis; no license file | at 18ec936a, README, `docs/EBAZ4205-ADC-DAC.md` and `hardware/constraints/ebaz4205.xdc`, **re-read** |
+| guido57/EBAZ4205_Spectrum | a 0–32 MHz spectrum viewer: an AD9226 on an EBAZ4205 | Vivado, Vitis and PetaLinux | at a7123471 (MIT), its description and README, **re-read** |
+| LiteX's EBAZ4205 target | the board in LiteX: a clock, two LEDs and a UART on the FPGA side, with Vivado as the default toolchain | asking for the ARM side (`cpu_type` "zynq7000") raises `NotImplementedError` | litex-hub/litex-boards at 10debf14, `platforms/ebaz4205.py` and `targets/ebaz4205.py`, **re-read** |
+| embed-me's U-Boot and Buildroot for the EBAZ4205 | U-Boot's first-stage loader calls `ps7_init()`, which sets up the board's DDR3 from `ps7_init_gpl.c`, a register file whose header says it is "automatically generated", copyright Xilinx, under the GPL. A Buildroot config builds that loader and Linux 4.19 | the bitstream comes "from the Vivado build" (its README) | embed-me/u-boot, branch v2019.07-ebaz4205 at ec30ee60, `board/embedme/ebaz4205/` (`ps7_init_gpl.c`, `Makefile`) and `arch/arm/mach-zynq/spl.c`; embed-me/ebaz4205_buildroot at c807c1fd (GPL-3.0), `configs/zynq_ebaz4205_defconfig` and README; all **re-read** |
+| openXC7 and GenZ | open tools for the Zynq-7000: openXC7 places and routes Zynq-7000 FPGAs among others, and GenZ generates the ARM side's setup code. One openXC7 demo uses both, on a PYNQ-Z1's Zynq-7020 | GenZ's code notes "ddr: DDR3, unsupported yet", and that demo builds its boot loader with `-DNODDR` | openXC7/toolchain-installer at 0cb31563, README; openXC7/demo-projects at ff232be4, `ps7-blinky-digilent-pynqz1/`; regymm/GenZ at 842a8f64 (MIT), `zynq7000.py`; all **re-read** |
 
 ## Chinese-language sources
 
