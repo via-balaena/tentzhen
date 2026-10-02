@@ -1,0 +1,4 @@
+part = "LFE5U-45F"
+kind = "chip"
+is = "FPGA, Lattice ECP5"
+datasheet = "https://www.latticesemi.com/view_document?document_id=50461"

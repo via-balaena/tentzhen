@@ -1,0 +1,54 @@
+part = "AD9226"
+kind = "chip"
+is = "ADC, 12-bit, parallel output"
+datasheet = "https://www.analog.com/media/en/technical-documentation/data-sheets/AD9226.pdf"
+
+# Every claim below: Analog Devices AD9226 data sheet, Rev. B, read 2026-10-01. Tentzhen's AD9226s
+# come soldered to modules bought on AliExpress, not from an authorized distributor, so they are
+# trusted to aliexpress-modules, not maker-datasheets, until incoming QA measures them.
+
+[[claim]]
+# Switching Specifications: Max Conversion Rate 65 MHz minimum; Clock Period 15.38 ns.
+id = "sample-rate"
+says = "Converts at up to `max_sample_hertz`"
+trusted = "aliexpress-modules"
+values = { max_sample_hertz = 65000000.0 }
+
+[[claim]]
+# DC Specifications, Power Supplies: AVDD 4.75 V to 5.25 V; DRVDD 2.85 V to 5.25 V.
+id = "supplies"
+says = "Its analog supply (AVDD) runs from `min_analog_supply_volts` to `max_analog_supply_volts`, and its output drivers' (DRVDD) from `min_driver_supply_volts` to `max_driver_supply_volts`"
+trusted = "aliexpress-modules"
+values = { min_analog_supply_volts = 4.75, max_analog_supply_volts = 5.25, min_driver_supply_volts = 2.85, max_driver_supply_volts = 5.25 }
+
+[[claim]]
+# Digital Specifications: logic inputs (clock among them), high-level input voltage 2.4 V minimum,
+# low-level 0.8 V maximum; logic outputs with DRVDD = 3 V, high-level 2.80 V minimum at 0.5 mA,
+# low-level 0.4 V maximum at 1.6 mA.
+id = "logic-levels"
+says = "Its clock input reads high from `min_input_high_volts` and low up to `max_input_low_volts`; with DRVDD at 3 V its outputs are at least `min_output_high_volts` high and at most `max_output_low_volts` low"
+trusted = "aliexpress-modules"
+values = { min_input_high_volts = 2.4, max_input_low_volts = 0.8, min_output_high_volts = 2.8, max_output_low_volts = 0.4 }
+
+[[claim]]
+# Switching Specifications, AVDD = 5 V, DRVDD = 3 V, 20 pF load: output delay 3.5 ns minimum, 7 ns
+# maximum; pipeline delay (latency) 7 clock cycles.
+id = "output-timing"
+says = "A sample appears on its outputs 7 clock cycles after it is taken, `min_output_delay_seconds` to `max_output_delay_seconds` after the clock edge"
+trusted = "aliexpress-modules"
+values = { min_output_delay_seconds = 0.0000000035, max_output_delay_seconds = 0.000000007 }
+
+[[claim]]
+# DC Specifications, Analog Input: input span 2 V p-p at VREF = 2 V. "Reference Operation": SENSE
+# tied to AVSS gives a VREF of 2.0 V.
+id = "input-span"
+says = "With SENSE tied to ground, its input spans `input_span_volts` peak to peak"
+trusted = "aliexpress-modules"
+values = { input_span_volts = 2.0 }
+
+[[claim]]
+# Pin configuration, 28-lead SSOP: (MSB) BIT 1, (LSB) BIT 12. Module sellers label these D0 to D11
+# in either order (docs/scope.md, "Known part issues").
+id = "bit-order"
+says = "BIT1 is its most significant output bit and BIT12 its least"
+trusted = "aliexpress-modules"
