@@ -7,24 +7,25 @@ Research date for everything below: 2026-09-28, unless a line says otherwise.
 - **FPGA board:** Colorlight i9 v7.2 + extension board. FPGA LFE5U-45F-6BG381C; SDRAM
   M12L64322A (8 MB, 32-bit); W25Q64 flash; 2× B50612D gigabit Ethernet PHYs; 25 MHz clock. The
   extension board adds a DAPLink (JTAG + USB-CDC), USB-C, HDMI and six 2×15 headers. P1 carries
-  only the Ethernet pairs. P2–P6 carry 98 FPGA I/O, each header laid out as two PMOD-compatible
-  sites and four more pins, with 5 V on pin 23. (github.com/wuxx/Colorlight-FPGA-Projects,
-  `colorlight_i9_v7.x.md` and `schematic/i5-i9-extboard.pdf`; the headers read 2026-10-01)
+  the Ethernet pairs, power and ground, and no FPGA I/O. P2–P6 carry 98 FPGA I/O, each header laid
+  out as two PMOD-compatible sites plus four more I/O, a ground, and 5 V on pin 23.
+  (github.com/wuxx/Colorlight-FPGA-Projects, `colorlight_i9_v7.x.md` and
+  `schematic/i5-i9-extboard.pdf`; the headers read 2026-10-01)
 - **Ethernet needs an adapter:** the extension board has no RJ45 jacks, and P1 carries the PHYs'
   bare pairs. Of the i5, which uses the same extension board, Tom Verbeure wrote that the module
-  "only contains the transceivers, not the Ethernet transformers or RJ45 connectors" ("The
-  Colorlight i5 as FPGA development board", tomverbeure.github.io, 2021-01-22); that the i9 is the
-  same is `unknown`, as its schematic is not public. Kazumoto Kojima's i5ether is an adapter for
-  P1, in kazkojima/colorlight-i5-tips, with no license file, so we design our own (`roadmap.md`,
-  Phase 0). Until it is built, the host reaches the board through its DAPLink's USB-CDC serial
-  port.
+  "only contains the transceivers, not the Ethernet transformers or RJ45 connectors" ("Getting
+  Started with ECP5 FPGAs on the Colorlight i5 FPGA Development Board", tomverbeure.github.io,
+  2021-01-22); that the i9 is the same is `unknown`, as its schematic is not public. Kazumoto
+  Kojima's i5ether is an adapter for P1, in kazkojima/colorlight-i5-tips, with no license file, so
+  we design our own (`roadmap.md`, Phase 0). Until it is built, the host reaches the board through
+  its DAPLink's USB-CDC serial port.
 - **SoC:** LiteX with a VexRiscv soft core, LiteEth (Ethernet streaming), LiteDRAM (SDRAM capture
   buffer). Custom cores — capture, trigger, DDS — in Amaranth so they can carry formal
   properties (`verification.md`).
 - **Inputs:** 2× AD9226 modules (12-bit, up to 65 MS/s), one per channel, on headers P2 and P3 by
-  jumper wire. Each module has a 2×10 header: 14 signals and 5 V.
-- **Outputs (phase 5):** a dual AD9767 module in the AN9767's pinout (32 signals and 5 V, on P4 and
-  P5) with a waveform-generation core.
+  jumper wire. Each module has a 2×10 header: 14 signals, 5 V and ground.
+- **Outputs (phase 5):** a dual AD9767 module in the AN9767's pinout (32 signals, 5 V and ground,
+  on P4 and P5) with a waveform-generation core.
 - Which header carries what, and why: `builds/digitizer/v1.toml`.
 - **Analog front end:** custom PCB — input protection, switchable attenuation, AC/DC coupling,
   buffer amplifier, anti-alias filter.
@@ -62,7 +63,10 @@ Expect more noise than a Red Pitaya on front end v1. That is fine. Publish real 
   manual (V2.3, 2021-06-03) labels BIT1 as D0; on the V1.2 board, D0 is header pin 5, which its
   schematic wires to BIT12, the LSB (traced by eye, 2026-10-01). Incoming QA reads a ramp to tell.
 - **The extension board's USB-C port has no CC resistors** (the schematic marks CC1 and CC2 not
-  connected), so a USB-C to USB-C cable may give it no power. Power it from a USB-A port.
+  connected), and a USB-C source drives no VBUS until it detects a sink's pull-down on CC1 or CC2
+  (USB Type-C spec 1.3, sections 4.5.2.2.7 and 4.5.2.2.8.2, as quoted in Zephyr's
+  `subsys/usb/usb_c/usbc_tc_src_states.c`), so a USB-C to USB-C cable may give it no power. Power
+  it from a USB-A port.
 - At least one module variant is specified for ±5 V (10 Vpp) input scaled to 1–3 V, with a 5 V
   supply and 3.3 V logic (manuals.plus/ae/1005005576645194). Input stages differ between
   sellers, so each unit is characterized on arrival.
@@ -91,7 +95,8 @@ Expect more noise than a Red Pitaya on front end v1. That is fine. Publish real 
 
 - Current state of Rust crates for LiteX-generated SoCs.
 - Whether 65 MS/s survives 10 cm jumper wires — signal integrity is `unknown`. Scoped
-  (github.com/wavius/Scoped) ran an AD9226 module at a 25 MHz clock on 20 cm ones.
+  (github.com/wavius/Scoped) clocks an AD9226 module at 25 MHz over 20 cm ones, and its README
+  shows a demo over UART at a 50 kHz acquisition rate, as USB kept dropping.
 - Whether one USB port powers the i9 and three modules: the extension board's fuse rating is not
   printed, and the draw is not measured.
 - The Ethernet adapter on P1: designed in Phase 0 (`roadmap.md`), not yet in a build.

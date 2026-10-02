@@ -53,7 +53,7 @@ of record. Each part exists on its own, and several were built in 2026.
 | Sinara Zotino (M-Labs) | a lab-grade DAC card | **each number is footnoted to a datasheet or to the issue where it was measured**, with the setup | lab price, not cheap modules | m-labs.hk sinara datasheet 5432 |
 | Glasgow revD | an interface multitool | its supply is "hardwired to turn off" on over- or undervoltage: a limit below software | not an instrument bench | crowdsupply.com |
 | tinySA, NanoVNA | cheap RF instruments | a built-in self-test; a large community | clones of varying quality | tinysa.org |
-| Scoped (wavius) | a USB oscilloscope: an AD9226 module on Muse Lab's iCESugar-Pro, an ECP5 board | the same module on an ECP5, wired with 20 cm jumpers, its clock at 25 MHz from the FPGA | one channel, over USB; no license file | github.com/wavius/Scoped, **re-read** |
+| Scoped (wavius) | an oscilloscope over USB or UART: an AD9226 module on Muse Lab's iCESugar-Pro, an ECP5 board | the same module on an ECP5, wired with 20 cm jumpers, its clock at 25 MHz from the FPGA | one channel; its demo ran over UART at a 50 kHz acquisition rate, as USB kept dropping; no license file | github.com/wavius/Scoped, **re-read** |
 
 None of seven open instrument repos has a SymbiYosys file (`.sby`) on its default branch: Glasgow,
 ThunderScope and its LiteX gateware, Haasoscope Pro, Red Pitaya, red-pitaya-notes and LibreVNA.
