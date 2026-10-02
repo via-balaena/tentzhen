@@ -49,13 +49,14 @@ Bitstream hash and toolchain versions recorded in the build artifact. All `measu
 
 One AD9226 into on-chip RAM with an edge trigger, read out and plotted from a Rust host tool.
 The capture core's properties are `proven` or `checked`, and its cocotb tests pass, **before**
-it touches hardware. On arrival every AD9226 module goes through incoming QA, starting with the
-AD8138 VOCM check (`scope.md`).
+it touches hardware. On arrival every AD9226 module goes through incoming QA: its logic supply,
+then the AD8138 VOCM check (`scope.md`), as `builds/digitizer/v1.toml`'s walkthrough has it.
 
 ## Phase 3 — Two channels + streaming
 
 SDRAM buffering, continuous Ethernet streaming, samples landing in DuckDB with full metadata.
-Sustained sample rate over PMOD is `measured`, not assumed from the ADC's rating.
+Sustained sample rate over the headers' jumper wires is `measured`, not assumed from the ADC's
+rating.
 
 ## Phase 4 — Instrument interface
 

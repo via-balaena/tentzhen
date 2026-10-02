@@ -53,6 +53,7 @@ of record. Each part exists on its own, and several were built in 2026.
 | Sinara Zotino (M-Labs) | a lab-grade DAC card | **each number is footnoted to a datasheet or to the issue where it was measured**, with the setup | lab price, not cheap modules | m-labs.hk sinara datasheet 5432 |
 | Glasgow revD | an interface multitool | its supply is "hardwired to turn off" on over- or undervoltage: a limit below software | not an instrument bench | crowdsupply.com |
 | tinySA, NanoVNA | cheap RF instruments | a built-in self-test; a large community | clones of varying quality | tinysa.org |
+| Scoped (wavius) | a USB oscilloscope: an AD9226 module on Muse Lab's iCESugar-Pro, an ECP5 board | the same module on an ECP5, wired with 20 cm jumpers, its clock at 25 MHz from the FPGA | one channel, over USB; no license file | github.com/wavius/Scoped, **re-read** |
 
 None of seven open instrument repos has a SymbiYosys file (`.sby`) on its default branch: Glasgow,
 ThunderScope and its LiteX gateware, Haasoscope Pro, Red Pitaya, red-pitaya-notes and LibreVNA.
@@ -112,7 +113,10 @@ Searched in Chinese on 2026-09-30: OSHWHub (立创开源硬件平台, JLC's open
 through its own API), Gitee, GitHub, and Bilibili video titles. CSDN, Zhihu, elecfans, EEWorld,
 21ic and Baidu blocked the search, so reviews posted there were not seen.
 
-**Instruments.** Nothing found pairs the AD9226 with a Colorlight board and LiteX. On OSHWHub,
+**Instruments.** Nothing found pairs the AD9226 with a Colorlight board and LiteX. Searched again
+on 2026-10-01, on GitHub (repositories: "AD9226" 27, with "ecp5" 1, with "colorlight", "pmod",
+"litex" or "amaranth" 0; "AD9767" 2, with "colorlight" or "ecp5" 0, **re-read**) and Gitee: no
+project connects an AD9226 or AD9767 module to a Colorlight board. On OSHWHub,
 "AD9226" returns one project, a sensor board, and "ECP5 示波器", "LiteX" and "Colorlight" return
 none.
 
@@ -216,8 +220,9 @@ Each is a candidate, to be proposed where it lands:
 | Tock | the enforcer's OS; upstream supports the RP2350, and Jon's `via-balaena/tock` branches add drivers | `verification.md`, "Tock" (planned) |
 | Kani | the enforcer's checks | `firmware/enforcer` |
 | DuckDB | the warehouse | `crates/warehouse` |
-| Muse Lab's Colorlight pinouts | the digitizer's FPGA board | `scope.md` (planned) |
+| Muse Lab's Colorlight pinouts and extension-board schematic | the digitizer's FPGA board and its headers | `scope.md`, `builds/digitizer/v1.toml` |
 | machcnz's AD9226 module notes | the module's clipping defect and its fix | `scope.md` |
+| Kazumoto Kojima's i5ether | an Ethernet adapter for the extension board's P1; no license file, so we link to it and do not copy it | `scope.md` (planned) |
 | OpenDPS | the DPS5005's firmware | `lab/limits.toml`, `parts/dps5005.toml` |
 | Raspberry Pi debugprobe | the debug probe's firmware | `builds/debug-probe/v1.toml` |
 | jlcparts | part data without an LCSC key | `roadmap.md` (planned) |
@@ -230,5 +235,6 @@ Safe-SDL's authors (safety below the agent), the authors of Self-Verifying Measu
 (our FPGA board), greentor (LogicPi's analog front end), the ESP32 load's author (our load's
 topology), the S-ELO and XS1 authors (calibration, published), RIGOL's UVerse team (agents on
 instruments, with confirmation on the host), the authors of instrumentControl and WaveBench, rIC3's
-authors, the 一生一芯 course, and the reviewers at 数码之家. And the projects we build on, upstream first
+authors, the 一生一芯 course, and the reviewers at 数码之家. Kazumoto Kojima, whose i5ether carries no
+license, so we could build on it only once it has one. And the projects we build on, upstream first
 when we find a bug.
