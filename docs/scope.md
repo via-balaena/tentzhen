@@ -15,8 +15,9 @@ Research date for everything below: 2026-09-28, unless a line says otherwise.
   "only contains the transceivers, not the Ethernet transformers or RJ45 connectors" ("The
   Colorlight i5 as FPGA development board", tomverbeure.github.io, 2021-01-22); that the i9 is the
   same is `unknown`, as its schematic is not public. Kazumoto Kojima's i5ether is an adapter for
-  P1, in kazkojima/colorlight-i5-tips, with no license file. Until one is built, the host reaches
-  the board through its DAPLink's USB-CDC serial port.
+  P1, in kazkojima/colorlight-i5-tips, with no license file, so we design our own (`roadmap.md`,
+  Phase 0). Until it is built, the host reaches the board through its DAPLink's USB-CDC serial
+  port.
 - **SoC:** LiteX with a VexRiscv soft core, LiteEth (Ethernet streaming), LiteDRAM (SDRAM capture
   buffer). Custom cores — capture, trigger, DDS — in Amaranth so they can carry formal
   properties (`verification.md`).
@@ -93,6 +94,6 @@ Expect more noise than a Red Pitaya on front end v1. That is fine. Publish real 
   (github.com/wavius/Scoped) ran an AD9226 module at a 25 MHz clock on 20 cm ones.
 - Whether one USB port powers the i9 and three modules: the extension board's fuse rating is not
   printed, and the draw is not measured.
-- The Ethernet adapter on P1: none is in a build yet.
+- The Ethernet adapter on P1: designed in Phase 0 (`roadmap.md`), not yet in a build.
 - The DAC module's specs: confirm them by measurement.
 - Front-end op-amp selection: bandwidth vs noise vs LCSC availability vs JLCPCB basic-part status.

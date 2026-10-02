@@ -38,6 +38,9 @@ Everything here runs at tier 0, and all of it must exist before the first order 
   and a lab log that is hash-chained and only grows on `main`. Its entries are not signed. Commits
   are, but an agent that can commit signs with the person's key (`architecture.md`), so where to
   keep a key an agent cannot use is decided with the Pico enforcer.
+- **Ethernet adapter for P1.** The extension board has no Ethernet jacks (`scope.md`), so a small
+  board of our own carries a jack with built-in transformers on its header P1: KiCad files, made
+  at JLCPCB in the first cart (Jon, 2026-10-01).
 - **First cart.** A BOM and cart for tiers 1–2, reviewed by the user, who places the order.
 
 ## Phase 1 — Bring-up
