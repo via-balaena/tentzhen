@@ -42,11 +42,12 @@ bare-metal Rust or Tock.
 Not pursued (sources read 2026-10-02): the EBAZ4205, a used miner's board with a Zynq-7010, two
 ARM cores beside an FPGA. Its three headers carry 42 FPGA I/O; two inputs and two outputs take 60
 (`builds/digitizer/v1.toml`), and tier 3's ADC takes 33. Its Ethernet is 10/100. What it would
-add is 256 MB of DDR3 against the i9's 8 MB of SDRAM. The DDR3 is wired to the ARM side, and no
-open tool we found sets it up: GenZ's code notes "ddr: DDR3, unsupported yet", and LiteX's
-EBAZ4205 target raises `NotImplementedError` for the ARM side. What would reopen it: an open tool
-that brings up its DDR3. The pins and the 10/100 Ethernet would still stand. Sources and the
-builds on it: `prior-art.md`, "A cheaper FPGA board".
+add is 256 MB of DDR3 against the i9's 8 MB of SDRAM, wired to the ARM side. A U-Boot fork for
+the board (embed-me's) sets the DDR3 up from a generated register file, copyright Xilinx; GenZ,
+the open generator of such files, notes "ddr: DDR3, unsupported yet". Whether the open FPGA tools
+can write captures into it is `unknown`. The pins rule out two inputs and two outputs whatever the
+tools do; one input and one output fit, as in kushpet's build. Sources and the builds on it:
+`prior-art.md`, "A cheaper FPGA board".
 
 ## Against the reference
 
