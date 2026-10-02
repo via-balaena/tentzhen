@@ -8,14 +8,15 @@ Anywhere they are cheap, if incoming QA can check what the build relies on (`vis
 3). In this order:
 
 - **The maker's own store**, when it sells the part, even at a higher price: the i9 and its
-  extension board are to come from the listing that Muse Lab's README
-  (wuxx/Colorlight-FPGA-Projects) links under "our aliexpress store".
+  extension board are to come from the listing that Muse Lab's README (wuxx/Colorlight-FPGA-Projects
+  at 5042201f, read 2026-10-01) links under "our aliexpress store".
 - **Anyone else:** a reseller, a used sale, a thrift store, a junked device, a drawer at home.
   `lab/sourcing.toml` records each as a shop's listing, a `store` with no listing, `used`,
   `salvaged_from` a device, or `arrived = true` with no source. Until incoming QA measures a part,
-  its claims rest on a `trusted-base.toml` entry that says where that trust comes from: the AD9226's
-  and the AD9767's, which come soldered to modules bought on AliExpress, on `aliexpress-modules`,
-  not `maker-datasheets`.
+  its claims are to rest on a `trusted-base.toml` entry that says where that trust comes from. One
+  such entry exists besides `maker-datasheets`, which assumes an authorized distributor:
+  `aliexpress-modules`, for the AD9226's and the AD9767's claims, since they come soldered to
+  modules bought on AliExpress. Nothing checks a part's entry against its source.
 - **An authorized seller only**, for a part whose job no bench test on arrival can check, including
   one whose spec is finer than the bench can measure: the parts marked `authorized_only` in
   `parts/`.
@@ -133,13 +134,16 @@ content.
 
 ### The parts sold by authorized sellers only
 
-Reviewed 2026-10-02 against the rule above: a part's mark comes off only when a bench test on
-arrival, within `lab/limits.toml`, covers what its build relies on. None of the five does yet, so
-each keeps it. The tests below are still worth running on any unit, whatever its source, since they
-catch a wrong or remarked part. Passing them shows a part fit for what they check, and no more: "No
-amount of testing can confirm an item as authentic" (SAE AS6171A, scope, revised 2018-04-18). Code a
-Pico runs to read a part counts as flashing the Pico (`lab/targets.toml`), so it needs a person's
-approval until the Pico is a lab target.
+Reviewed 2026-10-02 against the rule above: a part's mark comes off when a bench test on arrival
+covers what its build relies on. For the four enforcer chips there is a step first: their claims
+rest on `maker-datasheets`, which assumes an authorized distributor, so a unit bought elsewhere
+needs a trusted-base entry of its own. All five keep the mark for now, each for the reason it gives.
+The tests below are still worth running on any unit, whatever its source, since they catch a wrong
+or remarked part. Passing them shows a part fit for what they check, and no more: "No amount of
+testing can confirm an item as authentic" (SAE AS6171A, scope, revised 2018-04-18). Each test is a
+hardware action, logged; an agent runs one only within `lab/limits.toml` or on a person's approval
+(`CLAUDE.md`). Code a Pico runs to read a part counts as flashing the Pico (`lab/targets.toml`), so
+it needs a person's approval until the Pico is a lab target.
 
 - **INA239**, the enforcer's measurement. Read MANUFACTURER_ID (3Eh), which reads 5449h, "TI" in
   ASCII, and DEVICE_ID (3Fh), which reads 2391h (TI SLYS027A, Tables 7-20 and 7-21); then compare
@@ -147,21 +151,25 @@ approval until the Pico is a lab target.
   `measuring-error` claim is 9.97 mV at 3.4 V, and a multimeter checks the INA239 only as finely as
   its own accuracy there, which no record in the repo gives (`unknown`). A meter or reference finer
   than that, with a record, would lift it.
-- **TLV3011B**, the hardware cut. With V+ at 3.3 V, measure REF (pin 5) to ground: 1.223 V to 1.260
-  V (TI SBOS300C, section 6.9). Then check the output is open-drain: with IN- below REF and OUT
-  pulled to ground through 100 kΩ, OUT reads near 0 V, where a push-pull part reads near V+. Its
+- **TLV3011B**, the hardware cut. With V+ at 3.3 V, measure REF (pin 5) to ground: 1.223 V to
+  1.260 V (TI SBOS300C, section 6.9). Then check the output is open-drain: with IN- below REF and
+  OUT pulled to ground through 100 kΩ, OUT reads near 0 V, where a push-pull part reads near V+. Its
   push-pull twin, the TLV3012, would hold EN high whenever it is not tripped, within 200 mV of V+
-  while sourcing 5 mA (VOH, at VS = 5 V; no row is given at 3.3 V), more than GP20 pulls through 1
-  kΩ, so GP20 could not open the switch (from the circuit in `builds/enforcer/v1.toml`). **Keeps the
-  mark:** the `hardware-cut` claim holds across a room within 10 K of 25 °C, and how a unit's
-  reference moves with temperature is beyond this bench.
+  while sourcing 5 mA (VOH, at VS = 5 V; no row is given at 3.3 V), more than GP20 pulls through
+  1 kΩ, so GP20 could not open the switch (from the circuit in `builds/enforcer/v1.toml`). **Keeps
+  the mark:** the `hardware-cut` claim holds across a room within 10 K of 25 °C, and no record in
+  the repo gives a thermometer or a way to hold a part at a set temperature, so how a unit's
+  reference moves with temperature goes unmeasured.
 - **AO3401A**, the enforcer's switch, and **AO3400A**, its driver. A diode test finds each one's
   orientation, and a resistor and the supply its gate threshold at 250 µA: 0.5 V to 1.3 V below the
   source for the AO3401A, 0.65 V to 1.45 V above it for the AO3400A (Alpha and Omega datasheets, Rev
-  3.1). **Keep the mark:** if the DPS5005 fails, SUPPLY can rise toward the 6.5 V that
-  `[supply.upstream]` feeds it, and the AO3401A must then block it (`switch-blocks-upstream`), while
-  the AO3400A, off, holds it on its drain through 100 kΩ (from the circuit). Testing either needs
-  more than `lab/limits.toml`'s 3.4 V.
+  3.1). If the DPS5005 fails, SUPPLY can rise toward the 6.5 V that `[supply.upstream]` feeds it,
+  and the AO3401A must then block it (`switch-blocks-upstream`), while the AO3400A, off, holds it on
+  its drain through 100 kΩ (from the circuit). The bench supply at that same 6.5 V can test each for
+  leakage while off. A person can run that test; an agent cannot without approval, since
+  `lab/limits.toml` sets no limit for a part on the bench. **Keep the mark for now:** with an
+  on-resistance check at the enforcer's current, these tests would cover what the enforcer relies on
+  from the two, but their claims rest on `maker-datasheets`, as above.
 - **RP2350**, the debug probe's and the enforcer's microcontroller. In BOOTSEL, read its OTP with
   picotool, and only read it: writing OTP is irreversible and needs approval (`CLAUDE.md`). A blank
   part's OTP is "all zeroes, except for some basic device information pre-programmed during
