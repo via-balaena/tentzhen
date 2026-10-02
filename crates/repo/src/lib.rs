@@ -434,6 +434,33 @@ mod tests {
         assert!(actions >= 7, "found {actions} actions");
     }
 
+    /// A newer push to a pull request cancels the Quality Gate's older run on it; a run on main, or
+    /// one started by hand, is a concurrency group of its own, so nothing cancels it or holds it
+    /// back. Text only: that GitHub does so is seen on a pull request, not here.
+    #[test]
+    fn a_newer_push_cancels_only_a_pull_request_s_older_gate_run() {
+        let (_, gate) = workflows()
+            .into_iter()
+            .find(|(f, _)| f == "quality-gate.yml")
+            .unwrap();
+        for needed in [
+            "\nconcurrency:\n",
+            "  group: quality-gate-${{ github.event.pull_request.number || github.run_id }}\n",
+            "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}\n",
+        ] {
+            assert!(gate.contains(needed), "the Quality Gate lacks {needed:?}");
+        }
+        assert_eq!(
+            gate.matches("concurrency:").count(),
+            1,
+            "one concurrency block"
+        );
+        assert!(
+            !gate.lines().any(|l| l.trim_start().starts_with("queue:")),
+            "a queue would hold main's runs together"
+        );
+    }
+
     /// tentzhen.com is published from main only, after main's Quality Gate passed on that commit:
     /// the Pages workflow's guard names each condition. `branches: [main]` matches a branch's name
     /// alone, which a pull request from a fork can share.
