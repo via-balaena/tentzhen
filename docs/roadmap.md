@@ -46,7 +46,9 @@ Everything here runs at tier 0, and all of it must exist before the first order 
 ## Phase 1 — Bring-up
 
 LiteX + VexRiscv on the Colorlight; Rust "hello" over UART; Etherbone reachable from the host.
-Bitstream hash and toolchain versions recorded in the build artifact. All `measured`.
+Bitstream hash and toolchain versions recorded in the build artifact. All `measured`. Then, on the
+i9 alone, the loopback test that settles whether it reads the tier-3 ADC's 1.8 V outputs
+(`scope.md`, "Open questions").
 
 ## Phase 2 — First capture
 
@@ -72,9 +74,9 @@ DAC module + DDS / arbitrary-waveform core, with formal properties on the core.
 
 ## Phase 6 — Front end v1
 
-KiCad design, ngspice-verified (bandwidth, noise, overload), fabricated and assembled at
-JLCPCB. Prefer JLCPCB basic parts; the BOM tool's unique-extended-part count is reported with
-the design.
+KiCad design, with the ADS4245 and the oscillator that clocks it on the board (`scope.md`, "The
+tier-3 ADC"), ngspice-verified (bandwidth, noise, overload), fabricated and assembled at JLCPCB.
+Prefer JLCPCB basic parts; the BOM tool's unique-extended-part count is reported with the design.
 
 ## Phase 7 — Characterization
 
