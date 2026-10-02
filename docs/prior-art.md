@@ -36,6 +36,8 @@ of record. Each part exists on its own, and several were built in 2026.
   agent and has no code.
 - **Lab records** each exist: hash-chained logs, flash gates for agents, measurement records. We
   found none that ties them to claims.
+- **Checking parts from any source** has industry standards, closed databases and open tests for
+  single chips. We found nothing that publishes measured results by seller.
 - **In Chinese,** there are many more open instruments, supplies and loads, several with one unit's
   accuracy measured and published, and agents on instruments from RIGOL and others. The pattern is
   the same: at most one unit's measurements behind some of the numbers, and every limit read in
@@ -106,6 +108,31 @@ source).
 | eLabFTW; Mnemosyne | lab notebooks anchored by RFC 3161 timestamps; Mnemosyne also chains its audit log | no instruments or claims | doc.elabftw.net, github.com/ArturRuppel/electronic_labbook |
 | RO-Crate Process Run Crate; W3C PROV | a standard shape for "this instrument, this input, this result, this agent, this time" | no tamper evidence, no grades | researchobject.org, w3.org |
 | labgrid | drives boards, power and flashing | keeps no history, so a log would wrap it; Python | labgrid.readthedocs.io |
+
+## Checking parts from any source
+
+Searched 2026-10-01 and 2026-10-02, for `vision.md`'s principle 3 (parts from anywhere, judged by
+incoming QA): standards for parts of unknown origin, open tools that test parts on arrival, and
+anything that publishes measured results by seller. GitHub searches for "aliexpress test results",
+"seller quality database", "fake parts database", "incoming inspection electronic components",
+"counterfeit detection electronic components" and "fake mosfet" found nothing, nor did Chinese
+searches for 假芯片, 翻新芯片 and 元器件 检测 假货. GitHub's repository search matches names, descriptions and
+topics, not READMEs. Not seen: the paywalled standards' texts, the closed databases' contents,
+Reddit, YouTube, and Chinese forums.
+
+| work | closest part | different | source |
+|---|---|---|---|
+| SAE AS6171A, with AS5553E | tests for parts whose chain of custody is unknown (AS6171A), and avoiding and detecting counterfeits (AS5553E) | for organisations, and paywalled. AS6171A's scope: "No amount of testing can confirm an item as authentic", and it "is not intended to be used to assess quality or reliability issues" | saemobilus.sae.org, AS6171A revised 2018-04-18, **re-read** (its scope) |
+| IDEA-STD-1010-B; CCAP-101 | inspecting parts bought on the open market; certifying independent distributors | paid; CCAP-101 covers only new parts never installed, so not salvaged ones | idofea.org; ERAI's glossary, quoting CTI |
+| ERAI; GIDEP | databases of counterfeit reports and suppliers | closed: ERAI to established businesses, GIDEP to US and Canadian government bodies and their contractors | erai.com, gidep.org |
+| cpetrich/counterfeit_DS18B20 | over 1000 DS18B20 probes and chips from more than 70 vendors, measured and sorted into families | results by chip family, not by seller. "All of the probes bought on ebay and AliExpress contained counterfeit DS18B20 sensors", and "Neither origin nor price were indicators of sensor Family" | github.com/cpetrich/counterfeit_DS18B20 (Apache-2.0), **re-read** |
+| The AVR transistor tester (Kübbeler's and Reschke's firmware) | identifies and measures two- and three-pin parts | one part at a time, no record of the source; EUPL-1.2 | github.com/kubi48/TransistorTester-source |
+| flipper-fake-chip-detector | reads the factory ID registers of 82 I2C chips | ID registers only, and some chips have none | github.com/hleserg/flipper-fake-chip-detector (MIT) |
+| Zeptobars | die shots of fake chips beside real ones | names a source only as "ebay" and the like; needs decapsulation | zeptobars.com (CC BY 3.0) |
+| InvenTree | a test result per stock item, linked to its supplier | an inventory, with results kept private | github.com/inventree/InvenTree (MIT) |
+
+We found nothing that publishes measured results by named seller. The closest, the DS18B20 study,
+names its sources and reports by family; the databases that do report by supplier are closed.
 
 ## Chinese-language sources
 
@@ -210,6 +237,11 @@ Each is a candidate, to be proposed where it lands:
    as OpenHTF does, so other tools can read them.
 10. **Try rIC3 as the `prove` engine** for the first formal core (`roadmap.md`, Phase 0), pinned to
     one version, as `proven` requires.
+11. **Say what incoming QA shows, and no more:** a part that passes is fit for what the tests
+    checked, never "genuine", as AS6171A's scope says of its own tests (`sourcing.md`, "Incoming
+    QA").
+12. **Publish incoming-QA results by seller,** which we found no one doing in the open, and offer
+    them to the DS18B20 study's author, whose data is sorted by family.
 
 ## Building blocks we use
 
@@ -231,10 +263,10 @@ Each is a candidate, to be proposed where it lands:
 
 The authors of the closest work: agentic-hil and LabMCP (agents on benches), Duke's ARTIQ group and
 Safe-SDL's authors (safety below the agent), the authors of Self-Verifying Measurement Records
-(evidence on every number), and M-Labs (Sinara's evidence-footnoted datasheets). In China: Muse Lab
-(our FPGA board), greentor (LogicPi's analog front end), the ESP32 load's author (our load's
-topology), the S-ELO and XS1 authors (calibration, published), RIGOL's UVerse team (agents on
-instruments, with confirmation on the host), the authors of instrumentControl and WaveBench, rIC3's
-authors, the 一生一芯 course, and the reviewers at 数码之家. Kazumoto Kojima, whose i5ether carries no
-license, so we could build on it only once it has one. And the projects we build on, upstream first
-when we find a bug.
+(evidence on every number), M-Labs (Sinara's evidence-footnoted datasheets), and cpetrich
+(counterfeit DS18B20s, measured). In China: Muse Lab (our FPGA board), greentor (LogicPi's analog
+front end), the ESP32 load's author (our load's topology), the S-ELO and XS1 authors (calibration,
+published), RIGOL's UVerse team (agents on instruments, with confirmation on the host), the authors
+of instrumentControl and WaveBench, rIC3's authors, the 一生一芯 course, and the reviewers at 数码之家.
+Kazumoto Kojima, whose i5ether carries no license, so we could build on it only once it has one. And
+the projects we build on, upstream first when we find a bug.

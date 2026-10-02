@@ -76,7 +76,7 @@ Expect more noise than a Red Pitaya on front end v1. That is fine. Publish real 
 
 ## Calibration references (no expensive gear required)
 
-- DC accuracy: LM4040 precision reference (genuine, from LCSC or DigiKey).
+- DC accuracy: LM4040 precision reference, from an authorized distributor (LCSC or DigiKey).
 - Timebase: crystal oscillator of known frequency.
 - Edges and timing: Pico PWM output.
 - Noise and distortion: clean audio-range sine from a sound card.

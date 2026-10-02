@@ -619,8 +619,10 @@ Where the lab buys each thing its builds need, and which stages it has reached, 
 | `form` | VARCHAR | yes |  |
 | `commodity` | VARCHAR | yes |  |
 | `shop` | VARCHAR | yes |  |
-| `store` | VARCHAR | yes | The seller, as the listing names it. |
+| `store` | VARCHAR | yes | The seller, as the listing names it, or, with no shop, its own name: a store in town, a thrift store, a person. |
 | `item` | VARCHAR | yes | The shop's item number: on Amazon the ASIN, on LCSC the C number. crates/records holds its shape. |
+| `used` | BOOLEAN | no | Bought secondhand. |
+| `salvaged_from` | VARCHAR | yes | The device a part was taken out of; used, and with no shop. |
 | `listing_checked` | BOOLEAN | no | A person checked the listing against the build. |
 | `in_cart` | BOOLEAN | no |  |
 | `ordered` | BOOLEAN | no |  |
@@ -644,7 +646,8 @@ Constraints:
 - `FOREIGN KEY (passed_qa) REFERENCES silver.measurement(measurement)`
 - `CHECK(((part IS NULL) != (commodity IS NULL)))`
 - `CHECK(((shop IS NULL) = (item IS NULL)))`
-- `CHECK(((store IS NULL) OR (shop IS NOT NULL)))`
+- `CHECK(((salvaged_from IS NULL) OR (shop IS NULL)))`
+- `CHECK((NOT (used AND (salvaged_from IS NOT NULL))))`
 - `CHECK(((shop IS NOT NULL) OR (NOT (listing_checked OR in_cart OR ordered))))`
 - `CHECK(((listing_checked_on <= in_cart_on) AND (listing_checked_on <= ordered_on) AND (listing_checked_on <= arrived_on) AND (in_cart_on <= ordered_on) AND (in_cart_on <= arrived_on) AND (ordered_on <= arrived_on)))`
 
@@ -836,6 +839,8 @@ Each line of the lab's sourcing with its status, the last stage it has reached, 
 | `shop` | VARCHAR |
 | `store` | VARCHAR |
 | `item` | VARCHAR |
+| `used` | BOOLEAN |
+| `salvaged_from` | VARCHAR |
 | `status` | VARCHAR |
 | `since` | DATE |
 | `passed_qa` | VARCHAR |
@@ -1008,6 +1013,8 @@ The parts page: each thing the bench needs once, with how many, where the lab bu
 | `shop` | VARCHAR |
 | `store` | VARCHAR |
 | `item` | VARCHAR |
+| `used` | BOOLEAN |
+| `salvaged_from` | VARCHAR |
 | `status` | VARCHAR |
 | `since` | DATE |
 | `passed_qa` | VARCHAR |

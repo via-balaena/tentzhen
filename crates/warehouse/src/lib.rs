@@ -145,7 +145,8 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
     // After the measurement records its incoming QA names.
     for (i, l) in (1u32..).zip(&cat.sourcing) {
         tx.execute(
-            "INSERT INTO silver.sourcing VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO silver.sourcing VALUES \
+             (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             params![
                 i,
                 l.part,
@@ -154,6 +155,8 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
                 l.shop.map(|s| s.as_str()),
                 l.store,
                 l.item,
+                l.used,
+                l.salvaged_from,
                 l.listing_checked.is_some(),
                 l.in_cart.is_some(),
                 l.ordered.is_some(),
@@ -1632,7 +1635,12 @@ mod tests {
         // Part, form, commodity, shop, store, item; whether each stage is reached (listing_checked,
         // in_cart, ordered, arrived), then the day of each; passed_qa.
         let sourcing = |line: &str| {
-            format!("INSERT INTO silver.sourcing VALUES (9, {line}, 'lab/sourcing.toml')")
+            format!(
+                "INSERT INTO silver.sourcing (line_no, part, form, commodity, shop, store, item, \
+                 listing_checked, in_cart, ordered, arrived, listing_checked_on, in_cart_on, \
+                 ordered_on, arrived_on, passed_qa, record) \
+                 VALUES (9, {line}, 'lab/sourcing.toml')"
+            )
         };
         let none = "false, false, false, false, NULL, NULL, NULL, NULL, NULL";
         for (line, why) in [
@@ -1655,10 +1663,6 @@ mod tests {
             (
                 format!("'RP2350', NULL, NULL, 'lcsc', NULL, NULL, {none}"),
                 "a shop comes with its item number",
-            ),
-            (
-                format!("'RP2350', NULL, NULL, NULL, 'Maker', NULL, {none}"),
-                "a store comes with its shop",
             ),
             (
                 "'RP2350', NULL, NULL, NULL, NULL, NULL, false, false, true, false, \
@@ -1698,6 +1702,33 @@ mod tests {
                 "the days run in the stages' order",
             );
         }
+        // A part salvaged with a shop, and one salvaged and marked used as well.
+        let salvaged = |shop: &str, item: &str, used: bool| {
+            format!(
+                "INSERT INTO silver.sourcing (line_no, part, shop, item, used, salvaged_from, \
+                 listing_checked, in_cart, ordered, arrived, record) VALUES (8, 'RP2350', {shop}, \
+                 {item}, {used}, 'a printer', false, false, false, true, 'lab/sourcing.toml')"
+            )
+        };
+        refused(
+            conn.execute(&salvaged("'lcsc'", "'C1'", false), [])
+                .map(|_| ()),
+            "a salvaged part has no listing",
+        );
+        refused(
+            conn.execute(&salvaged("NULL", "NULL", true), [])
+                .map(|_| ()),
+            "a salvaged part is used already",
+        );
+        conn.execute(&salvaged("NULL", "NULL", false), []).unwrap();
+        // A store with no shop, bought used.
+        conn.execute(
+            "INSERT INTO silver.sourcing (line_no, commodity, store, used, listing_checked, \
+             in_cart, ordered, arrived, record) VALUES (7, 'wire', 'Goodwill', true, false, false, \
+             false, true, 'lab/sourcing.toml')",
+            [],
+        )
+        .unwrap();
         // A day given, a stage with none, and a day after both.
         conn.execute(
             &sourcing(

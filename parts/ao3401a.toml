@@ -1,7 +1,8 @@
 part = "AO3401A"
 kind = "chip"
 is = "P-channel MOSFET, SOT-23"
-# Safety-critical: it is the Pico enforcer's output switch (builds/enforcer).
+# Safety-critical: it is the Pico enforcer's output switch (builds/enforcer). Authorized sellers
+# only for now: its claims rest on maker-datasheets (docs/sourcing.md, "Incoming QA").
 authorized_only = true
 datasheet = "https://www.aosmd.com/res/datasheets/AO3401A.pdf"
 

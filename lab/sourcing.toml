@@ -6,7 +6,7 @@
 #   part = "LFE5U-45F"              # the line as a build writes it, word for word: a part
 #   form = "..."                    # and its form, or a commodity (and its form, if any)
 #   shop = "aliexpress"             # aliexpress, amazon, lcsc or taobao
-#   store = "..."                   # the seller, as the listing names it
+#   store = "..."                   # the seller, as the listing names it, or its own name
 #   item = "1005007788475037"       # the shop's item number (Amazon's ASIN, LCSC's C number)
 #   listing_checked = "2026-10-02"  # the UTC day a person checked the listing against the build
 #   in_cart = "2026-10-03"          # the UTC day it went in a cart
@@ -20,6 +20,12 @@
 # shop and the item, and an AliExpress item number is under 2^51 (sourcing.rs says why):
 # crates/records holds these, and refuses any other field. Prices, and anything else from a listing,
 # stay out of the repo (CLAUDE.md); nothing stops one written in a comment or a store's name.
+#
+# A thing need not come from a shop. A seller with no listing (a store in town, a thrift store, a
+# person) is a `store` with no `shop`. `used = true` marks a thing bought secondhand, and
+# `salvaged_from` names the device a part was taken out of, with the `store` the device came from,
+# if any, but no shop. A thing already at hand, wherever it came from, is `arrived = true` with no
+# source.
 #
 # Not held by anything: that a day is the day it happened, or that a part which passed incoming QA
 # passed it, since each field is its writer's word; what a commodity's QA record measured; and that

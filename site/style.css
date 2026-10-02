@@ -193,6 +193,7 @@ h1, h2, h3, p { margin: 0; }
 .claims .grade { margin-right: 8px; }
 .parts-list td a, .parts-list .item { white-space: nowrap; }
 .parts-list .item { font-family: var(--mono); font-size: 14px; }
+.parts-list .when { white-space: nowrap; }
 
 /* ---------- legal ---------- */
 .notice { font-size: 14px; color: var(--muted); }

@@ -1,7 +1,8 @@
 part = "AO3400A"
 kind = "chip"
 is = "N-channel MOSFET, SOT-23"
-# Safety-critical: it drives the Pico enforcer's output switch (builds/enforcer).
+# Safety-critical: it drives the Pico enforcer's output switch (builds/enforcer). Authorized
+# sellers only for now: its claims rest on maker-datasheets (docs/sourcing.md, "Incoming QA").
 authorized_only = true
 datasheet = "https://www.aosmd.com/res/datasheets/AO3400A.pdf"
 

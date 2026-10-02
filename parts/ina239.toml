@@ -1,7 +1,9 @@
 part = "INA239"
 kind = "chip"
 is = "power monitor with SPI: shunt current, bus voltage"
-# Safety-critical: the Pico enforcer reads the supply through it (builds/enforcer).
+# Safety-critical: the Pico enforcer reads the supply through it (builds/enforcer). Authorized
+# sellers only until the bench can check it as finely as the enforcer's measuring-error claim
+# (docs/sourcing.md, "Incoming QA").
 authorized_only = true
 datasheet = "https://www.ti.com/lit/ds/symlink/ina239.pdf"
 

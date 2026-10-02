@@ -2,6 +2,8 @@ part = "TLV3011B"
 kind = "chip"
 is = "comparator with a 1.242 V reference, open-drain output and built-in hysteresis"
 # Safety-critical: the Pico enforcer's hardware cut rests on its reference (builds/enforcer).
+# Authorized sellers only: how a unit's reference moves with temperature goes unmeasured
+# (docs/sourcing.md, "Incoming QA").
 authorized_only = true
 datasheet = "https://www.ti.com/lit/ds/symlink/tlv3011.pdf"
 

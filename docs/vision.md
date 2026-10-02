@@ -33,9 +33,14 @@ budget ends up able to design, build and *verify* hardware — and to teach the 
    anyone can buy and inspect.
 2. **Every claim says how it is known.** Proven, checked, tested, measured, trusted, or unknown —
    see `verification.md`. A spec sheet that hides its trusted base is marketing.
-3. **Cheap, but not at the cost of quality.** Commodity parts from AliExpress; quality-critical
-   parts from LCSC or authorized distributors. Incoming parts are measured, because cheap
-   modules ship with real defects (`scope.md` records one on the AD9226 module).
+3. **Cheap, and measured.** A part comes from wherever it is cheap: the maker's own store, a
+   reseller, a used sale, a thrift store, a junked device, a drawer at home. Until it is measured,
+   where it came from sets how far its claims are trusted (`trusted-base.toml` keeps
+   `aliexpress-modules` apart from `maker-datasheets`). Incoming QA on the bench, not the source,
+   decides whether it is good, and the parts page shows each result beside the source it came from.
+   A part comes from an authorized seller only where no bench test on arrival can show it does its
+   job (`sourcing.md`). Cheap modules ship with real defects (`scope.md` records one on the AD9226
+   module), which is what the measuring is for.
 4. **Everything scriptable.** Every instrument function is controllable and loggable from code,
    including by an AI agent over MCP.
 5. **Safety below the agent.** An AI can drive the bench, so hard limits live in hardware it
