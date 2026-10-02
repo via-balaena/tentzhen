@@ -167,9 +167,9 @@ makers' catalogues, and paywalled papers.
 
 | work | closest part | different | source |
 |---|---|---|---|
-| TI ADS424x and ADS422x | the ADS4245: two channels, 14-bit, 125 MS/s, SNR 73.4 dBFS at 20 MHz; 1.8 V parallel CMOS or DDR LVDS outputs. The 12-bit ADS4225 shares its data sheet | outputs at 1.8 V, which Lattice's tables admit only at a VCCIO of 1.8 V or as LVDS (`scope.md`, "The tier-3 ADC") | TI SBAS533E, **re-read** |
+| TI ADS424x and ADS422x | the ADS4245: two channels, 14-bit, 125 MS/s, SNR 73.4 dBFS at 20 MHz; 1.8 V parallel CMOS or DDR LVDS outputs. The 12-bit ADS4225 shares its data sheet | outputs at 1.8 V: Lattice's tables name 1.8 V inputs only at a VCCIO of 1.8 V, so the i9 reads them by an unnamed route or as LVDS (`scope.md`, "The tier-3 ADC") | TI SBAS533E, **re-read** |
 | LTC2145-14 | the Red Pitaya STEMlab 125-14's ADC: two channels, 14-bit, 125 MS/s, SNR 73.1 dBFS at 5 MHz | — | RedPitaya/Documentation at 5c39e718, "Components", **re-read**; data sheet 21454314fa, **re-read** |
-| ADI's AD9648 family | duals from 10 to 14 bits on one footprint (AD9608, AD9628, AD9648), 1.8 V CMOS or LVDS; Digilent's Zmod Scope uses them, and its controller IP is MIT | — | AD9648 data sheet, Rev. C; Digilent/vivado-library (its MIT license **re-read**) |
+| ADI's AD9648 family | duals from 10 to 16 bits on one footprint (the AD9608, AD9628 and AD9648 among them), 1.8 V CMOS or LVDS; Digilent's Zmod Scope 1410-125 uses the AD9648, and its controller IP is MIT | — | AD9648 data sheet, Rev. C, **re-read** (pin compatibility); Digilent/vivado-library, `ip/Zmods/ZmodScopeController/src/ConfigADC.vhd`, and its MIT license, **re-read** |
 | HMCAD1511, HMCAD1520 | 8-bit at 1 GS/s, or 12-bit at 2× 320 MS/s; ThunderScope's LiteX gateware receives them | serial LVDS; ThunderScope's receivers are built on a Xilinx primitive, IDELAYE2 | analog.com data sheets; EEVengers/thunderscope_litex (its BSD-2-Clause license **re-read**) |
 | Ruimeng MS5134 | the one Chinese part found: two channels, 14-bit, 125 MS/s, serial LVDS at 1.8 V | its data sheet was not reached | relmon.com, a product card on its home page |
 | Mass-market oscilloscopes | the Rigol DS1000Z uses an HMCAD1511; FNIRSI's 1013D and 1014D an AD9288 | 8-bit, so salvage gives no route to 14 bits | EEVblog teardown threads; pecostm32/FNIRSI-1013D-1014D-Hack (no license file) |
@@ -177,7 +177,7 @@ makers' catalogues, and paywalled papers.
 | CycleScope (Scaxlibur) | an AD9226 oscilloscope that weighed interleaving to 130 MS/s and did not adopt it: "需要校准通道增益、偏置和相位失配，复杂度和不确定性高" (it needs the channels' gain, offset and phase mismatch calibrated; complex and uncertain) | — | `CycleScope设计报告初稿.md`, section 2.1 (Unlicense), **re-read** |
 | Haasoscope Pro | equalizes each unit with an FIR filter fit to a square wave, and stops at the anti-alias cutoff, since correcting past it "would just amplify noise"; has interleaved modes | GS/s, on its own boards | drandyhaas/HaasoscopePro at b7762c54 (MIT), `software/FIR_CALIBRATION_README.md`, **re-read** |
 | Red Pitaya's gateware | `red_pitaya_dfilt1`, a "Filter to equalize input analog chain"; decimation that averages: "Each sample is the average of skipped samples if DEC > 1" | — | RedPitaya-FPGA at 728a4f37; RedPitaya/Documentation at 5c39e718, **re-read** |
-| ngscopeclient's de-embed filter | inverts a channel's measured response, its gain capped by a "Max Gain" setting, 20 dB by default | on the host, after capture | ngscopeclient/scopehal at 8e3ebb11 (BSD-3-Clause), `DeEmbedFilter.cpp`, **re-read** |
+| ngscopeclient's de-embed filter | removes a network's effect by applying its S-parameters in reverse, its gain capped by a "Max Gain" setting, 20 dB by default | on the host, after capture | ngscopeclient/scopehal at 8e3ebb11 (BSD-3-Clause), `DeEmbedFilter.cpp`, **re-read** |
 
 ## Chinese-language sources
 

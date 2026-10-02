@@ -32,10 +32,11 @@ inputs are about 50 Ω (github.com/wavius/Scoped, read 2026-10-01), and a 10:1 p
 intended to be connected to the 1 megohm (MΩ) input termination of the oscilloscope" (Art Pini,
 "Selecting a Replacement Oscilloscope Probe is Easy—When You Know How", Digi-Key, 2021-12-27).
 
-**The front end's parts** (tier 3, no build yet): op amps, precision resistors and capacitors in the
-signal path, the LM4040 voltage reference, low-jitter oscillators and signal relays. Which of them a
-budget bench can check on arrival is decided when their records are written: a resistor whose
-tolerance is finer than the multimeter's accuracy cannot be checked with it.
+**The front end's parts** (tier 3, no build yet): the ADC (an ADS4245, `scope.md`), op amps,
+precision resistors and capacitors in the signal path, the LM4040 voltage reference, low-jitter
+oscillators and signal relays. Which of them a budget bench can check on arrival is decided when
+their records are written: a resistor whose tolerance is finer than the multimeter's accuracy
+cannot be checked with it.
 
 **JLCPCB:** front-end PCB fabrication and SMD assembly with LCSC parts, so anyone can reproduce the
 board from published files.

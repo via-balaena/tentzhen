@@ -61,7 +61,8 @@ Expect more noise than a Red Pitaya on front end v1. That is fine. Publish real 
 
 ## The tier-3 ADC
 
-Chosen 2026-10-02. Its figures are the makers' and our arithmetic on them; none is measured.
+Chosen 2026-10-02, from sources read that day. Its figures are the makers' and our arithmetic on
+them; none is measured.
 
 - **Its outputs.** In parallel CMOS mode the ADS4245 puts out 28 data lines and a clock (`DA[13:0]`,
   `DB[13:0]`, `CLKOUT`) at 1.8 V: its output supply, DRVDD, is 1.7 V to 1.9 V. Four more lines set
@@ -77,11 +78,11 @@ Chosen 2026-10-02. Its figures are the makers' and our arithmetic on them; none 
   so we read the thresholds as 0.42 V and 0.78 V. No Lattice text names this use, and none gives
   that receiver's speed: it is `unknown` until the loopback test passes (Open questions).
 - **If it fails,** the ADS4245's DDR LVDS mode is the documented route. The ECP5 takes LVDS inputs
-  on its left and right banks with VCCIO at 2.5 V or 3.3 V (FPGA-DS-02012 3.4, Table 3.13). It
-  needs 15 pairs, seven per channel and the clock. P2 to P5 carry 24 true pairs on those banks, only
-  8 of them within P2 and P3 (Lattice's ECP5U-45 pinout CSV, rev. 3.0, against the extension
-  board's pinout), so the ADC would spread over all four headers and the DAC's pins would be
-  planned again.
+  on its left and right banks only, with VCCIO at 2.5 V or 3.3 V (FPGA-DS-02012 3.4, Tables 3.11,
+  note 4, and 3.13). It needs 15 pairs, seven per channel and the clock. P2 to P5 carry 24 true
+  pairs on those banks, only 8 of them within P2 and P3 (Lattice's ECP5U-45 pinout CSV, rev. 3.0,
+  against the extension board's pinout), so the ADC would spread over all four headers and the DAC's
+  pins would be planned again.
 - **The sampling clock.** Clock jitter alone limits SNR to −20·log10(2π·f_in·t_jitter) (SBAS533E,
   section 9.2.2.4, Equation 2), so holding 73 dB at a 30 MHz input allows 1.2 ps rms. The ECP5's
   PLL is specified only peak to peak: up to 100 ps of period jitter at outputs of 100 MHz and
@@ -101,7 +102,7 @@ Chosen 2026-10-02. Its figures are the makers' and our arithmetic on them; none 
 
 ## Closer to the reference without parts
 
-Gateware and host work, no extra parts:
+Gateware and host work, no extra parts (sources read 2026-10-02):
 
 - **Equalization, per unit.** Each unit's own measured response sets a correction filter that
   flattens the front end up to the anti-alias cutoff and no further: past it, correcting "would
@@ -117,8 +118,9 @@ Gateware and host work, no extra parts:
 
 Not pursued: two AD9226s interleaved per channel for 130 MS/s. It needs the two chips' gain,
 offset and timing matched in calibration, and neither the dual module that offers it nor any open
-AD9226 project we found publishes one (Haasoscope Pro calibrates its own interleaved ADCs, on its
-own boards). CycleScope weighed it and did not adopt it (`prior-art.md`, "Faster ADCs").
+AD9226 project we found publishes one. (Haasoscope Pro measures and corrects the timing between
+its own interleaved boards, `software/calibration.py`.) CycleScope weighed it and did not adopt it
+(`prior-art.md`, "Faster ADCs").
 
 ## Known part issues
 
@@ -158,10 +160,11 @@ own boards). CycleScope weighed it and did not adopt it (`prior-art.md`, "Faster
   (`litex_boards/targets/colorlight_i5.py`, read 2026-09-28).
 - LiteScope for in-FPGA debugging.
 - Red Pitaya's open FPGA code for capture/trigger structure and its input equalizer,
-  `red_pitaya_dfilt1` (RedPitaya-FPGA at 728a4f37: its LICENSE is BSD 3-clause text that lists the
-  directories of Red Pitaya's older combined repository, `fpga` among them).
+  `red_pitaya_dfilt1` (RedPitaya-FPGA at 728a4f37, read 2026-10-02). Its LICENSE is BSD 3-clause
+  text, but the directories it says it covers (`Applications`, `fpga` and others) are none of this
+  repository's, so ask Red Pitaya before copying.
 - Haasoscope Pro's FIR calibration (MIT) and ngscopeclient's de-embed filter (scopehal, BSD-3) for
-  equalizing each unit.
+  equalizing each unit (read 2026-10-02).
 - ThunderScope's open design files as a front-end reference (check the license).
 - ngscopeclient for the UI.
 - Upstream Tock's `litex_vexriscv` chip, if the soft core runs Tock.
