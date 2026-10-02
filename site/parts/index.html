@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parts · Tentzhen</title>
+<link rel="icon" href="../img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="column site-header">
+  <a class="brand" href="../index.html" aria-label="Tentzhen home">
+    <img src="../img/mark-black.svg" alt="">
+    <span class="wordmark">TENTZHEN</span>
+  </a>
+  <nav class="site-nav" aria-label="Main">
+    <a href="../builds/index.html">BUILDS</a>
+    <a href="../parts/index.html">PARTS</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/vision.md">VISION</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">INSTRUMENT</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/verification.md">VERIFICATION</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/roadmap.md">ROADMAP</a>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
+  </nav>
+</header>
+
+<main class="column spec">
+<h1 class="spec-title">Parts</h1>
+<table class="spec-table parts-list">
+<thead><tr><th>QTY</th><th>PART</th><th>FORM</th><th>USED IN</th><th>SOURCE</th><th>STATUS</th></tr></thead>
+<tbody>
+<tr><td>2</td><td><a href="https://datasheets.raspberrypi.com/rp2350/rp2350-datasheet.pdf">RP2350</a></td><td>board with the Pico 2 pinout</td><td><a href="../builds/debug-probe/v1/index.html">debug-probe v1</a>, <a href="../builds/enforcer/v1/index.html">enforcer v1</a></td><td><span class="muted">authorized sellers only</span></td><td>specced</td></tr>
+<tr><td>6</td><td>jumper wire, female to female</td><td></td><td><a href="../builds/debug-probe/v1/index.html">debug-probe v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td><a href="https://www.latticesemi.com/view_document?document_id=50461">LFE5U-45F</a></td><td>Colorlight i9 v7.2 module, on the i5/i9 extension board</td><td><a href="../builds/digitizer/v1/index.html">digitizer v1</a></td><td>AliExpress · Muse Lab <span class="item">1005007788475037</span></td><td>specced</td></tr>
+<tr><td>2</td><td><a href="https://www.analog.com/media/en/technical-documentation/data-sheets/AD9226.pdf">AD9226</a></td><td>module with a 2x10 male header (5 V on pins 1 and 2), 3.3 V outputs and an SMA input</td><td><a href="../builds/digitizer/v1/index.html">digitizer v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td><a href="https://www.analog.com/media/en/technical-documentation/data-sheets/AD9763_9765_9767.pdf">AD9767</a></td><td>dual module with a 40-pin female header in the AN9767's order (5 V on pin 2), 3.3 V inputs and two BNC outputs</td><td><a href="../builds/digitizer/v1/index.html">digitizer v1</a></td><td></td><td>specced</td></tr>
+<tr><td>4</td><td>pin header, 2x15, 2.54 mm, male, straight</td><td></td><td><a href="../builds/digitizer/v1/index.html">digitizer v1</a></td><td></td><td>specced</td></tr>
+<tr><td>38</td><td>jumper wire, female to female, 10 cm, for the ADC modules' male headers</td><td></td><td><a href="../builds/digitizer/v1/index.html">digitizer v1</a></td><td></td><td>specced</td></tr>
+<tr><td>36</td><td>jumper wire, male to female, 10 cm, for the DAC module's female header</td><td></td><td><a href="../builds/digitizer/v1/index.html">digitizer v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td>cable, USB-A to USB-C, with data lines</td><td></td><td><a href="../builds/digitizer/v1/index.html">digitizer v1</a></td><td></td><td>specced</td></tr>
+<tr><td>2</td><td>cable, BNC male to SMA male, 50 Ohm, from each output to an input</td><td></td><td><a href="../builds/digitizer/v1/index.html">digitizer v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td><a href="https://www.ti.com/lit/ds/symlink/ina239.pdf">INA239</a></td><td>VSSOP-10 on an adapter board</td><td><a href="../builds/enforcer/v1/index.html">enforcer v1</a></td><td><span class="muted">authorized sellers only</span></td><td>specced</td></tr>
+<tr><td>1</td><td><a href="https://www.ti.com/lit/ds/symlink/tlv3011.pdf">TLV3011B</a></td><td>SOT-23-6 on an adapter board</td><td><a href="../builds/enforcer/v1/index.html">enforcer v1</a></td><td><span class="muted">authorized sellers only</span></td><td>specced</td></tr>
+<tr><td>1</td><td><a href="https://www.aosmd.com/res/datasheets/AO3401A.pdf">AO3401A</a></td><td>SOT-23 on an adapter board</td><td><a href="../builds/enforcer/v1/index.html">enforcer v1</a></td><td><span class="muted">authorized sellers only</span></td><td>specced</td></tr>
+<tr><td>1</td><td><a href="https://www.aosmd.com/res/datasheets/AO3400A.pdf">AO3400A</a></td><td>SOT-23 on an adapter board</td><td><a href="../builds/enforcer/v1/index.html">enforcer v1</a></td><td><span class="muted">authorized sellers only</span></td><td>specced</td></tr>
+<tr><td>1</td><td>resistor, 0.1 Ohm, 1 %, 0.25 W, the shunt</td><td></td><td><a href="../builds/enforcer/v1/index.html">enforcer v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td>resistor, 18.2 kOhm, 0.1 %</td><td></td><td><a href="../builds/enforcer/v1/index.html">enforcer v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td>resistor, 10 kOhm, 0.1 %</td><td></td><td><a href="../builds/enforcer/v1/index.html">enforcer v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td>resistor, 100 kOhm, 1 %</td><td></td><td><a href="../builds/enforcer/v1/index.html">enforcer v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td>resistor, 4.7 kOhm, 1 %</td><td></td><td><a href="../builds/enforcer/v1/index.html">enforcer v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td>resistor, 1 kOhm, 1 %</td><td></td><td><a href="../builds/enforcer/v1/index.html">enforcer v1</a></td><td></td><td>specced</td></tr>
+<tr><td>2</td><td>capacitor, 100 nF, ceramic</td><td></td><td><a href="../builds/enforcer/v1/index.html">enforcer v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td>push button, momentary, normally open</td><td></td><td><a href="../builds/enforcer/v1/index.html">enforcer v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td>perfboard, 0.1 inch pitch</td><td></td><td><a href="../builds/enforcer/v1/index.html">enforcer v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td>wire, 22 AWG, solid</td><td></td><td><a href="../builds/enforcer/v1/index.html">enforcer v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td>bench-supply</td><td></td><td><a href="../builds/supply/v1/index.html">supply v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td>DPS5005</td><td>running OpenDPS</td><td><a href="../builds/supply/v1/index.html">supply v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td>fuse, 5x20 mm, 250 mA, fast-acting</td><td></td><td><a href="../builds/supply/v1/index.html">supply v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td>fuse holder, 5x20 mm, inline</td><td></td><td><a href="../builds/supply/v1/index.html">supply v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td>binding posts, red and black</td><td></td><td><a href="../builds/supply/v1/index.html">supply v1</a></td><td></td><td>specced</td></tr>
+<tr><td>1</td><td>wire, 18 AWG, silicone</td><td></td><td><a href="../builds/supply/v1/index.html">supply v1</a></td><td></td><td>specced</td></tr>
+</tbody>
+</table>
+</main>
+
+<footer class="site-footer">
+  <div class="column">
+    <span>腾振 TENTZHEN · A VIA BALAENA PROJECT</span>
+    <span>MIT OR APACHE-2.0 · <a href="../legal/index.html">LEGAL</a></span>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB.COM/VIA-BALAENA/TENTZHEN</a>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -114,6 +114,8 @@ flowchart LR
   gold_page_firmware --> crates_site
   gold_page_pin --> crates_site
   gold_page_step --> crates_site
+  gold_page_parts --> crates_site
+  gold_page_parts_used_in --> crates_site
   gold_legal --> crates_site
 ```
 
@@ -1004,7 +1006,7 @@ The parts page: each thing the bench needs once, with how many, where the lab bu
 
 Reads: `gold.bench_line`, `gold.sourcing_status`, `silver.part`.
 
-Read by: no crate yet.
+Read by: `crates/site`.
 
 ### `gold.page_parts_used_in` (view)
 
@@ -1019,7 +1021,7 @@ The build versions that write each row of the parts page, and how many each need
 
 Reads: `gold.bench_line`.
 
-Read by: no crate yet.
+Read by: `crates/site`.
 
 ### `gold.legal` (view)
 
