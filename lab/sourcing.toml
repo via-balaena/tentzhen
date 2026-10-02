@@ -34,3 +34,12 @@ part = "LFE5U-45F"
 form = "Colorlight i9 v7.2 module, on the i5/i9 extension board"
 shop = "aliexpress"
 item = "1005007788475037"
+
+# Jon named the store and sent the listing's link on 2026-10-01; its item number is from the link's
+# redirect, not the listing. Nobody has checked the listing against the build.
+[[line]]
+part = "DPS5005"
+form = "running OpenDPS"
+shop = "aliexpress"
+store = "RD Official Store"
+item = "1000004290003"
