@@ -40,6 +40,10 @@ of record. Each part exists on its own, and several were built in 2026.
   single chips. We found nothing that publishes measured results by seller.
 - **Sorting parts by kind** has the class letters schematics label parts with (R, C, U), and a
   free procurement code, UNSPSC, that fits neither our boards nor publishing.
+- **Faster ADCs** in the Red Pitaya's class (two channels, 14-bit, 125 MS/s) are catalogue chips
+  from TI and Analog Devices, and most put out 1.8 V logic. The tricks around a cheap ADC,
+  equalizing and averaging, are open in Red Pitaya's and Haasoscope Pro's code; calibrating two
+  interleaved AD9226s is in nothing we found.
 - **In Chinese,** there are many more open instruments, supplies and loads, several with one unit's
   accuracy measured and published, and agents on instruments from RIGOL and others. The pattern is
   the same: at most one unit's measurements behind some of the numbers, and every limit read in
@@ -150,6 +154,30 @@ themselves (IEEE 315-1975, ASME Y14.44-2008, IEC 81346-2:2019), and ECLASS.
 
 We use the letters, one level, in our own words (`Class` in `crates/records`). A deeper tree waits
 until the list is long enough to need one.
+
+## Faster ADCs
+
+Searched 2026-10-02, for a cheap ADC that brings instrument #1 nearer the Red Pitaya, and for what
+gateware and calibration add to a cheap one: makers' data sheets and product pages, GitHub in
+English and Chinese, arXiv, and EEVblog teardowns. The makers' 1,000-unit list prices were read on
+their own pages and are not recorded here: prices come from the BOM tool, with a date
+(`vision.md`). Not seen: shops' prices (CLAUDE.md, shop data), the Chinese makers other than
+Ruimeng (芯炽, 成都华微, 中科芯 and others were not reached), ALINX's and other Chinese module
+makers' catalogues, and paywalled papers.
+
+| work | closest part | different | source |
+|---|---|---|---|
+| TI ADS424x and ADS422x | the ADS4245: two channels, 14-bit, 125 MS/s, SNR 73.4 dBFS at 20 MHz; 1.8 V parallel CMOS or DDR LVDS outputs. The 12-bit ADS4225 shares its data sheet | outputs at 1.8 V, which Lattice's tables admit only at a VCCIO of 1.8 V or as LVDS (`scope.md`, "The tier-3 ADC") | TI SBAS533E, **re-read** |
+| LTC2145-14 | the Red Pitaya STEMlab 125-14's ADC: two channels, 14-bit, 125 MS/s, SNR 73.1 dBFS at 5 MHz | — | RedPitaya/Documentation at 5c39e718, "Components", **re-read**; data sheet 21454314fa, **re-read** |
+| ADI's AD9648 family | duals from 10 to 14 bits on one footprint (AD9608, AD9628, AD9648), 1.8 V CMOS or LVDS; Digilent's Zmod Scope uses them, and its controller IP is MIT | — | AD9648 data sheet, Rev. C; Digilent/vivado-library (its MIT license **re-read**) |
+| HMCAD1511, HMCAD1520 | 8-bit at 1 GS/s, or 12-bit at 2× 320 MS/s; ThunderScope's LiteX gateware receives them | serial LVDS; ThunderScope's receivers are built on a Xilinx primitive, IDELAYE2 | analog.com data sheets; EEVengers/thunderscope_litex (its BSD-2-Clause license **re-read**) |
+| Ruimeng MS5134 | the one Chinese part found: two channels, 14-bit, 125 MS/s, serial LVDS at 1.8 V | its data sheet was not reached | relmon.com, a product card on its home page |
+| Mass-market oscilloscopes | the Rigol DS1000Z uses an HMCAD1511; FNIRSI's 1013D and 1014D an AD9288 | 8-bit, so salvage gives no route to 14 bits | EEVblog teardown threads; pecostm32/FNIRSI-1013D-1014D-Hack (no license file) |
+| qzkydz AD9226_2CH module | two AD9226s; a jumper picks two channels at 65 MS/s, or one at 130 MS/s, interleaved | its manual describes no calibration between the two chips | the vendor's manual in Scaxlibur/CycleScope at b6a2fbfb, **re-read** |
+| CycleScope (Scaxlibur) | an AD9226 oscilloscope that weighed interleaving to 130 MS/s and did not adopt it: "需要校准通道增益、偏置和相位失配，复杂度和不确定性高" (it needs the channels' gain, offset and phase mismatch calibrated; complex and uncertain) | — | `CycleScope设计报告初稿.md`, section 2.1 (Unlicense), **re-read** |
+| Haasoscope Pro | equalizes each unit with an FIR filter fit to a square wave, and stops at the anti-alias cutoff, since correcting past it "would just amplify noise"; has interleaved modes | GS/s, on its own boards | drandyhaas/HaasoscopePro at b7762c54 (MIT), `software/FIR_CALIBRATION_README.md`, **re-read** |
+| Red Pitaya's gateware | `red_pitaya_dfilt1`, a "Filter to equalize input analog chain"; decimation that averages: "Each sample is the average of skipped samples if DEC > 1" | — | RedPitaya-FPGA at 728a4f37; RedPitaya/Documentation at 5c39e718, **re-read** |
+| ngscopeclient's de-embed filter | inverts a channel's measured response, its gain capped by a "Max Gain" setting, 20 dB by default | on the host, after capture | ngscopeclient/scopehal at 8e3ebb11 (BSD-3-Clause), `DeEmbedFilter.cpp`, **re-read** |
 
 ## Chinese-language sources
 
@@ -275,6 +303,7 @@ Each is a candidate, to be proposed where it lands:
 | OpenDPS | the DPS5005's firmware | `lab/limits.toml`, `parts/dps5005.toml` |
 | Raspberry Pi debugprobe | the debug probe's firmware, on a Pico 2 (v1) or on Raspberry Pi's Debug Probe (v2) | `builds/debug-probe/v1.toml`, `builds/debug-probe/v2.toml` |
 | jlcparts | part data without an LCSC key | `roadmap.md` (planned) |
+| Red Pitaya's equalizer and decimation, Haasoscope Pro's FIR calibration, ngscopeclient's de-embed filter | equalizing and averaging each unit | `scope.md` (planned) |
 
 ## People worth writing to
 
