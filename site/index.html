@@ -66,7 +66,7 @@
       <div class="split">
         <dl class="parts">
           <div><dt>FPGA</dt><dd>Colorlight i9 · Lattice ECP5 LFE5U-45F</dd></div>
-          <div><dt>ADC</dt><dd>2× AD9226 modules · 12-bit · up to 65 MS/s</dd></div>
+          <div><dt>ADC</dt><dd>TI ADS4245 · 14-bit · up to 125 MS/s</dd></div>
           <div><dt>SOC</dt><dd>LiteX + VexRiscv · firmware in Rust</dd></div>
           <div><dt>AFE</dt><dd>Custom analog front end · KiCad, fabricated at JLCPCB</dd></div>
           <div><dt>HOST</dt><dd>Rust services: DuckDB ingest, SCPI, MCP</dd></div>
@@ -76,9 +76,9 @@
             <thead><tr><th></th><th>RED PITAYA 125-14</th><th class="ours">TENTZHEN #1 TARGET</th></tr></thead>
             <tbody>
               <tr><td>Channels in / out</td><td>2 / 2</td><td class="ours">2 / 2, outputs in phase 5</td></tr>
-              <tr><td>Sample rate</td><td>125 MS/s</td><td class="ours">up to 65 MS/s</td></tr>
-              <tr><td>Resolution</td><td>14-bit</td><td class="ours">12-bit</td></tr>
-              <tr><td>Bandwidth</td><td>DC–60 MHz</td><td class="ours">20–30 MHz usable</td></tr>
+              <tr><td>Sample rate</td><td>125 MS/s</td><td class="ours">up to 125 MS/s</td></tr>
+              <tr><td>Resolution</td><td>14-bit</td><td class="ours">14-bit</td></tr>
+              <tr><td>Bandwidth</td><td>DC–60 MHz</td><td class="ours">set by the front end</td></tr>
             </tbody>
           </table>
           <p class="graded"><span class="grade">unknown</span>Every Tentzhen figure is a target until it is measured.</p>
