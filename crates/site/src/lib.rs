@@ -526,22 +526,23 @@ pub fn render_parts(conn: &Connection) -> duckdb::Result<String> {
             (None, Some(c)) => esc(c),
             (None, None) => String::new(),
         };
-        let source = match &p.shop {
-            Some(shop) => {
-                let mut s = esc(shop_name(shop));
-                if let Some(store) = &p.store {
-                    let _ = write!(s, " · {}", esc(store));
-                }
-                if let Some(item) = &p.item {
-                    let _ = write!(s, " <span class=\"item\">{}</span>", esc(item));
-                }
-                s
+        let mut source = String::new();
+        if let Some(shop) = &p.shop {
+            source = esc(shop_name(shop));
+            if let Some(store) = &p.store {
+                let _ = write!(source, " · {}", esc(store));
             }
-            None if p.authorized_only => {
-                "<span class=\"muted\">authorized sellers only</span>".into()
+            if let Some(item) = &p.item {
+                let _ = write!(source, " <span class=\"item\">{}</span>", esc(item));
             }
-            None => String::new(),
-        };
+        }
+        // Kept beside a chosen source too: nothing checks that the source is an authorized one.
+        if p.authorized_only {
+            if !source.is_empty() {
+                source.push_str("<br>");
+            }
+            source.push_str("<span class=\"muted\">authorized sellers only</span>");
+        }
         let when = p.passed_qa.as_ref().or(p.since.as_ref());
         let status = match when {
             Some(w) => format!("{} <span class=\"muted\">{}</span>", esc(&p.status), esc(w)),
@@ -705,13 +706,18 @@ mod tests {
     }
 
     /// The parts page lists each thing once, summed over the builds that write it, with where the
-    /// lab buys it and how far it has got.
+    /// lab buys it and how far it has got. A part sold by authorized sellers only says so, with a
+    /// source chosen or without.
     #[test]
     fn the_parts_page_lists_each_thing_once() {
-        let part = src(
-            "parts/rp2350.toml",
-            "part = \"RP2350\"\nkind = \"chip\"\nis = \"microcontroller\"\nauthorized_only = true\n",
-        );
+        let chip = |name: &str| {
+            src(
+                &format!("parts/{}.toml", name.to_lowercase()),
+                &format!(
+                    "part = \"{name}\"\nkind = \"chip\"\nis = \"x\"\nauthorized_only = true\n"
+                ),
+            )
+        };
         let probe = build(
             "probe",
             1,
@@ -720,11 +726,31 @@ mod tests {
         let bench = build(
             "bench",
             1,
-            "[[uses]]\nbuild = \"probe\"\nversion = 1\n\n[[line]]\npart = \"RP2350\"\nqty = 1\n",
+            "[[uses]]\nbuild = \"probe\"\nversion = 1\n\n[[line]]\npart = \"RP2350\"\nqty = 1\n\n\
+             [[line]]\npart = \"INA239\"\nqty = 1\n",
+        );
+        // One lab-log entry, as `tentzhen log append` writes it, and the INA239's incoming QA.
+        let entry = format!(
+            "{{\"seq\":1,\"at\":\"2026-10-14T10:00:00Z\",\"by\":\"person:jon\",\"what\":\"part.look\",\
+             \"params\":{{}},\"result\":{{\"seen\":true}},\"limits_sha256\":\"{}\",\"prev\":null}}\n",
+            "a".repeat(64)
+        );
+        let cat =
+            Catalogue::from_sources(&base(), &[chip("RP2350"), chip("INA239")], &[probe, bench])
+                .unwrap()
+                .with_log(vec![src("lab/log/2026-10-14.jsonl", &entry)])
+                .unwrap();
+        let first = cat.log[0].sha256.clone();
+        let qa = format!(
+            "measures = \"x\"\nsetup = \"x\"\nlog = {{ first = \"{first}\", last = \"{first}\" }}\n\n\
+             [[device]]\npart = \"INA239\"\n\n[results]\nseen = true\n"
         );
         let sourcing = "[[line]]\ncommodity = \"wire\"\nshop = \"amazon\"\nstore = \"Maker\"\n\
-                        item = \"B0ABCDEFGH\"\nordered = \"2026-10-02\"\n";
-        let cat = Catalogue::from_sources(&base(), &[part], &[probe, bench])
+                        item = \"B0ABCDEFGH\"\nordered = \"2026-10-02\"\n\n\
+                        [[line]]\npart = \"INA239\"\nshop = \"lcsc\"\nitem = \"C2040\"\n\
+                        arrived = \"2026-10-14\"\npassed_qa = \"2026-10-14-ina-incoming\"\n";
+        let cat = cat
+            .with_measurements(vec![src("lab/records/2026-10-14-ina-incoming.toml", &qa)])
             .unwrap()
             .with_sourcing(src("lab/sourcing.toml", sourcing))
             .unwrap();
@@ -739,6 +765,11 @@ mod tests {
                  <a href=\"../builds/bench/v1/index.html\">bench v1</a>, \
                  <a href=\"../builds/probe/v1/index.html\">probe v1</a></td>\
                  <td><span class=\"muted\">authorized sellers only</span></td><td>specced</td></tr>",
+                "<tr><td>1</td><td>INA239</td><td></td><td>\
+                 <a href=\"../builds/bench/v1/index.html\">bench v1</a></td>\
+                 <td>LCSC <span class=\"item\">C2040</span><br>\
+                 <span class=\"muted\">authorized sellers only</span></td>\
+                 <td>passed incoming QA <span class=\"muted\">2026-10-14-ina-incoming</span></td></tr>",
                 "<tr><td>6</td><td>wire</td><td></td><td>\
                  <a href=\"../builds/probe/v1/index.html\">probe v1</a></td>\
                  <td>Amazon · Maker <span class=\"item\">B0ABCDEFGH</span></td>\
@@ -746,6 +777,19 @@ mod tests {
             ]
         );
         assert!(page.contains("<a href=\"../parts/index.html\">PARTS</a>"));
+    }
+
+    /// The home page is written by hand, and carries the nav every generated page does.
+    #[test]
+    fn the_home_page_s_nav_is_the_generated_one() {
+        let nav = |html: &str| {
+            let start = html.find("<nav class=\"site-nav\"").expect("a nav");
+            let end = start + html[start..].find("</nav>").expect("the nav's end");
+            html[start..end].to_string()
+        };
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let home = std::fs::read_to_string(root.join("site/index.html")).unwrap();
+        assert_eq!(nav(&home), nav(&page("", "", "")));
     }
 
     #[test]

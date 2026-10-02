@@ -358,6 +358,7 @@ mod tests {
         for (shop, item, want) in [
             ("aliexpress", "1005-007", "give digits"),
             ("aliexpress", "3256807602160285", "under 2^51"),
+            ("aliexpress", "2251799813685248", "under 2^51"),
             ("amazon", "b0abcdefgh", "an ASIN"),
             ("amazon", "B0ABCDEFG", "an ASIN"),
             ("lcsc", "12345", "a C number"),

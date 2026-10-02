@@ -898,16 +898,17 @@ mod tests {
         )
     }
 
-    /// Each row of the parts page as (part or commodity, qty, status, since), and the build
-    /// versions it is used in, with how many each needs.
+    /// Each row of the parts page as (part or commodity, with its form if it has one, qty, status,
+    /// since), and the build versions it is used in, with how many each needs.
     fn parts_page(conn: &Connection) -> Vec<(String, i64, String, Option<String>, String)> {
         let mut stmt = conn
             .prepare(
-                "SELECT coalesce(p.part, p.commodity), p.qty, p.status, CAST(p.since AS TEXT), \
+                "SELECT coalesce(p.part, p.commodity) || coalesce(' (' || p.form || ')', ''), \
+                 p.qty, p.status, CAST(p.since AS TEXT), \
                  string_agg(u.build || ' v' || u.version || ' x' || u.qty, ', ' \
                             ORDER BY u.build, u.version) \
                  FROM gold.page_parts p JOIN gold.page_parts_used_in u USING (parts_no) \
-                 GROUP BY p.parts_no, p.part, p.commodity, p.qty, p.status, p.since \
+                 GROUP BY p.parts_no, p.part, p.form, p.commodity, p.qty, p.status, p.since \
                  ORDER BY p.parts_no",
             )
             .unwrap();
@@ -921,7 +922,7 @@ mod tests {
 
     /// The parts list buys for the newest version of each build, once: a build another build's
     /// newest version uses is counted inside it, and an older version not at all, nor what only an
-    /// older version uses.
+    /// older version uses. A part in two forms is two things to buy.
     #[test]
     fn the_parts_list_counts_each_build_once() {
         let bench = build(
@@ -937,7 +938,11 @@ mod tests {
                 version("tool", v, &line)
             }
         };
-        let gizmo = build("gizmo", "[[line]]\ncommodity = \"glue\"\nqty = 1\n");
+        let gizmo = build(
+            "gizmo",
+            "[[line]]\ncommodity = \"glue\"\nqty = 1\n\n\
+             [[line]]\npart = \"RP2350\"\nform = \"chip\"\nqty = 1\n",
+        );
         let rig = [
             build("rig", "[[uses]]\nbuild = \"gizmo\"\nversion = 1\n"),
             version("rig", 2, "[[line]]\ncommodity = \"tape\"\nqty = 1\n"),
@@ -972,6 +977,7 @@ mod tests {
             [
                 specced("wire", 13, "bench v1 x1, probe v1 x12"),
                 specced("glue", 1, "gizmo v1 x1"),
+                specced("RP2350 (chip)", 1, "gizmo v1 x1"),
                 specced("RP2350", 5, "probe v1 x2, tool v2 x3"),
                 specced("tape", 1, "rig v2 x1"),
             ]
@@ -1009,6 +1015,7 @@ mod tests {
     #[test]
     fn a_status_comes_from_its_stages() {
         // Each line reaches every stage up to its own, on a day of its own, so the last one wins.
+        // `none` names a shop and has reached no stage; `wire` has no line.
         let stages = [
             "shop = \"lcsc\"\nitem = \"C2040\"\nlisting_checked = \"2026-09-01\"",
             "in_cart = \"2026-09-02\"",
@@ -1026,6 +1033,7 @@ mod tests {
             line("commodity = \"ordered\"", 3),
             line("commodity = \"arrived\"", 4),
             line("commodity = \"inspected\"", 5),
+            "[[line]]\ncommodity = \"none\"\nshop = \"lcsc\"\nitem = \"C2040\"\n\n".into(),
         ]
         .concat();
         let conn = sourced("status", &["2026-09-21-kit-qa"], &sourcing);
@@ -1647,17 +1655,26 @@ mod tests {
                 "an order names its shop",
             ),
             (
-                "'RP2350', NULL, NULL, 'lcsc', NULL, 'C1', '2026-10-03', NULL, '2026-10-02', \
-                 NULL, NULL"
-                    .into(),
-                "the days run in the stages' order, past a stage not reached",
-            ),
-            (
                 "'RP2350', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'nope'".into(),
                 "incoming QA names a measurement record",
             ),
         ] {
             refused(conn.execute(&sourcing(&line), []).map(|_| ()), why);
+        }
+        // Each pair of stages, the later a day before the earlier, with any stage between not
+        // reached: listing_checked, in_cart, ordered, arrived.
+        for (i, j) in [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)] {
+            let mut days = ["NULL"; 4];
+            days[i] = "'2026-10-03'";
+            days[j] = "'2026-10-02'";
+            let line = format!(
+                "'RP2350', NULL, NULL, 'lcsc', NULL, 'C1', {}, NULL",
+                days.join(", ")
+            );
+            refused(
+                conn.execute(&sourcing(&line), []).map(|_| ()),
+                "the days run in the stages' order",
+            );
         }
         conn.execute(
             &sourcing(
