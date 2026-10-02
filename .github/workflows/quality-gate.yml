@@ -14,11 +14,11 @@ on:
 permissions:
   contents: read
 
-# A newer push to a pull request cancels the gate's older run on it, whose commit can no longer be
-# merged: a merge is pinned to the reviewed head. Every other run, on main or started by hand, is a
-# group of its own, so none is cancelled or held back. One group for main would not do: by default
-# GitHub cancels a run waiting in a group when another joins it, cancel-in-progress or not
-# (docs.github.com, "Using concurrency": the default queue is "single").
+# A newer push to a pull request cancels the gate's older run on it, whose commit is no longer the
+# pull request's head. Every other run, on main or started by hand, is a group of its own, so none
+# is cancelled or held back. One group for main would not do: by default GitHub cancels a run
+# waiting in a group when another joins it, cancel-in-progress or not (github/docs at 336b7f546d,
+# data/reusables/actions/actions-group-concurrency.md: the default queue is "single").
 concurrency:
   group: quality-gate-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
