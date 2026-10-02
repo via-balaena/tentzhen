@@ -75,7 +75,7 @@ CREATE TABLE silver.line (
     CHECK ((part IS NULL) <> (commodity IS NULL))
 );
 COMMENT ON TABLE silver.line IS 'A build version''s bill of materials: a part or a commodity on each line, and how many.';
-COMMENT ON COLUMN silver.line.class IS 'The letter a schematic labels the thing with (R resistor, U integrated circuit, A a board or module), as crates/records lists them. crates/records holds that one thing has one class in every build that writes it; the database does not.';
+COMMENT ON COLUMN silver.line.class IS 'The letter a schematic labels the thing with (R resistor, U integrated circuit, A a board or module), as crates/records lists them. crates/records holds that one thing has one class in every build version that writes it; the database does not.';
 
 CREATE TABLE silver.uses (
     build        TEXT NOT NULL,

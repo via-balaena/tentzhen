@@ -208,7 +208,7 @@ A build version's bill of materials: a part or a commodity on each line, and how
 | `part` | VARCHAR | yes |  |
 | `commodity` | VARCHAR | yes |  |
 | `form` | VARCHAR | yes |  |
-| `class` | VARCHAR | no | The letter a schematic labels the thing with (R resistor, U integrated circuit, A a board or module), as crates/records lists them. crates/records holds that one thing has one class in every build that writes it; the database does not. |
+| `class` | VARCHAR | no | The letter a schematic labels the thing with (R resistor, U integrated circuit, A a board or module), as crates/records lists them. crates/records holds that one thing has one class in every build version that writes it; the database does not. |
 | `qty` | INTEGER | no |  |
 
 Constraints:

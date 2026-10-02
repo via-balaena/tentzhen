@@ -1518,6 +1518,24 @@ mod tests {
             assert!(err.contains(&format!("writes {what} as class")), "{err}");
             assert!(err.contains("one thing has one class"), "{err}");
         }
+        // Every version counts, so a class an older version gives holds the newer ones to it: once
+        // that version is published, and frozen, the thing's class is settled.
+        let err = Catalogue::from_sources(
+            &base(),
+            &[src("parts/rp2350.toml", PART)],
+            &[
+                build("probe", 1, &line(board, "A")),
+                build("probe", 2, &line(board, "U")),
+            ],
+        )
+        .err()
+        .unwrap();
+        assert!(
+            err.contains(
+                "probe v2: writes RP2350 as \"board\" as class U, and probe v1 as class A"
+            ),
+            "{err}"
+        );
     }
 
     #[test]

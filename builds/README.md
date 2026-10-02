@@ -11,11 +11,11 @@ drawing sits beside it (`v1.svg`). `crates/site` turns these into the pages unde
   maker builds to. Each has a record in `parts/`. Commodities are named by their properties on
   the line itself (`commodity = "wire, 18 AWG, silicone"`). No prices, sellers or brands.
 - **Class.** Each line gives the letter a schematic labels its thing with: `A` a board or module,
-  `C` capacitor, `F` fuse, `J` connector, `MP` mechanical part, `PS` power supply, `Q`
-  transistor, `R` resistor, `S` switch, `U` integrated circuit, `W` wire or cable, `XF` fuse
-  holder. One thing, a part and its form or a commodity and its form, has one class in every
-  build that writes it. The parts page groups by it. A new letter goes in `crates/records`
-  (`Class`) and in `silver.line`'s check.
+  `C` capacitor, `F` fuse, `J` connector, `MP` mechanical part, `PS` power supply, `Q` transistor,
+  `R` resistor, `S` switch, `U` integrated circuit, `W` wire or cable, `XF` fuse holder. One thing,
+  a part and its form or a commodity and its form, has one class in every build version that writes
+  it, old ones too: once a published version writes a thing, its class is settled. The parts page
+  groups by it. A new letter goes in `crates/records` (`Class`) and in `silver.line`'s check.
 - **Builds from builds.** `[[uses]]` names another build and pins its version. Pages show
   "Uses" and "Used in" both ways.
 - **Firmware** is pinned to a release, a file and its sha256, never copied into the repo.
