@@ -372,9 +372,9 @@ CREATE TABLE silver.sourcing (
     CHECK (listing_checked <= in_cart AND listing_checked <= ordered AND listing_checked <= arrived
            AND in_cart <= ordered AND in_cart <= arrived AND ordered <= arrived)
 );
-COMMENT ON TABLE silver.sourcing IS 'Where the lab buys each thing its builds need, and the UTC day it reached each stage. A thing with no row is specced: nothing is chosen.';
+COMMENT ON TABLE silver.sourcing IS 'Where the lab buys each thing its builds need, and the UTC day it reached each stage. A thing with no row, or a row that has reached no stage, is specced.';
 COMMENT ON COLUMN silver.sourcing.line_no IS 'Its place in the file, from 1.';
-COMMENT ON COLUMN silver.sourcing.store IS 'The seller.';
+COMMENT ON COLUMN silver.sourcing.store IS 'The seller, as the listing names it.';
 COMMENT ON COLUMN silver.sourcing.item IS 'The shop''s item number: on Amazon the ASIN, on LCSC the C number. crates/records holds its shape.';
 COMMENT ON COLUMN silver.sourcing.listing_checked IS 'The UTC day a person checked the listing against the build.';
 COMMENT ON COLUMN silver.sourcing.passed_qa IS 'The measurement record of the incoming QA it passed. crates/records holds that it lists the part and is from on or after the day it arrived; the database holds that it exists.';

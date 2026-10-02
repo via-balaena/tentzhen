@@ -610,7 +610,7 @@ Constraints:
 
 ### `silver.sourcing` (table)
 
-Where the lab buys each thing its builds need, and the UTC day it reached each stage. A thing with no row is specced: nothing is chosen.
+Where the lab buys each thing its builds need, and the UTC day it reached each stage. A thing with no row, or a row that has reached no stage, is specced.
 
 | column | type | null | about |
 |---|---|---|---|
@@ -619,7 +619,7 @@ Where the lab buys each thing its builds need, and the UTC day it reached each s
 | `form` | VARCHAR | yes |  |
 | `commodity` | VARCHAR | yes |  |
 | `shop` | VARCHAR | yes |  |
-| `store` | VARCHAR | yes | The seller. |
+| `store` | VARCHAR | yes | The seller, as the listing names it. |
 | `item` | VARCHAR | yes | The shop's item number: on Amazon the ASIN, on LCSC the C number. crates/records holds its shape. |
 | `listing_checked` | DATE | yes | The UTC day a person checked the listing against the build. |
 | `in_cart` | DATE | yes |  |

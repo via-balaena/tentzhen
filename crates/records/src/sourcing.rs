@@ -7,7 +7,7 @@
 //! part = "LFE5U-45F"              # the line as a build writes it, word for word: a part
 //! form = "..."                    # and its form, or a commodity (and its form, if any)
 //! shop = "aliexpress"             # aliexpress, amazon, lcsc or taobao
-//! store = "Muse Lab"              # the seller
+//! store = "..."                   # the seller, as the listing names it
 //! item = "1005007788475037"       # the shop's item number (Amazon's ASIN, LCSC's C number)
 //! listing_checked = "2026-10-02"  # the UTC day a person checked the listing against the build
 //! in_cart = "2026-10-03"          # the UTC day it went in a cart
@@ -16,8 +16,8 @@
 //! passed_qa = "2026-10-21-i9-qa"  # the measurement record of the incoming QA it passed
 //! ```
 //!
-//! A thing with no line here is specced: a build needs it and nothing is chosen. Its status is the
-//! last stage it has reached, never written: the warehouse works it out.
+//! Until its line reaches a stage, or with no line, a thing is specced: a build needs it. Its
+//! status is the last stage it has reached, never written: the warehouse works it out.
 //! Every stage is optional, since a part may be ordered without a cart or be on hand already, but
 //! the days run in the stages' order, the incoming QA's being its record's day, and a stage from
 //! `listing_checked` to `ordered` names the shop and the item. A status is the whole line's: one of
@@ -33,7 +33,9 @@
 //! newest versions only, is held by the warehouse (`every_sourcing_line_is_on_the_parts_list`).
 //! Not held by anything: that a day is the day it happened, or that a part which passed incoming
 //! QA passed it; each field is its writer's word. For a commodity, nothing checks what its QA
-//! record measured, since a record names its devices as parts or builds.
+//! record measured, since a record names its devices as parts or builds. Nor does anything check
+//! that a part sold by authorized sellers only is bought from one: the parts page says so beside
+//! its source.
 
 use crate::log::real_day;
 use crate::{Catalogue, Source, read_source};
@@ -99,7 +101,7 @@ pub struct Line {
     pub form: Option<String>,
     pub commodity: Option<String>,
     pub shop: Option<Shop>,
-    /// The seller.
+    /// The seller, as the listing names it.
     pub store: Option<String>,
     /// The shop's item number: on Amazon the ASIN, on LCSC the C number.
     pub item: Option<String>,
