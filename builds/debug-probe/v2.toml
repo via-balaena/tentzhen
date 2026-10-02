@@ -11,7 +11,8 @@ changes = "The lab's probe is a Raspberry Pi Debug Probe, the accessory the debu
 # 0.1-inch header, one to a male one; on the header cables, orange is TX/SC (out of the probe),
 # black GND, yellow RX/SD. Its "D" port is SWD, its "U" port UART. The schematic (RP-008194-DS, rev
 # 2) shows an RP2040, and a five-pin USB socket, J1, whose ID pin is not connected. What the power
-# cable's other end plugs into, the documentation does not say.
+# cable's other end plugs into, the documentation does not say; Jon, 2026-10-02: "usb cable plugs
+# into a pi", the Raspberry Pi the lab's probe is used from.
 [[line]]
 part = "RP2040"
 form = "Raspberry Pi Debug Probe, with its cables"
@@ -36,7 +37,7 @@ shasum -a 256 debugprobe.uf2"""
 expect = "aae9585f456c28c00865eb3df4d4bfc184f8e7ae60ebed3cc32a32512521a1b8"
 
 [[step]]
-do = "Pinch the top off the probe's case, then hold BOOTSEL and plug it into the lab computer."
+do = "Pinch the top off the probe's case, then hold BOOTSEL and plug it, with its USB cable, into the computer it is used from (the lab's: a Raspberry Pi)."
 expect = "A drive named RPI-RP2 appears."
 
 [[step]]
