@@ -1,0 +1,38 @@
+part = "AD9767"
+kind = "chip"
+is = "dual DAC, 14-bit, parallel inputs"
+datasheet = "https://www.analog.com/media/en/technical-documentation/data-sheets/AD9763_9765_9767.pdf"
+
+# Every claim below: Analog Devices AD9763/AD9765/AD9767 data sheet, Rev. G, read 2026-10-01.
+# Tentzhen's AD9767 comes soldered to a module bought on AliExpress, not from an authorized
+# distributor, so it is trusted to aliexpress-modules, not maker-datasheets, until incoming QA
+# measures it.
+
+[[claim]]
+# Table 2: maximum output update rate (fCLK) 125 MSPS minimum.
+id = "update-rate"
+says = "Updates each output at up to `max_update_hertz`"
+trusted = "aliexpress-modules"
+values = { max_update_hertz = 125000000.0 }
+
+[[claim]]
+# Table 1: AVDD 3 V to 5.5 V; DVDD1, DVDD2 2.7 V to 5.5 V.
+id = "supplies"
+says = "Its analog supply (AVDD) runs from `min_analog_supply_volts` to `max_analog_supply_volts`, and its digital supplies (DVDD1, DVDD2) from `min_digital_supply_volts` to `max_digital_supply_volts`"
+trusted = "aliexpress-modules"
+values = { min_analog_supply_volts = 3.0, max_analog_supply_volts = 5.5, min_digital_supply_volts = 2.7, max_digital_supply_volts = 5.5 }
+
+[[claim]]
+# Table 3: logic 1 voltage at DVDD1 = DVDD2 = 3.3 V, 2.1 V minimum; logic 0, 0.9 V maximum. At
+# 5 V the logic 1 minimum is 3.5 V, above what 3.3 V logic drives.
+id = "logic-inputs"
+says = "With its digital supplies at `at_digital_supply_volts`, its inputs read high from `min_input_high_volts` and low up to `max_input_low_volts`"
+trusted = "aliexpress-modules"
+values = { at_digital_supply_volts = 3.3, min_input_high_volts = 2.1, max_input_low_volts = 0.9 }
+
+[[claim]]
+# Table 3: input setup time 2.0 ns, input hold time 1.5 ns, latch pulse width 3.5 ns, minimum.
+id = "input-timing"
+says = "Each input must be steady `min_setup_seconds` before its latch edge and `min_hold_seconds` after, and each latch pulse last at least `min_latch_pulse_seconds`"
+trusted = "aliexpress-modules"
+values = { min_setup_seconds = 0.000000002, min_hold_seconds = 0.0000000015, min_latch_pulse_seconds = 0.0000000035 }

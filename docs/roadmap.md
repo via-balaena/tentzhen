@@ -38,6 +38,9 @@ Everything here runs at tier 0, and all of it must exist before the first order 
   and a lab log that is hash-chained and only grows on `main`. Its entries are not signed. Commits
   are, but an agent that can commit signs with the person's key (`architecture.md`), so where to
   keep a key an agent cannot use is decided with the Pico enforcer.
+- **Ethernet adapter for P1.** The extension board has no Ethernet jacks (`scope.md`), so a small
+  board of our own carries a jack with built-in transformers on its header P1: KiCad files, made
+  at JLCPCB in the first cart (Jon, 2026-10-01).
 - **First cart.** A BOM and cart for tiers 1–2, reviewed by the user, who places the order.
 
 ## Phase 1 — Bring-up
@@ -49,13 +52,14 @@ Bitstream hash and toolchain versions recorded in the build artifact. All `measu
 
 One AD9226 into on-chip RAM with an edge trigger, read out and plotted from a Rust host tool.
 The capture core's properties are `proven` or `checked`, and its cocotb tests pass, **before**
-it touches hardware. On arrival every AD9226 module goes through incoming QA, starting with the
-AD8138 VOCM check (`scope.md`).
+it touches hardware. On arrival every AD9226 module goes through incoming QA: its logic supply,
+then the AD8138 VOCM check (`scope.md`), as `builds/digitizer/v1.toml`'s walkthrough has it.
 
 ## Phase 3 — Two channels + streaming
 
 SDRAM buffering, continuous Ethernet streaming, samples landing in DuckDB with full metadata.
-Sustained sample rate over PMOD is `measured`, not assumed from the ADC's rating.
+Sustained sample rate over the headers' jumper wires is `measured`, not assumed from the ADC's
+rating.
 
 ## Phase 4 — Instrument interface
 

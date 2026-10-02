@@ -5,8 +5,12 @@ Research date for everything below: 2026-09-28, unless a line says otherwise.
 ## Where each kind of part comes from
 
 **AliExpress (commodity, low risk):** Colorlight i9 + extension board (Muse Lab official store
-only), AD9226 modules (buy 3, keep the best 2), DAC module, SMA/BNC connectors and cables, 10x
-probes, wire, headers, general-purpose passives.
+only), AD9226 modules (buy 3, keep the best 2), DAC module, SMA/BNC connectors and cables, wire,
+headers, general-purpose passives. What `builds/digitizer/v1.toml` lists. 10x probes wait for the
+front end (tier 3): the modules' inputs are about 50 Ω (github.com/wavius/Scoped, read
+2026-10-01), and a 10:1 passive probe "is intended to be connected to the 1 megohm (MΩ) input
+termination of the oscilloscope" (Art Pini, "Selecting a Replacement Oscilloscope Probe is
+Easy—When You Know How", Digi-Key, 2021-12-27).
 
 **LCSC or authorized distributors (quality-critical):** front-end op amps, precision
 resistors/capacitors in the signal path, LM4040 voltage reference, low-jitter oscillators,
