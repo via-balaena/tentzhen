@@ -457,7 +457,7 @@ fn shop_name(shop: &str) -> &str {
 }
 
 /// A row of the parts page: parts_no, qty, part, form, commodity, datasheet, authorized_only, shop,
-/// store, item, status, since, passed_qa (`gold.page_parts`).
+/// store, item, used, salvaged_from, status, since, passed_qa (`gold.page_parts`).
 struct PartsRow {
     parts_no: i64,
     qty: i64,
@@ -469,6 +469,8 @@ struct PartsRow {
     shop: Option<String>,
     store: Option<String>,
     item: Option<String>,
+    used: bool,
+    salvaged_from: Option<String>,
     status: String,
     since: Option<String>,
     passed_qa: Option<String>,
@@ -479,7 +481,8 @@ struct PartsRow {
 pub fn render_parts(conn: &Connection) -> duckdb::Result<String> {
     let mut stmt = conn.prepare(
         "SELECT parts_no, qty, part, form, commodity, datasheet, authorized_only, shop, store, \
-         item, status, CAST(since AS TEXT), passed_qa FROM gold.page_parts ORDER BY parts_no",
+         item, used, salvaged_from, status, CAST(since AS TEXT), passed_qa FROM gold.page_parts \
+         ORDER BY parts_no",
     )?;
     let rows: Vec<PartsRow> = stmt
         .query_map([], |r| {
@@ -494,9 +497,11 @@ pub fn render_parts(conn: &Connection) -> duckdb::Result<String> {
                 shop: r.get(7)?,
                 store: r.get(8)?,
                 item: r.get(9)?,
-                status: r.get(10)?,
-                since: r.get(11)?,
-                passed_qa: r.get(12)?,
+                used: r.get(10)?,
+                salvaged_from: r.get(11)?,
+                status: r.get(12)?,
+                since: r.get(13)?,
+                passed_qa: r.get(14)?,
             })
         })?
         .collect::<duckdb::Result<_>>()?;
@@ -526,15 +531,23 @@ pub fn render_parts(conn: &Connection) -> duckdb::Result<String> {
             (None, Some(c)) => esc(c),
             (None, None) => String::new(),
         };
-        let mut source = String::new();
-        if let Some(shop) = &p.shop {
-            source = esc(shop_name(shop));
-            if let Some(store) = &p.store {
-                let _ = write!(source, " · {}", esc(store));
+        // A shop's listing, a store with none, or the device a part came out of.
+        let mut source = match (&p.salvaged_from, &p.shop) {
+            (Some(donor), _) => format!("salvaged from {}", esc(donor)),
+            (None, Some(shop)) => esc(shop_name(shop)),
+            (None, None) => String::new(),
+        };
+        if let Some(store) = &p.store {
+            if !source.is_empty() {
+                source.push_str(" · ");
             }
-            if let Some(item) = &p.item {
-                let _ = write!(source, " <span class=\"item\">{}</span>", esc(item));
-            }
+            source.push_str(&esc(store));
+        }
+        if let Some(item) = &p.item {
+            let _ = write!(source, " <span class=\"item\">{}</span>", esc(item));
+        }
+        if p.used {
+            source.push_str(" · used");
         }
         // Kept beside a chosen source too: nothing checks that the source is an authorized one.
         if p.authorized_only {
@@ -727,7 +740,10 @@ mod tests {
             "bench",
             1,
             "[[uses]]\nbuild = \"probe\"\nversion = 1\n\n[[line]]\npart = \"RP2350\"\nqty = 1\n\n\
-             [[line]]\npart = \"INA239\"\nqty = 1\n",
+             [[line]]\npart = \"INA239\"\nqty = 1\n\n\
+             [[line]]\ncommodity = \"glue\"\nqty = 1\n\n\
+             [[line]]\ncommodity = \"tape\"\nqty = 1\n\n\
+             [[line]]\ncommodity = \"cable\"\nqty = 1\n",
         );
         // One lab-log entry, as `tentzhen log append` writes it, and the INA239's incoming QA.
         let entry = format!(
@@ -748,7 +764,12 @@ mod tests {
         let sourcing = "[[line]]\ncommodity = \"wire\"\nshop = \"amazon\"\nstore = \"Maker\"\n\
                         item = \"B0ABCDEFGH\"\nordered = \"2026-10-02\"\n\n\
                         [[line]]\npart = \"INA239\"\nshop = \"lcsc\"\nitem = \"C2040\"\n\
-                        arrived = \"2026-10-14\"\npassed_qa = \"2026-10-14-ina-incoming\"\n";
+                        arrived = \"2026-10-14\"\npassed_qa = \"2026-10-14-ina-incoming\"\n\n\
+                        [[line]]\ncommodity = \"glue\"\nstore = \"Hardware Store\"\narrived = true\n\n\
+                        [[line]]\ncommodity = \"tape\"\nshop = \"amazon\"\nstore = \"Maker\"\n\
+                        item = \"B0ABCDEFGH\"\nused = true\nordered = true\n\n\
+                        [[line]]\ncommodity = \"cable\"\nsalvaged_from = \"a dead printer\"\n\
+                        store = \"Goodwill\"\narrived = true\n";
         let cat = cat
             .with_measurements(vec![src("lab/records/2026-10-14-ina-incoming.toml", &qa)])
             .unwrap()
@@ -770,6 +791,15 @@ mod tests {
                  <td>LCSC <span class=\"item\">C2040</span><br>\
                  <span class=\"muted\">authorized sellers only</span></td>\
                  <td>passed incoming QA <span class=\"muted\">2026-10-14-ina-incoming</span></td></tr>",
+                "<tr><td>1</td><td>glue</td><td></td><td>\
+                 <a href=\"../builds/bench/v1/index.html\">bench v1</a></td>\
+                 <td>Hardware Store</td><td>arrived</td></tr>",
+                "<tr><td>1</td><td>tape</td><td></td><td>\
+                 <a href=\"../builds/bench/v1/index.html\">bench v1</a></td>\
+                 <td>Amazon · Maker <span class=\"item\">B0ABCDEFGH</span> · used</td><td>ordered</td></tr>",
+                "<tr><td>1</td><td>cable</td><td></td><td>\
+                 <a href=\"../builds/bench/v1/index.html\">bench v1</a></td>\
+                 <td>salvaged from a dead printer · Goodwill</td><td>arrived</td></tr>",
                 "<tr><td>6</td><td>wire</td><td></td><td>\
                  <a href=\"../builds/probe/v1/index.html\">probe v1</a></td>\
                  <td>Amazon · Maker <span class=\"item\">B0ABCDEFGH</span></td>\

@@ -7,7 +7,7 @@
 //! part = "LFE5U-45F"              # the line as a build writes it, word for word: a part
 //! form = "..."                    # and its form, or a commodity (and its form, if any)
 //! shop = "aliexpress"             # aliexpress, amazon, lcsc or taobao
-//! store = "..."                   # the seller, as the listing names it
+//! store = "..."                   # the seller, as the listing names it, or its own name
 //! item = "1005007788475037"       # the shop's item number (Amazon's ASIN, LCSC's C number)
 //! listing_checked = "2026-10-02"  # the UTC day a person checked the listing against the build
 //! in_cart = "2026-10-03"          # the UTC day it went in a cart
@@ -24,6 +24,13 @@
 //! being its record's day, and a stage from `listing_checked` to `ordered` names the shop and the
 //! item. A status is the whole line's: one of two modules ordered cannot be told from both. Prices
 //! stay out, as everything else from a listing does (CLAUDE.md).
+//!
+//! A thing need not come from a shop. A seller with no listing in the file (a store in town, a
+//! thrift store, a person) is a `store` with no `shop`. `used = true` marks a thing bought
+//! secondhand, and `salvaged_from` names the device a part was taken out of, with the `store` the
+//! device came from, if any, but no shop: an item number would be the device's. A thing already at
+//! hand, wherever it came from, is a line with `arrived = true` and no source. `used = false` is
+//! refused, as is `used` beside `salvaged_from`: a salvaged part is used already.
 //!
 //! An AliExpress item number is the one aliexpress.com shows. On 2026-10-01 the i9's listing was
 //! item 1005007788475037 there and 3256807602160285 on aliexpress.us, 2^51 more, so a number of
@@ -142,10 +149,15 @@ pub struct Line {
     pub form: Option<String>,
     pub commodity: Option<String>,
     pub shop: Option<Shop>,
-    /// The seller, as the listing names it.
+    /// The seller, as the listing names it, or, with no shop, its own name.
     pub store: Option<String>,
     /// The shop's item number: on Amazon the ASIN, on LCSC the C number.
     pub item: Option<String>,
+    /// Bought secondhand. Written as `true`, or left out.
+    #[serde(default, deserialize_with = "only_true")]
+    pub used: bool,
+    /// The device a part was taken out of.
+    pub salvaged_from: Option<String>,
     /// A person checked the listing against the build.
     pub listing_checked: Option<Stage>,
     /// It went in a cart.
@@ -159,6 +171,17 @@ pub struct Line {
     /// The file it came from, relative to the repo root. Set on load, never written in a record.
     #[serde(skip)]
     pub record: String,
+}
+
+/// A flag written only when it holds: `true`, or left out.
+fn only_true<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
+    if bool::deserialize(d)? {
+        Ok(true)
+    } else {
+        Err(serde::de::Error::custom(
+            "false: leave the flag out instead",
+        ))
+    }
 }
 
 #[derive(Deserialize)]
@@ -275,6 +298,7 @@ pub fn parse(s: &Source) -> Result<Vec<Line>, String> {
             &l.commodity,
             &l.store,
             &l.item,
+            &l.salvaged_from,
             &l.passed_qa,
         ];
         if strings.iter().any(|s| s.as_deref() == Some("")) {
@@ -300,8 +324,19 @@ pub fn parse(s: &Source) -> Result<Vec<Line>, String> {
                 ));
             }
         }
-        if l.store.is_some() && l.shop.is_none() {
-            return Err(format!("{at}: {named} names a store but no shop"));
+        if let Some(donor) = &l.salvaged_from {
+            if l.shop.is_some() {
+                return Err(format!(
+                    "{at}: {named} is salvaged from {donor:?}, so it has no listing: give the \
+                     store the device came from, if any, and no shop"
+                ));
+            }
+            if l.used {
+                return Err(format!(
+                    "{at}: {named} is salvaged from {donor:?}, which is used already: leave \
+                     `used` out"
+                ));
+            }
         }
         let mut last: Option<(&str, &str)> = None;
         for (stage, reached) in l.stages() {
@@ -395,9 +430,38 @@ mod tests {
             &format!("[[line]]\n{PICO}item = \"C1\"\n"),
             "names a shop and its item number together",
         );
+        // A seller with no listing, a thing bought used, a part salvaged, a thing on hand.
+        let elsewhere = "[[line]]\npart = \"RP2350\"\nform = \"board\"\nstore = \"Micro Center\"\n\
+                         arrived = true\n\n[[line]]\ncommodity = \"wire\"\nstore = \"Goodwill\"\n\
+                         used = true\n\n[[line]]\ncommodity = \"tape\"\n\
+                         salvaged_from = \"a dead inkjet printer\"\nstore = \"Goodwill\"\n\n\
+                         [[line]]\ncommodity = \"glue\"\narrived = true\n";
+        let lines = parse(&src(SOURCING, elsewhere)).unwrap();
+        assert_eq!(lines[0].store.as_deref(), Some("Micro Center"));
+        assert!(lines[1].used && !lines[0].used);
+        assert_eq!(
+            lines[2].salvaged_from.as_deref(),
+            Some("a dead inkjet printer")
+        );
         refused(
-            &format!("[[line]]\n{PICO}store = \"Maker\"\n"),
-            "names a store but no shop",
+            &format!("[[line]]\n{PICO}used = false\n"),
+            "false: leave the flag out instead",
+        );
+        refused(
+            &format!("[[line]]\n{PICO}salvaged_from = \"a printer\"\nused = true\n"),
+            "which is used already: leave `used` out",
+        );
+        refused(
+            &format!("[[line]]\n{PICO}{SHOP}salvaged_from = \"a printer\"\n"),
+            "so it has no listing",
+        );
+        refused(
+            &format!("[[line]]\n{PICO}salvaged_from = \"\"\n"),
+            "has an empty string",
+        );
+        refused(
+            &format!("[[line]]\n{PICO}store = \"Micro Center\"\nordered = true\n"),
+            "ordered needs the shop and the item number",
         );
         for (shop, item, want) in [
             ("aliexpress", "1005-007", "give digits"),
