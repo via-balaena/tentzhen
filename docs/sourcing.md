@@ -2,22 +2,41 @@
 
 Research date for everything below: 2026-09-28, unless a line says otherwise.
 
-## Where each kind of part comes from
+## Where parts come from
 
-**AliExpress (commodity, low risk):** Colorlight i9 + extension board (Muse Lab official store
-only), AD9226 modules (buy 3, keep the best 2), DAC module, SMA/BNC connectors and cables, wire,
-headers, general-purpose passives. What `builds/digitizer/v1.toml` lists. 10x probes wait for the
-front end (tier 3): the modules' inputs are about 50 Ω (github.com/wavius/Scoped, read
-2026-10-01), and a 10:1 passive probe "is intended to be connected to the 1 megohm (MΩ) input
-termination of the oscilloscope" (Art Pini, "Selecting a Replacement Oscilloscope Probe is
-Easy—When You Know How", Digi-Key, 2021-12-27).
+Anywhere they are cheap, if incoming QA can check what the build relies on (`vision.md`, principle
+3). In this order:
 
-**LCSC or authorized distributors (quality-critical):** front-end op amps, precision
-resistors/capacitors in the signal path, LM4040 voltage reference, low-jitter oscillators,
-signal relays, Pico boards, anything security-related.
+- **The maker's own store**, when it sells the part, even at a higher price: the i9 and its
+  extension board are to come from the listing that Muse Lab's README
+  (wuxx/Colorlight-FPGA-Projects) links under "our aliexpress store".
+- **Anyone else:** a reseller, a used sale, a thrift store, a junked device, a drawer at home.
+  `lab/sourcing.toml` records each as a shop's listing, a `store` with no listing, `used`,
+  `salvaged_from` a device, or `arrived = true` with no source. Until incoming QA measures a part,
+  its claims rest on a `trusted-base.toml` entry that says where that trust comes from: the AD9226's
+  and the AD9767's, which come soldered to modules bought on AliExpress, on `aliexpress-modules`,
+  not `maker-datasheets`.
+- **An authorized seller only**, for a part whose job no bench test on arrival can check, including
+  one whose spec is finer than the bench can measure: the parts marked `authorized_only` in
+  `parts/`.
 
-**JLCPCB:** front-end PCB fabrication and SMD assembly with LCSC parts, so anyone can reproduce
-the board from published files.
+A part may come out of a junked mains-powered device, but the repo carries no instructions for
+taking one apart: `CLAUDE.md` keeps mains voltage out of scope.
+
+**What the digitizer needs** (`builds/digitizer/v1.toml`): the Colorlight i9 and its extension
+board, AD9226 modules (buy 3, keep the best 2), a DAC module, SMA/BNC connectors and cables, wire,
+headers and general-purpose passives. 10x probes wait for the front end (tier 3): the modules'
+inputs are about 50 Ω (github.com/wavius/Scoped, read 2026-10-01), and a 10:1 passive probe "is
+intended to be connected to the 1 megohm (MΩ) input termination of the oscilloscope" (Art Pini,
+"Selecting a Replacement Oscilloscope Probe is Easy—When You Know How", Digi-Key, 2021-12-27).
+
+**The front end's parts** (tier 3, no build yet): op amps, precision resistors and capacitors in the
+signal path, the LM4040 voltage reference, low-jitter oscillators and signal relays. Which of them a
+budget bench can check on arrival is decided when their records are written: a resistor whose
+tolerance is finer than the multimeter's accuracy cannot be checked with it.
+
+**JLCPCB:** front-end PCB fabrication and SMD assembly with LCSC parts, so anyone can reproduce the
+board from published files.
 
 ## The LCSC API
 
@@ -106,6 +125,8 @@ prices; … or any use of data mining, robots, or similar data gathering and ext
 
 ## Incoming QA
 
-Every received part is tested against genuine references and logged in DuckDB: part, seller,
-order, measurements, pass/fail. The seller-quality data we publish is **our own measurements
-only** — never LCSC-retrieved data.
+Every received part, whatever its source, is checked on the bench against what its build relies on.
+The check is a measurement record in `lab/records/`, and `passed_qa` in `lab/sourcing.toml` names
+it, so the parts page shows the result beside the source the part came from. The seller-quality data
+we publish is **our own measurements only**: never LCSC-retrieved data, and never a listing's
+content.
