@@ -1,7 +1,8 @@
 part = "RP2350"
 kind = "chip"
 is = "microcontroller"
-# Security-critical: buy from authorized distributors only.
+# Security-critical: no bench test can show a tampered chip or flash, so authorized sellers only
+# (docs/sourcing.md, "Incoming QA").
 authorized_only = true
 datasheet = "https://datasheets.raspberrypi.com/rp2350/rp2350-datasheet.pdf"
 

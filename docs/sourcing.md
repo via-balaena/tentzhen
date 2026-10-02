@@ -130,3 +130,43 @@ The check is a measurement record in `lab/records/`, and `passed_qa` in `lab/sou
 it, so the parts page shows the result beside the source the part came from. The seller-quality data
 we publish is **our own measurements only**: never LCSC-retrieved data, and never a listing's
 content.
+
+### The parts sold by authorized sellers only
+
+Reviewed 2026-10-02 against the rule above: a part's mark comes off only when a bench test on
+arrival, within `lab/limits.toml`, covers what its build relies on. None of the five does yet, so
+each keeps it. The tests below are still worth running on any unit, whatever its source, since they
+catch a wrong or remarked part. Passing them shows a part fit for what they check, and no more: "No
+amount of testing can confirm an item as authentic" (SAE AS6171A, scope, revised 2018-04-18). Code a
+Pico runs to read a part counts as flashing the Pico (`lab/targets.toml`), so it needs a person's
+approval until the Pico is a lab target.
+
+- **INA239**, the enforcer's measurement. Read MANUFACTURER_ID (3Eh), which reads 5449h, "TI" in
+  ASCII, and DEVICE_ID (3Fh), which reads 2391h (TI SLYS027A, Tables 7-20 and 7-21); then compare
+  its bus-voltage reading with a multimeter's near 3.3 V. **Keeps the mark:** the enforcer's
+  `measuring-error` claim is 9.97 mV at 3.4 V, and a multimeter checks the INA239 only as finely as
+  its own accuracy there, which no record in the repo gives (`unknown`). A meter or reference finer
+  than that, with a record, would lift it.
+- **TLV3011B**, the hardware cut. With V+ at 3.3 V, measure REF (pin 5) to ground: 1.223 V to 1.260
+  V (TI SBOS300C, section 6.9). Then check the output is open-drain: with IN- below REF and OUT
+  pulled to ground through 100 kΩ, OUT reads near 0 V, where a push-pull part reads near V+. Its
+  push-pull twin, the TLV3012, would hold EN high whenever it is not tripped, within 200 mV of V+
+  while sourcing 5 mA (VOH, at VS = 5 V; no row is given at 3.3 V), more than GP20 pulls through 1
+  kΩ, so GP20 could not open the switch (from the circuit in `builds/enforcer/v1.toml`). **Keeps the
+  mark:** the `hardware-cut` claim holds across a room within 10 K of 25 °C, and how a unit's
+  reference moves with temperature is beyond this bench.
+- **AO3401A**, the enforcer's switch, and **AO3400A**, its driver. A diode test finds each one's
+  orientation, and a resistor and the supply its gate threshold at 250 µA: 0.5 V to 1.3 V below the
+  source for the AO3401A, 0.65 V to 1.45 V above it for the AO3400A (Alpha and Omega datasheets, Rev
+  3.1). **Keep the mark:** if the DPS5005 fails, SUPPLY can rise toward the 6.5 V that
+  `[supply.upstream]` feeds it, and the AO3401A must then block it (`switch-blocks-upstream`), while
+  the AO3400A, off, holds it on its drain through 100 kΩ (from the circuit). Testing either needs
+  more than `lab/limits.toml`'s 3.4 V.
+- **RP2350**, the debug probe's and the enforcer's microcontroller. In BOOTSEL, read its OTP with
+  picotool, and only read it: writing OTP is irreversible and needs approval (`CLAUDE.md`). A blank
+  part's OTP is "all zeroes, except for some basic device information pre-programmed during
+  manufacturing test" (RP2350 datasheet, build-date 2025-07-29, chapter 13). Whether picotool's
+  reads load code onto the chip has not been checked here, so treat them as needing approval too.
+  **Keeps the mark:** no read can show a tampered chip or flash. Micro Center is on Raspberry Pi's
+  list of approved resellers for the Pico 2 and the Pico 2 W in the US, "for home"
+  (content-api.raspberrypi.com, read 2026-10-02).
