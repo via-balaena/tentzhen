@@ -67,7 +67,7 @@ Source: lcsc.com/docs/index.html, lcsc.com/docs/openapi/index.html, lcsc.com/age
   cost $3 each, charged per **unique** part. So the design rule is: prefer basic parts, and have
   the BOM tool report the count of unique extended parts, because that number is a cost.
 
-## AliExpress
+## AliExpress and Amazon
 
 AliExpress's Terms of Use (the version effective 2026-09-26, read 2026-10-01), §3.2(a): a user
 will not "copy, reproduce, download, re-publish, sell, distribute or resell" its listings, and
@@ -77,11 +77,16 @@ automatic devices or manual processes) without written permission from AliExpres
 prohibited." A search on 2026-10-01 found no open catalogue like jlcparts for AliExpress, only
 scrapers and scraping services, which that clause rules out.
 
+Amazon's Conditions of Use (last updated 2026-08-14, read 2026-10-01), "License and Access": "This
+license does not include … any collection and use of any product listings, descriptions, or
+prices; … or any use of data mining, robots, or similar data gathering and extraction tools."
+
 ### What that means for Tentzhen
 
 - A person reads a listing. No tool here fetches or collects listings.
-- The repo holds a listing's item number and store, and what we measured on the parts that
-  arrived. Screenshots, photos, titles, descriptions, prices and reviews stay out (`CLAUDE.md`).
+- The repo holds a listing's item number (on Amazon, its ASIN) and store, and what we measured on
+  the parts that arrived. Screenshots, photos, titles, descriptions, prices and reviews stay out,
+  whichever the shop (`CLAUDE.md`).
 - AliExpress's affiliate API, on an affiliate account and an approved app, is the route with its
   permission. Its agreement ties the API to promoting products, "for the purpose of driving the
   traffic for Seller(s)" (AliExpress Affiliate Program Service Agreement, read 2026-10-01); what

@@ -49,17 +49,20 @@ Always:
 - Log every hardware action (what, when, parameters, result) to the lab's append-only log,
   `lab/log/`, with `cargo run -p tentzhen -- log append`.
 
-## LCSC, JLCPCB and AliExpress data
+## LCSC, JLCPCB and shop data
 
 LCSC's API terms forbid bulk capture and forbid hosting or providing retrieved material (including
 datasheets and images) to any third party (`docs/sourcing.md`, read 2026-09-28). AliExpress's Terms
 of Use forbid re-publishing its listings, and forbid compiling them into a database, by robot or by
-hand, without its written permission (`docs/sourcing.md`, read 2026-10-01). So:
+hand, without its written permission. Amazon's Conditions of Use exclude any collection and use of
+its product listings, descriptions or prices, and any data mining or robots (`docs/sourcing.md`,
+both read 2026-10-01). So:
 
 - **Never commit LCSC- or JLCPCB-API-derived data** (prices, stock, datasheets, images, specs).
   Commit only identifiers (`C` numbers, MPNs) and data we measured ourselves.
-- **Never commit AliExpress listing content** (screenshots, photos, titles, descriptions, prices,
-  reviews). Commit only the item number, the store, and data we measured ourselves.
+- **Never commit a shop's listing content** (AliExpress, Amazon or any other: screenshots, photos,
+  titles, descriptions, prices, reviews). Commit only the item number (on Amazon, the ASIN), the
+  store, and data we measured ourselves.
 - API keys live in the macOS Keychain or the environment — never in the repo, a file, or a log.
 - Each user brings their own key. Caches are local, under the user's data dir, never in the tree.
 
