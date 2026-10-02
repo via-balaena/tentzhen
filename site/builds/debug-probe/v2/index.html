@@ -48,12 +48,11 @@
 <h2>Walkthrough</h2>
 <p class="notice">At your own risk: not certified or calibrated test equipment. <a href="../../../legal/index.html">Legal</a></p>
 <ol class="steps">
-<li><p>Plug the probe into the lab computer and read its firmware version.</p><pre><code>system_profiler SPUSBDataType | grep -A 8 'Debug Probe (CMSIS-DAP)'</code></pre><p class="expect"><span>EXPECT</span>A device named “Debug Probe (CMSIS-DAP)” at version 2.31, which is firmware 2.3.1 (the documentation reads it as bcdDevice 2.31). An older version: the next three steps update it.</p></li>
-<li><p>Download the firmware and check its hash.</p><pre><code>curl -LO https://github.com/raspberrypi/debugprobe/releases/download/debugprobe-v2.3.1/debugprobe.uf2
+<li><p>Download the firmware and check its hash. The probe may already run it; loading the pinned file anyway makes it the firmware this version names.</p><pre><code>curl -LO https://github.com/raspberrypi/debugprobe/releases/download/debugprobe-v2.3.1/debugprobe.uf2
 shasum -a 256 debugprobe.uf2</code></pre><p class="expect"><span>EXPECT</span>aae9585f456c28c00865eb3df4d4bfc184f8e7ae60ebed3cc32a32512521a1b8</p></li>
 <li><p>Pinch the top off the probe's case, then hold BOOTSEL and plug it into the lab computer.</p><p class="expect"><span>EXPECT</span>A drive named RPI-RP2 appears.</p></li>
-<li><p>Copy debugprobe.uf2 onto the RPI-RP2 drive.</p><p class="expect"><span>EXPECT</span>The drive disappears, and the probe comes back as “Debug Probe (CMSIS-DAP)” at version 2.31.</p><p class="agent"><span>AGENTS</span>Flashing is a hardware action: only for a board on the lab-target list or with a person's approval, and logged.</p></li>
-<li><p>With the target powered off, connect the probe's D port to the target's SWD pins with the female header cable: orange to SWCLK, black to GND, yellow to SWDIO. Targets with 3.3 V logic only.</p></li>
+<li><p>Copy debugprobe.uf2 onto the RPI-RP2 drive.</p><p class="expect"><span>EXPECT</span>The drive disappears, and the probe comes back as a USB device named “Debug Probe (CMSIS-DAP)”.</p><p class="agent"><span>AGENTS</span>Flashing is a hardware action: only for a board on the lab-target list or with a person's approval, and logged.</p></li>
+<li><p>With the target powered off, connect the probe's D port to the target's SWD pins with the female header cable: orange to SWCLK, black to GND, yellow to SWDIO. A board without a three-pin JST-SH debug connector, such as a Pico 2 that is not an H, needs a male header soldered to those three pins first (the documentation's getting-started page). Targets with 3.3 V logic only.</p></li>
 <li><p>Power the target and ask the probe what it sees.</p><pre><code>probe-rs info</code></pre><p class="expect"><span>EXPECT</span>probe-rs finds the probe and reads the target's debug port.</p></li>
 </ol>
 <h2>Claims</h2>

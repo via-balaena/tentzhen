@@ -6,11 +6,12 @@ does = "Flashes and debugs a target over SWD, and bridges the target's UART to U
 changes = "The lab's probe is a Raspberry Pi Debug Probe, the accessory the debugprobe firmware is written for, in place of a Pico 2 running that firmware. v1 still shows how to make one from a Pico 2."
 
 # Raspberry Pi's documentation (raspberrypi/documentation at b01a5c1a6e, microcontrollers/
-# debug-probe, read 2026-10-02): the probe works at 3.3 V nominal; it comes with a USB cable and
-# three debug cables from its three-pin JST-SH ports, one to JST-SH, one to a female 0.1-inch
-# header, one to a male one; on the header cables, orange is TX/SC (out of the probe), black GND,
-# yellow RX/SD. Its "D" port is SWD, its "U" port UART. The schematic (RP-008194-DS) shows an
-# RP2040.
+# debug-probe, read 2026-10-02): the probe works at 3.3 V nominal; it comes with "a USB power
+# cable" and three debug cables from its three-pin JST-SH ports, one to JST-SH, one to a female
+# 0.1-inch header, one to a male one; on the header cables, orange is TX/SC (out of the probe),
+# black GND, yellow RX/SD. Its "D" port is SWD, its "U" port UART. The schematic (RP-008194-DS, rev
+# 2) shows an RP2040, and a five-pin USB socket, J1, whose ID pin is not connected. What the power
+# cable's other end plugs into, the documentation does not say.
 [[line]]
 part = "RP2040"
 form = "Raspberry Pi Debug Probe, with its cables"
@@ -28,12 +29,7 @@ sha256 = "aae9585f456c28c00865eb3df4d4bfc184f8e7ae60ebed3cc32a32512521a1b8"
 # done the step, it is a prediction from the firmware source and Raspberry Pi's documentation.
 
 [[step]]
-do = "Plug the probe into the lab computer and read its firmware version."
-run = "system_profiler SPUSBDataType | grep -A 8 'Debug Probe (CMSIS-DAP)'"
-expect = "A device named “Debug Probe (CMSIS-DAP)” at version 2.31, which is firmware 2.3.1 (the documentation reads it as bcdDevice 2.31). An older version: the next three steps update it."
-
-[[step]]
-do = "Download the firmware and check its hash."
+do = "Download the firmware and check its hash. The probe may already run it; loading the pinned file anyway makes it the firmware this version names."
 run = """
 curl -LO https://github.com/raspberrypi/debugprobe/releases/download/debugprobe-v2.3.1/debugprobe.uf2
 shasum -a 256 debugprobe.uf2"""
@@ -45,11 +41,11 @@ expect = "A drive named RPI-RP2 appears."
 
 [[step]]
 do = "Copy debugprobe.uf2 onto the RPI-RP2 drive."
-expect = "The drive disappears, and the probe comes back as “Debug Probe (CMSIS-DAP)” at version 2.31."
+expect = "The drive disappears, and the probe comes back as a USB device named “Debug Probe (CMSIS-DAP)”."
 agent = "Flashing is a hardware action: only for a board on the lab-target list or with a person's approval, and logged."
 
 [[step]]
-do = "With the target powered off, connect the probe's D port to the target's SWD pins with the female header cable: orange to SWCLK, black to GND, yellow to SWDIO. Targets with 3.3 V logic only."
+do = "With the target powered off, connect the probe's D port to the target's SWD pins with the female header cable: orange to SWCLK, black to GND, yellow to SWDIO. A board without a three-pin JST-SH debug connector, such as a Pico 2 that is not an H, needs a male header soldered to those three pins first (the documentation's getting-started page). Targets with 3.3 V logic only."
 
 [[step]]
 do = "Power the target and ask the probe what it sees."

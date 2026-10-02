@@ -185,5 +185,5 @@ it needs a person's approval until the Pico is a lab target.
   Center is on Raspberry Pi's list of approved resellers for the Pico 2 and the Pico 2 W in the US,
   "for home" (content-api.raspberrypi.com, read 2026-10-02).
 - **RP2040**, the microcontroller in the lab's debug probe (`builds/debug-probe/v2`). **Keeps the
-  mark,** as the RP2350 does: no read can show a tampered chip or flash, and the probe is what loads
-  code onto the lab's other boards. The lab's came from Raspberry Pi itself (Jon, 2026-10-02).
+  mark,** as the RP2350 does: no read can show a tampered chip or flash, and the probe is one way
+  code reaches the lab's other boards. The lab's came from Raspberry Pi itself (Jon, 2026-10-02).
