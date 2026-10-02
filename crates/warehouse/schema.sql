@@ -361,6 +361,7 @@ CREATE TABLE silver.sourcing (
     item               TEXT,
     used               BOOLEAN NOT NULL DEFAULT false,
     salvaged_from      TEXT,
+    authorized         TEXT,
     listing_checked    BOOLEAN NOT NULL,
     in_cart            BOOLEAN NOT NULL,
     ordered            BOOLEAN NOT NULL,
@@ -375,6 +376,8 @@ CREATE TABLE silver.sourcing (
     CHECK ((shop IS NULL) = (item IS NULL)),
     CHECK (salvaged_from IS NULL OR shop IS NULL),
     CHECK (NOT (used AND salvaged_from IS NOT NULL)),
+    CHECK (authorized IS NULL OR shop IS NOT NULL OR store IS NOT NULL),
+    CHECK (authorized IS NULL OR NOT (used OR salvaged_from IS NOT NULL)),
     CHECK (shop IS NOT NULL OR NOT (listing_checked OR in_cart OR ordered)),
     CHECK (listing_checked_on <= in_cart_on AND listing_checked_on <= ordered_on
            AND listing_checked_on <= arrived_on AND in_cart_on <= ordered_on
@@ -385,6 +388,7 @@ COMMENT ON COLUMN silver.sourcing.line_no IS 'Its place in the file, from 1.';
 COMMENT ON COLUMN silver.sourcing.store IS 'The seller, as the listing names it, or, with no shop, its own name: a store in town, a thrift store, a person.';
 COMMENT ON COLUMN silver.sourcing.used IS 'Bought secondhand.';
 COMMENT ON COLUMN silver.sourcing.salvaged_from IS 'The device a part was taken out of; used, and with no shop.';
+COMMENT ON COLUMN silver.sourcing.authorized IS 'Where the maker lists the seller as an authorized distributor, and when that was read: a seller''s, for a part sold new. crates/records holds that a part sold by authorized sellers only, or whose claims rest on maker-datasheets, gives it once a source or a stage is written.';
 COMMENT ON COLUMN silver.sourcing.item IS 'The shop''s item number: on Amazon the ASIN, on LCSC the C number. crates/records holds its shape.';
 COMMENT ON COLUMN silver.sourcing.listing_checked IS 'A person checked the listing against the build.';
 COMMENT ON COLUMN silver.sourcing.passed_qa IS 'The measurement record of the incoming QA it passed. crates/records holds that it lists the part and is from on or after each day the stages give; the database holds that it exists.';
@@ -505,6 +509,7 @@ COMMENT ON VIEW gold.bench_line IS 'Every line the bench needs, in the build ver
 
 CREATE VIEW gold.sourcing_status AS
 SELECT s.line_no, s.part, s.form, s.commodity, s.shop, s.store, s.item, s.used, s.salvaged_from,
+       s.authorized,
        CASE WHEN s.passed_qa IS NOT NULL THEN 'passed incoming QA'
             WHEN s.arrived               THEN 'arrived'
             WHEN s.ordered               THEN 'ordered'
@@ -588,7 +593,7 @@ COMMENT ON VIEW gold.page_step IS 'silver.step, for build pages.';
 CREATE VIEW gold.page_parts AS
 SELECT b.parts_no, sum(b.qty) AS qty, b.part, b.form, b.commodity,
        p.datasheet, coalesce(p.authorized_only, false) AS authorized_only,
-       s.shop, s.store, s.item, coalesce(s.used, false) AS used, s.salvaged_from,
+       s.shop, s.store, s.item, coalesce(s.used, false) AS used, s.salvaged_from, s.authorized,
        coalesce(s.status, 'specced') AS status, s.since, s.passed_qa
 FROM gold.bench_line b
 LEFT JOIN silver.part p ON p.part = b.part

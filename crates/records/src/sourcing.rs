@@ -32,6 +32,13 @@
 //! hand, wherever it came from, is a line with `arrived = true` and no source. `used = false` is
 //! refused, as is `used` beside `salvaged_from`: a salvaged part is used already.
 //!
+//! `authorized` says where the maker lists the seller as one of its authorized distributors, for a
+//! line that names a seller, new: `authorized = "raspberrypi.com approved resellers, read
+//! 2026-10-02"`. A line for a part sold by authorized sellers only (`authorized_only`), or whose
+//! claims rest on `maker-datasheets`, needs it once it names a source or reaches a stage, since
+//! that entry assumes an authorized distributor. Without it, such a part's claims move to
+//! `resold-parts` first. A line naming the part alone is not held to it: nothing is chosen.
+//!
 //! An AliExpress item number is the one aliexpress.com shows. On 2026-10-01 the i9's listing was
 //! item 1005007788475037 there and 3256807602160285 on aliexpress.us, 2^51 more, so a number of
 //! 2^51 or more is refused rather than taken for the other. Whether every aliexpress.us number is
@@ -52,6 +59,12 @@ use std::path::Path;
 
 /// Where the lab's sourcing lives, relative to the repo root.
 pub const SOURCING: &str = "lab/sourcing.toml";
+
+/// The trusted-base entry for datasheet values of a part bought from an authorized distributor.
+pub const MAKER_DATASHEETS: &str = "maker-datasheets";
+
+/// The trusted-base entry for datasheet values of a part bought from anyone else.
+pub const RESOLD_PARTS: &str = "resold-parts";
 
 /// Where a thing is bought.
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
@@ -158,6 +171,8 @@ pub struct Line {
     pub used: bool,
     /// The device a part was taken out of.
     pub salvaged_from: Option<String>,
+    /// Where the maker lists the seller as an authorized distributor, and when that was read.
+    pub authorized: Option<String>,
     /// A person checked the listing against the build.
     pub listing_checked: Option<Stage>,
     /// It went in a cart.
@@ -243,6 +258,36 @@ impl Line {
                  word{hint}"
             ));
         }
+        // A part sold by authorized sellers only, or whose claims assume one, needs `authorized`
+        // once a source is named or a stage reached.
+        let chosen = self.shop.is_some()
+            || self.store.is_some()
+            || self.salvaged_from.is_some()
+            || self.stages().iter().any(|(_, s)| s.is_some())
+            || self.passed_qa.is_some();
+        if let Some(part) = self.part.as_ref().and_then(|p| cat.parts.get(p))
+            && chosen
+            && self.authorized.is_none()
+        {
+            if part.authorized_only {
+                return Err(format!(
+                    "{at}: {named} is sold by authorized sellers only: give `authorized`, where the \
+                     maker lists this seller"
+                ));
+            }
+            if let Some(c) = part
+                .claim
+                .iter()
+                .find(|c| c.trusted.as_deref() == Some(MAKER_DATASHEETS))
+            {
+                return Err(format!(
+                    "{at}: {named}'s claim {} rests on {MAKER_DATASHEETS}, which assumes an \
+                     authorized distributor: give `authorized`, where the maker lists this seller, \
+                     or rest the part's claims on {RESOLD_PARTS}",
+                    c.id
+                ));
+            }
+        }
         let Some(id) = &self.passed_qa else {
             return Ok(());
         };
@@ -299,6 +344,7 @@ pub fn parse(s: &Source) -> Result<Vec<Line>, String> {
             &l.store,
             &l.item,
             &l.salvaged_from,
+            &l.authorized,
             &l.passed_qa,
         ];
         if strings.iter().any(|s| s.as_deref() == Some("")) {
@@ -335,6 +381,20 @@ pub fn parse(s: &Source) -> Result<Vec<Line>, String> {
                 return Err(format!(
                     "{at}: {named} is salvaged from {donor:?}, which is used already: leave \
                      `used` out"
+                ));
+            }
+        }
+        if l.authorized.is_some() {
+            if l.shop.is_none() && l.store.is_none() {
+                return Err(format!(
+                    "{at}: {named} says where the maker lists its seller, so it names the seller: \
+                     give the shop or the store"
+                ));
+            }
+            if l.used || l.salvaged_from.is_some() {
+                return Err(format!(
+                    "{at}: {named} is used or salvaged, and an authorized distributor sells a \
+                     part new: leave `authorized` out"
                 ));
             }
         }
@@ -463,6 +523,29 @@ mod tests {
             &format!("[[line]]\n{PICO}store = \"Micro Center\"\nordered = true\n"),
             "ordered needs the shop and the item number",
         );
+        // Where the maker lists the seller: with a seller, and new.
+        let listed = "authorized = \"raspberrypi.com approved resellers, read 2026-10-02\"\n";
+        let ok = format!("[[line]]\n{PICO}store = \"Micro Center\"\n{listed}arrived = true\n");
+        let lines = parse(&src(SOURCING, &ok)).unwrap();
+        assert!(lines[0].authorized.is_some());
+        refused(
+            &format!("[[line]]\n{PICO}{listed}"),
+            "so it names the seller: give the shop or the store",
+        );
+        refused(
+            &format!("[[line]]\n{PICO}store = \"Goodwill\"\nused = true\n{listed}"),
+            "an authorized distributor sells a part new",
+        );
+        refused(
+            &format!(
+                "[[line]]\n{PICO}store = \"Goodwill\"\nsalvaged_from = \"a printer\"\n{listed}"
+            ),
+            "an authorized distributor sells a part new",
+        );
+        refused(
+            &format!("[[line]]\n{PICO}store = \"x\"\nauthorized = \"\"\n"),
+            "has an empty string",
+        );
         for (shop, item, want) in [
             ("aliexpress", "1005-007", "give digits"),
             ("aliexpress", "3256807602160285", "under 2^51"),
@@ -545,20 +628,39 @@ mod tests {
         )]
     }
 
-    /// A probe build of an RP2350 board and wire, with a lab log and a record of the RP2350 seen on
-    /// 2026-10-14, then `sourcing`.
+    /// A probe build of an RP2350 board, wire and three chips: MON, whose claim rests on
+    /// `maker-datasheets`; AMP, whose claim rests on `resold-parts`; and SAFE, sold by authorized
+    /// sellers only. With a lab log and a record of the RP2350 seen on 2026-10-14, then `sourcing`.
     fn with(sourcing: &str) -> Result<Catalogue, String> {
         let base = src(
             crate::TRUSTED_BASE,
-            "[[entry]]\nid = \"entry\"\nassumes = \"x\"\n",
+            &format!(
+                "[[entry]]\nid = \"entry\"\nassumes = \"x\"\n\n[[entry]]\nid = \"{MAKER_DATASHEETS}\"\n\
+                 assumes = \"x\"\n\n[[entry]]\nid = \"{RESOLD_PARTS}\"\nassumes = \"x\"\n"
+            ),
         );
         let rp2350 = "part = \"RP2350\"\nkind = \"chip\"\nis = \"microcontroller\"\n";
+        let chip = |name: &str, extra: &str| {
+            src(
+                &format!("parts/{}.toml", name.to_lowercase()),
+                &format!("part = \"{name}\"\nkind = \"chip\"\nis = \"x\"\n{extra}"),
+            )
+        };
+        let claim =
+            |on: &str| format!("\n[[claim]]\nid = \"a\"\nsays = \"x\"\ntrusted = \"{on}\"\n");
         let probe = "build = \"probe\"\nversion = 1\nstatus = \"draft\"\ndoes = \"a thing\"\n\n\
                      [[line]]\npart = \"RP2350\"\nform = \"board\"\nqty = 1\n\n\
-                     [[line]]\ncommodity = \"wire\"\nqty = 6\n";
+                     [[line]]\ncommodity = \"wire\"\nqty = 6\n\n\
+                     [[line]]\npart = \"MON\"\nqty = 1\n\n[[line]]\npart = \"AMP\"\nqty = 1\n\n\
+                     [[line]]\npart = \"SAFE\"\nqty = 1\n";
         let cat = Catalogue::from_sources(
             &base,
-            &[src("parts/rp2350.toml", rp2350)],
+            &[
+                src("parts/rp2350.toml", rp2350),
+                chip("MON", &claim(MAKER_DATASHEETS)),
+                chip("AMP", &claim(RESOLD_PARTS)),
+                chip("SAFE", "authorized_only = true\n"),
+            ],
             &[src("builds/probe/v1.toml", probe)],
         )?
         .with_log(lab_log())?;
@@ -580,6 +682,41 @@ mod tests {
             ),
         ])?
         .with_sourcing(src(SOURCING, sourcing))
+    }
+
+    /// A part sold by authorized sellers only, or whose claims assume one, names where the maker
+    /// lists its seller once a source is named or a stage reached.
+    #[test]
+    fn a_part_that_assumes_an_authorized_seller_names_one() {
+        let listed = "authorized = \"maker's distributor list, read 2026-10-02\"\n";
+        for ok in [
+            "[[line]]\npart = \"MON\"\n".to_string(),
+            format!("[[line]]\npart = \"MON\"\n{SHOP}{listed}ordered = true\n"),
+            format!(
+                "[[line]]\npart = \"SAFE\"\nstore = \"Micro Center\"\n{listed}arrived = true\n"
+            ),
+            format!("[[line]]\npart = \"AMP\"\n{SHOP}ordered = true\n"),
+            "[[line]]\npart = \"AMP\"\nstore = \"Goodwill\"\nused = true\n".to_string(),
+        ] {
+            with(&ok).unwrap_or_else(|e| panic!("{ok}: {e}"));
+        }
+        let refused = |text: &str, because: &str| {
+            let err = with(text).err().unwrap_or_default();
+            assert!(err.contains(because), "{because}: {err}");
+        };
+        let assumes = "claim a rests on maker-datasheets, which assumes an authorized distributor: \
+                       give `authorized`, where the maker lists this seller, or rest the part's \
+                       claims on resold-parts";
+        refused(&format!("[[line]]\npart = \"MON\"\n{SHOP}"), assumes);
+        refused("[[line]]\npart = \"MON\"\narrived = true\n", assumes);
+        refused(
+            "[[line]]\npart = \"MON\"\nsalvaged_from = \"a dead supply\"\n",
+            assumes,
+        );
+        refused(
+            "[[line]]\npart = \"SAFE\"\nstore = \"Goodwill\"\n",
+            "is sold by authorized sellers only: give `authorized`",
+        );
     }
 
     #[test]

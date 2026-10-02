@@ -457,7 +457,7 @@ fn shop_name(shop: &str) -> &str {
 }
 
 /// A row of the parts page: parts_no, qty, part, form, commodity, datasheet, authorized_only, shop,
-/// store, item, used, salvaged_from, status, since, passed_qa (`gold.page_parts`).
+/// store, item, used, salvaged_from, authorized, status, since, passed_qa (`gold.page_parts`).
 struct PartsRow {
     parts_no: i64,
     qty: i64,
@@ -471,6 +471,7 @@ struct PartsRow {
     item: Option<String>,
     used: bool,
     salvaged_from: Option<String>,
+    authorized: Option<String>,
     status: String,
     since: Option<String>,
     passed_qa: Option<String>,
@@ -481,7 +482,8 @@ struct PartsRow {
 pub fn render_parts(conn: &Connection) -> duckdb::Result<String> {
     let mut stmt = conn.prepare(
         "SELECT parts_no, qty, part, form, commodity, datasheet, authorized_only, shop, store, \
-         item, used, salvaged_from, status, CAST(since AS TEXT), passed_qa FROM gold.page_parts \
+         item, used, salvaged_from, authorized, status, CAST(since AS TEXT), passed_qa \
+         FROM gold.page_parts \
          ORDER BY parts_no",
     )?;
     let rows: Vec<PartsRow> = stmt
@@ -499,9 +501,10 @@ pub fn render_parts(conn: &Connection) -> duckdb::Result<String> {
                 item: r.get(9)?,
                 used: r.get(10)?,
                 salvaged_from: r.get(11)?,
-                status: r.get(12)?,
-                since: r.get(13)?,
-                passed_qa: r.get(14)?,
+                authorized: r.get(12)?,
+                status: r.get(13)?,
+                since: r.get(14)?,
+                passed_qa: r.get(15)?,
             })
         })?
         .collect::<duckdb::Result<_>>()?;
@@ -549,12 +552,17 @@ pub fn render_parts(conn: &Connection) -> duckdb::Result<String> {
         if p.used {
             source.push_str(" · used");
         }
-        // Kept beside a chosen source too: nothing checks that the source is an authorized one.
-        if p.authorized_only {
+        // Where the maker lists the seller, or, for a part that needs one, that it does.
+        let note = match &p.authorized {
+            Some(at) => Some(format!("authorized seller: {}", esc(at))),
+            None if p.authorized_only => Some("authorized sellers only".to_string()),
+            None => None,
+        };
+        if let Some(note) = note {
             if !source.is_empty() {
                 source.push_str("<br>");
             }
-            source.push_str("<span class=\"muted\">authorized sellers only</span>");
+            let _ = write!(source, "<span class=\"muted\">{note}</span>");
         }
         let when = p.passed_qa.as_ref().or(p.since.as_ref());
         let status = match when {
@@ -723,8 +731,8 @@ mod tests {
     }
 
     /// The parts page lists each thing once, summed over the builds that write it, with where the
-    /// lab buys it and how far it has got. A part sold by authorized sellers only says so, with a
-    /// source chosen or without.
+    /// lab buys it and how far it has got. A part sold by authorized sellers only says so until a
+    /// source is chosen, and then where the maker lists that seller.
     #[test]
     fn the_parts_page_lists_each_thing_once() {
         let chip = |name: &str| {
@@ -768,6 +776,7 @@ mod tests {
         let sourcing = "[[line]]\ncommodity = \"wire\"\nshop = \"amazon\"\nstore = \"Maker\"\n\
                         item = \"B0ABCDEFGH\"\nordered = \"2026-10-02\"\n\n\
                         [[line]]\npart = \"INA239\"\nshop = \"lcsc\"\nitem = \"C2040\"\n\
+                        authorized = \"ti.com distributors, read 2026-10-02\"\n\
                         arrived = \"2026-10-14\"\npassed_qa = \"2026-10-14-ina-incoming\"\n\n\
                         [[line]]\ncommodity = \"glue\"\nstore = \"Hardware Store\"\narrived = true\n\n\
                         [[line]]\ncommodity = \"tape\"\nshop = \"amazon\"\nstore = \"Maker\"\n\
@@ -793,7 +802,7 @@ mod tests {
                 "<tr><td>1</td><td>INA239</td><td></td><td>\
                  <a href=\"../builds/bench/v1/index.html\">bench v1</a></td>\
                  <td>LCSC <span class=\"item\">C2040</span><br>\
-                 <span class=\"muted\">authorized sellers only</span></td>\
+                 <span class=\"muted\">authorized seller: ti.com distributors, read 2026-10-02</span></td>\
                  <td>passed incoming QA <span class=\"muted when\">2026-10-14-ina-incoming</span></td></tr>",
                 "<tr><td>1</td><td>glue</td><td></td><td>\
                  <a href=\"../builds/bench/v1/index.html\">bench v1</a></td>\

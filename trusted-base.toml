@@ -46,4 +46,13 @@ cross-checked against each other."""
 id = "maker-datasheets"
 assumes = """
 The values part records cite from their makers' datasheets, for parts bought from an authorized \
-distributor, until measured on the bench."""
+distributor, until measured on the bench. A sourcing line for a part whose claims rest here names \
+where the maker lists its seller (lab/sourcing.toml, `authorized`)."""
+
+[[entry]]
+id = "resold-parts"
+assumes = """
+The values part records cite from their makers' datasheets, for a part bought from anyone but an \
+authorized distributor (a reseller, used, salvaged, or of unknown origin), until measured on the \
+bench. Weaker than maker-datasheets: the maker does not vouch for the unit, so only what its \
+incoming QA checks (docs/sourcing.md) has been seen of it."""
