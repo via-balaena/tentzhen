@@ -8,8 +8,9 @@ Anywhere they are cheap, if incoming QA can check what the build relies on (`vis
 3). In this order:
 
 - **The maker's own store**, when it sells the part, even at a higher price: the i9 and its
-  extension board are to come from the listing that Muse Lab's README (wuxx/Colorlight-FPGA-Projects
-  at 5042201f, read 2026-10-01) links under "our aliexpress store".
+  extension board come from the listing that Muse Lab's README (wuxx/Colorlight-FPGA-Projects
+  at 5042201f, read 2026-10-01) links under "our aliexpress store", and were ordered there (Jon,
+  2026-10-06; the order's day is not recorded).
 - **Anyone else:** a reseller, a used sale, a thrift store, a junked device, a drawer at home.
   `lab/sourcing.toml` records each as a shop's listing, a `store` with no listing, `used`,
   `salvaged_from` a device, or `arrived = true` with no source. Until incoming QA measures a part,

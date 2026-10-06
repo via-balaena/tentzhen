@@ -40,13 +40,17 @@
 
 # The extension board's schematic is in wuxx/Colorlight-FPGA-Projects, whose README (at 5042201f,
 # read 2026-10-01) says "you can buy Colorlight i5 and 5A-75B on our aliexpress store" and links
-# this item as "Colorlight i5 & i9". wuxx's GitHub profile links muselab-tech.com. Nobody has
-# checked the listing against the build yet, or seen the store's name on it, so `store` waits.
+# this item as "Colorlight i5 & i9". wuxx's GitHub profile links muselab-tech.com. Ordered: Jon,
+# 2026-10-06, "i got the i9 chipxdev board combo, then 2 extra dev boards only", from "muse lab's
+# store", through that link. The store's name is Jon's: nobody has read it off the listing. The two
+# extra extension boards are spares, on no build's line.
 [[line]]
 part = "LFE5U-45F"
 form = "Colorlight i9 v7.2 module, on the i5/i9 extension board"
 shop = "aliexpress"
+store = "Muse Lab"
 item = "1005007788475037"
+ordered = true
 
 # Jon named the store and sent the listing's link on 2026-10-01; its item number is from the link's
 # redirect, not the listing. Nobody has checked the listing against the build. Ordered: Jon, on
