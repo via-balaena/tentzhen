@@ -95,7 +95,7 @@ agent = "Powering a board is a hardware action: logged."
 [[step]]
 do = "With the board still powered, read the FPGA's JTAG IDCODE through the extension board's DAPLink debugger, with OpenOCD built for CMSIS-DAP, as Muse Lab's get-start.md (wuxx/Colorlight-FPGA-Projects at 5042201f) programs it. Write nothing to the FPGA or its flash."
 expect = "0x41112043, the LFE5U-45F's IDCODE in prjtrellis-db's devices.json (YosysHQ/prjtrellis-db at 015e0330, read 2026-10-06). The LFE5UM-45F reads 0x01112043 and the LFE5UM5G-45F 0x81112043 there."
-agent = "If it reads anything else, stop: the module is not the LFE5U-45F this build is written for. Record the reading in the i9's incoming-QA record."
+agent = "Reading it is a hardware action: logged. If it reads anything else, stop: the module is not the LFE5U-45F this build is written for. Record the reading in the i9's incoming-QA record."
 
 [[step]]
 do = "For each AD9226 module, before wiring any data line: note its package (28-lead SSOP or 48-lead LQFP), power it from P2 pin 23 to its pin 1 and P2 pin 2 to its pin 3, and measure DRVDD (SSOP pin 28, LQFP pin 29) against ground."
