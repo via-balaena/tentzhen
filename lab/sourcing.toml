@@ -52,6 +52,21 @@ store = "Muse Lab"
 item = "1005007788475037"
 ordered = true
 
+# Three public GitHub projects, none of them licensed, link this listing for their AD9226 module in
+# their READMEs (read 2026-10-06): Sev5000/Pico2_12bitADC_PCMAudio at d2df34f2,
+# Sev5000/RP2350B_DualADC_DualPCM at 5a4973d1, and machcnz/VHSDecode-HSDAOH-Capture-Hardware-
+# Development at a6e6db89, whose initial_setup_and_modification/README.md photographs the board
+# unmodified and gives the fix for its early clipping (docs/scope.md, "Known part issues") in its
+# own pin numbers. Ordered: Jon, 2026-10-06, "ordered 3", "i orderred from exactly the link you
+# provided". The store's name is unknown: nobody has read it off the listing. Three for the build's
+# two: "buy 3, keep the best 2" (docs/sourcing.md).
+[[line]]
+part = "AD9226"
+form = "module with a 2x10 male header (5 V on pins 1 and 2), 3.3 V outputs and an SMA input"
+shop = "aliexpress"
+item = "1005003038271519"
+ordered = true
+
 # Jon named the store and sent the listing's link on 2026-10-01; its item number is from the link's
 # redirect, not the listing. Nobody has checked the listing against the build. Ordered: Jon, on
 # 2026-10-01, "i ordered the dps5005 already".
