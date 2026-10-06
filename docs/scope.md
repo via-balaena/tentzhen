@@ -77,12 +77,13 @@ Expect more noise than a Red Pitaya on front end v1. That is fine. Publish real 
 
 ## Price
 
-Target (Jon, 2026-10-06): instrument #1 at tier 3 costs at most half of the reference's price,
-both priced on one day. Prices stay out of the docs (`vision.md`, "Entry tiers"): the BOM tool
-(`roadmap.md`, Phase 0) prices both and checks the ratio, so until it exists whether the target is
-met is `unknown`. Instrument #1's price counts a whole i9 and extension board. A bench that runs
-several instruments on one i9 (Architecture) states its own price beside it, with the i9 counted
-once.
+No price target. Tier 3 is to be the best instrument its money buys on the i9 (Jon, 2026-10-06),
+which stays the board because its FPGA has an open toolchain (Yosys, nextpnr, Project Trellis) and
+runs a RISC-V soft core (VexRiscv). "Best for the money" is read from Phase 7's spec sheet, every
+number `measured`, beside the BOM tool's dated price (`roadmap.md`); prices stay out of the docs
+(`vision.md`, "Entry tiers"). Instrument #1's price counts a whole i9 and extension board. A bench
+that runs several instruments on one i9 (Architecture) states its own price beside it, with the i9
+counted once.
 
 ## The tier-3 ADC
 

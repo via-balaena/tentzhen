@@ -33,7 +33,7 @@ Everything here runs at tier 0, and all of it must exist before the first order 
   work without it (jlcparts for data, LCSC's Upload a BOM page for carts).
 - **Parts records + BOM tool, `tested`.** TOML records → DuckDB; `bom` prices a BOM from the
   user's LCSC key or jlcparts, reports unique JLCPCB extended parts, and prints the date of every
-  price. This produces the tier prices, and checks them against the target (`scope.md`, "Price").
+  price. This produces the tier prices (`scope.md`, "Price").
 - **Lab safety before hardware.** `lab/limits.toml`, the lab-target list (`lab/targets.toml`),
   and a lab log that is hash-chained and only grows on `main`. Its entries are not signed. Commits
   are, but an agent that can commit signs with the person's key (`architecture.md`), so where to
