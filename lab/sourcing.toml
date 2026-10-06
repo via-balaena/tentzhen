@@ -67,6 +67,23 @@ shop = "aliexpress"
 item = "1005003038271519"
 ordered = true
 
+# Alinx makes the AN9767: builds/digitizer/v1.toml was written from "Alinx's AN9767 schematic". The
+# "About ALINX" page of its VD100 board's manual (vd100-20232-v101.readthedocs.io, read 2026-10-06)
+# names one store of its own, "Official flagship store: http://alinx.jd.com", and Jon, 2026-10-06:
+# "it looks like the alinx offical store closed last march on aliexpress". So this is a reseller's:
+# "the chipboard store and it looks to be the name brand one" (Jon). The store's name is Jon's:
+# nobody has read it off the listing. Ordered: Jon, 2026-10-06, "I just ordered this on AliExpress",
+# with a short link whose one redirect gave item 3256802953744755. That is 2^51 more than the number
+# here, as the i9's aliexpress.us number was (sourcing.rs). Jon opened the number here on
+# aliexpress.com, 2026-10-06: "that does appear to take me to the same store with the same product".
+[[line]]
+part = "AD9767"
+form = "dual module with a 40-pin female header in the AN9767's order (5 V on pin 2), 3.3 V inputs and two BNC outputs"
+shop = "aliexpress"
+store = "Chipboard"
+item = "1005003140059507"
+ordered = true
+
 # Jon named the store and sent the listing's link on 2026-10-01; its item number is from the link's
 # redirect, not the listing. Nobody has checked the listing against the build. Ordered: Jon, on
 # 2026-10-01, "i ordered the dps5005 already".
