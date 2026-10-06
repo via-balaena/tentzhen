@@ -33,19 +33,19 @@ Everything here runs at tier 0, and all of it must exist before the first order 
   work without it (jlcparts for data, LCSC's Upload a BOM page for carts).
 - **Parts records + BOM tool, `tested`.** TOML records → DuckDB; `bom` prices a BOM from the
   user's LCSC key or jlcparts, reports unique JLCPCB extended parts, and prints the date of every
-  price. This produces the tier prices.
+  price. This produces the tier prices (`scope.md`, "Price").
 - **Lab safety before hardware.** `lab/limits.toml`, the lab-target list (`lab/targets.toml`),
   and a lab log that is hash-chained and only grows on `main`. Its entries are not signed. Commits
   are, but an agent that can commit signs with the person's key (`architecture.md`), so where to
   keep a key an agent cannot use is decided with the Pico enforcer.
-- **Ethernet adapter for P1.** The extension board has no Ethernet jacks (`scope.md`), so a small
-  board of our own carries a jack with built-in transformers on its header P1: KiCad files, made
-  at JLCPCB in the first cart (Jon, 2026-10-01).
 - **First cart.** A BOM and cart for tiers 1–2, reviewed by the user, who places the order.
+  Nothing in it is made at JLCPCB: tier 2 is modules on jumper wires, wired to extension boards
+  that one i9 moves between (`scope.md`, "Architecture"; Jon, 2026-10-06).
 
 ## Phase 1 — Bring-up
 
-LiteX + VexRiscv on the Colorlight; Rust "hello" over UART; Etherbone reachable from the host.
+LiteX + VexRiscv on the Colorlight; Rust "hello" over UART, through the extension board's DAPLink
+serial port.
 Bitstream hash and toolchain versions recorded in the build artifact. All `measured`. Then, on the
 i9 alone, the loopback test that settles whether it reads the tier-3 ADC's 1.8 V outputs
 (`scope.md`, "Open questions").
@@ -59,7 +59,11 @@ then the AD8138 VOCM check (`scope.md`), as `builds/digitizer/v1.toml`'s walkthr
 
 ## Phase 3 — Two channels + streaming
 
-SDRAM buffering, continuous Ethernet streaming, samples landing in DuckDB with full metadata.
+First the Ethernet adapter for P1: the extension board has no Ethernet jacks (`scope.md`), so a
+small board of our own carries a jack with built-in transformers on P1, from KiCad files, made at
+JLCPCB. It is the project's first board order (moved here from Phase 0 by Jon, 2026-10-06). Then
+Etherbone reachable from the host, SDRAM buffering, continuous Ethernet streaming, samples landing
+in DuckDB with full metadata.
 Sustained sample rate over the headers' jumper wires is `measured`, not assumed from the ADC's
 rating.
 
@@ -76,6 +80,7 @@ DAC module + DDS / arbitrary-waveform core, with formal properties on the core.
 
 KiCad design, with the ADS4245 and the oscillator that clocks it on the board (`scope.md`, "The
 tier-3 ADC"), ngspice-verified (bandwidth, noise, overload), fabricated and assembled at JLCPCB.
+It weighs putting the AD9767 on a board of our own in place of the DAC module.
 Prefer JLCPCB basic parts; the BOM tool's unique-extended-part count is reported with the design.
 
 ## Phase 7 — Characterization
@@ -91,5 +96,7 @@ Ultrasonic sonar: transmit a chirp, capture the echo, compute range.
 
 - Programmable supply and electronic load (`vision.md`, "The bench"). Their limit enforcers
   have their limit logic `checked` with Kani before they drive anything.
+- Logic analyzer, on the second extension board (`scope.md`, "Architecture"): the i9's header
+  pins as inputs. No build yet.
 - Research: a proven control core in the Lightbulb style (`verification.md`).
 - Research: signing keys in a TROPIC01 secure element.
