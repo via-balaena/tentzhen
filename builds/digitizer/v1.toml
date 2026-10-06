@@ -30,7 +30,7 @@ does = "Instrument #1 on module front ends (tier 2): two inputs and two outputs 
 # unknown. Nothing checks the counts until nextpnr places the pins.
 #
 # The extension board has no Ethernet jacks: P1 carries the i9's two PHYs' pairs, so Ethernet needs
-# an adapter on P1, which no build here describes yet: ours is designed in Phase 0 (roadmap.md),
+# an adapter on P1, which no build here describes yet: ours is designed in Phase 3 (roadmap.md),
 # since the one that exists, i5ether in kazkojima/colorlight-i5-tips, has no license file.
 
 [[line]]

@@ -11,13 +11,19 @@ Research date for everything below: 2026-09-28, unless a line says otherwise.
   out as two PMOD-compatible sites plus four more I/O, a ground, and 5 V on pin 23.
   (github.com/wuxx/Colorlight-FPGA-Projects, `colorlight_i9_v7.x.md` and
   `schematic/i5-i9-extboard.pdf`; the headers read 2026-10-01)
+- **One i9, three extension boards** (Jon, 2026-10-06). The i9 is a module with a DDR2 SO-DIMM
+  edge (the README's "DDR2 SODIMM 200P" pinout), so it moves between extension boards, each wired
+  for one job and left wired: A carries this instrument's tier-2 modules; B a logic analyzer
+  (`roadmap.md`, "Parallel tracks"); C the loopback test of Phase 1 (Open questions). The i9 is
+  moved with the USB cable unplugged. How many insertions the socket is rated for is `unknown`,
+  and how the gateware tells which board it sits in is not designed yet (Phase 1).
 - **Ethernet needs an adapter:** the extension board has no RJ45 jacks, and P1 carries the PHYs'
   bare pairs. Of the i5, which uses the same extension board, Tom Verbeure wrote that the module
   "only contains the transceivers, not the Ethernet transformers or RJ45 connectors" ("Getting
   Started with ECP5 FPGAs on the Colorlight i5 FPGA Development Board", tomverbeure.github.io,
   2021-01-22); that the i9 is the same is `unknown`, as its schematic is not public. Kazumoto
   Kojima's i5ether is an adapter for P1, in kazkojima/colorlight-i5-tips, with no license file, so
-  we design our own (`roadmap.md`, Phase 0). Until it is built, the host reaches the board through
+  we design our own (`roadmap.md`, Phase 3). Until it is built, the host reaches the board through
   its DAPLink's USB-CDC serial port.
 - **SoC:** LiteX with a VexRiscv soft core, LiteEth (Ethernet streaming), LiteDRAM (SDRAM capture
   buffer). Custom cores — capture, trigger, DDS — in Amaranth so they can carry formal
@@ -68,6 +74,15 @@ at 25 °C), AD9226 (Rev. B, its front page), ADS4245 (SBAS533E, typical at 25 °
 interface).
 
 Expect more noise than a Red Pitaya on front end v1. That is fine. Publish real numbers.
+
+## Price
+
+Target (Jon, 2026-10-06): instrument #1 at tier 3 costs at most half of the reference's price,
+both priced on one day. Prices stay out of the docs (`vision.md`, "Entry tiers"): the BOM tool
+(`roadmap.md`, Phase 0) prices both and checks the ratio, so until it exists whether the target is
+met is `unknown`. Instrument #1's price counts a whole i9 and extension board. A bench that runs
+several instruments on one i9 (Architecture) states its own price beside it, with the i9 counted
+once.
 
 ## The tier-3 ADC
 
@@ -154,8 +169,8 @@ its own interleaved boards, `software/calibration.py`.) CycleScope weighed it an
   supply and 3.3 V logic (manuals.plus/ae/1005005576645194). Input stages differ between
   sellers, so each unit is characterized on arrival.
 - **Availability:** both Amazon listings for the Colorlight i9 read "Currently unavailable" on
-  2026-09-28. AliExpress availability is `unknown`: its pages answered automated fetches with a
-  captcha on 2026-10-01, so a person checks.
+  2026-09-28. Jon bought an i9 and three extension boards from Muse Lab's AliExpress store
+  (`lab/sourcing.toml`; said 2026-10-06).
 
 ## Calibration references (no expensive gear required)
 
@@ -196,6 +211,6 @@ its own interleaved boards, `software/calibration.py`.) CycleScope weighed it an
   shows a demo over UART at a 50 kHz acquisition rate, as USB kept dropping.
 - Whether one USB port powers the i9 and three modules: the extension board's fuse rating is not
   printed, and the draw is not measured.
-- The Ethernet adapter on P1: designed in Phase 0 (`roadmap.md`), not yet in a build.
+- The Ethernet adapter on P1: designed in Phase 3 (`roadmap.md`), not yet in a build.
 - The DAC module's specs: confirm them by measurement.
 - Front-end op-amp selection: bandwidth vs noise vs LCSC availability vs JLCPCB basic-part status.
