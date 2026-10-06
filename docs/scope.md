@@ -12,11 +12,12 @@ Research date for everything below: 2026-09-28, unless a line says otherwise.
   (github.com/wuxx/Colorlight-FPGA-Projects, `colorlight_i9_v7.x.md` and
   `schematic/i5-i9-extboard.pdf`; the headers read 2026-10-01)
 - **One i9, three extension boards** (Jon, 2026-10-06). The i9 is a module with a DDR2 SO-DIMM
-  edge (the README's "DDR2 SODIMM 200P" pinout), so it moves between extension boards, each wired
-  for one job and left wired: A carries this instrument's tier-2 modules; B a logic analyzer
-  (`roadmap.md`, "Parallel tracks"); C the loopback test of Phase 1 (Open questions). The i9 is
-  moved with the USB cable unplugged. How many insertions the socket is rated for is `unknown`,
-  and how the gateware tells which board it sits in is not designed yet (Phase 1).
+  edge (`colorlight_i9_v7.x.md`, "DDR2-SODIMM-200P", same repository at 5042201f, read
+  2026-10-06), so it moves between extension boards, each wired for one job and left wired: A
+  carries this instrument's tier-2 modules; B a logic analyzer (`roadmap.md`, "Parallel tracks");
+  C the loopback test of Phase 1 (Open questions). The i9 is moved with the USB cable unplugged.
+  How many insertions the socket is rated for is `unknown`, and how the gateware tells which
+  board it sits in is not designed yet (Phase 1).
 - **Ethernet needs an adapter:** the extension board has no RJ45 jacks, and P1 carries the PHYs'
   bare pairs. Of the i5, which uses the same extension board, Tom Verbeure wrote that the module
   "only contains the transceivers, not the Ethernet transformers or RJ45 connectors" ("Getting
