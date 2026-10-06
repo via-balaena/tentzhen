@@ -38,9 +38,9 @@ Everything here runs at tier 0, and all of it must exist before the first order 
   and a lab log that is hash-chained and only grows on `main`. Its entries are not signed. Commits
   are, but an agent that can commit signs with the person's key (`architecture.md`), so where to
   keep a key an agent cannot use is decided with the Pico enforcer.
-- **First cart.** A BOM and cart for tiers 1–2, reviewed by the user, who places the order. Nothing
-  in it is made at JLCPCB: tier 2 is modules on jumper wires, wired to extension boards that one i9
-  moves between (`scope.md`, "Architecture"; Jon, 2026-10-06).
+- **First cart.** A BOM and cart for tiers 1–2, reviewed by the user, who places the order.
+  Nothing in it is made at JLCPCB: tier 2 is modules on jumper wires, wired to extension boards
+  that one i9 moves between (`scope.md`, "Architecture"; Jon, 2026-10-06).
 
 ## Phase 1 — Bring-up
 
