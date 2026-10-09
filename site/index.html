@@ -20,6 +20,7 @@
     <a href="parts/index.html">PARTS</a>
     <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/vision.md">VISION</a>
     <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">INSTRUMENT</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/mesh.md">MESH</a>
     <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/verification.md">VERIFICATION</a>
     <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/roadmap.md">ROADMAP</a>
     <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
@@ -48,7 +49,7 @@
         <img src="img/lockup-black.svg" alt="The Tentzhen mark: a peregrine falcon beside 腾振, drawn as circuit-board traces">
         <div class="intro-text">
           <h2 id="bench">A bench you can set up anywhere, stocked from the world's electronics surplus.</h2>
-          <p>An attempt to build the whole bench — scope, signal generator, supply and load — from generic parts, and to publish every step so others can follow.</p>
+          <p>Project #1: the whole bench — scope, signal generator, supply and load — from generic parts, every step published.</p>
           <div class="buttons">
             <a class="button solid" href="https://github.com/via-balaena/tentzhen/blob/main/docs/roadmap.md">Read the plan</a>
             <a class="button" href="https://github.com/via-balaena/tentzhen">Source on GitHub</a>
@@ -82,6 +83,25 @@
             </tbody>
           </table>
           <p class="graded"><span class="grade">unknown</span>Every Tentzhen figure is a target until it is measured.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="stop" aria-labelledby="mesh">
+    <div class="rail"></div>
+    <div class="stop-body">
+      <div class="stop-head"><span class="ref">E1</span><h2 id="mesh">The mesh</h2></div>
+      <p class="lede">A LoRa mesh: handhelds, repeaters and a phone, passing text and position.</p>
+      <div class="split">
+        <dl class="parts">
+          <div><dt>MCU</dt><dd>Nordic nRF52840</dd></div>
+          <div><dt>RADIO</dt><dd>Semtech SX1262 · LoRa</dd></div>
+          <div><dt>MESH</dt><dd>UMSH · Ed25519 addresses, AES-SIV</dd></div>
+          <div><dt>OS</dt><dd>Tock, a port of UMSH · UMSH's own firmware until then</dd></div>
+          <div><dt>NODES</dt><dd>XIAO dev boards · T-Echo handheld · SenseCAP solar repeater · iPhone</dd></div>
+        </dl>
+        <div>
+          <p class="graded"><span class="grade">unknown</span>Nothing ordered yet.</p>
         </div>
       </div>
     </div>

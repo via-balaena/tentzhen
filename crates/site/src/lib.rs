@@ -51,6 +51,7 @@ fn page(up: &str, title: &str, body: &str) -> String {
     <a href="{up}parts/index.html">PARTS</a>
     <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/vision.md">VISION</a>
     <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">INSTRUMENT</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/mesh.md">MESH</a>
     <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/verification.md">VERIFICATION</a>
     <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/roadmap.md">ROADMAP</a>
     <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
