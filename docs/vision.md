@@ -16,8 +16,8 @@ explaining a datasheet, reviewing a schematic, writing a first test.
 
 What is still expensive is the **bench**: the oscilloscope, signal generator, supply and load
 that turn "I built a circuit" into "I know what my circuit does". Red Pitaya's shop listed its
-kits from €415 (Wayback snapshot 2026-09-18; whether that includes VAT is unknown). Tentzhen is
-an attempt to build that bench from generic parts, and to publish every step so others can
+kits from €415 (Wayback snapshot 2026-09-18; whether that includes VAT is unknown). Project #1
+is an attempt to build that bench from generic parts, and to publish every step so others can
 follow.
 
 The name is tent + Shenzhen: a bench you can set up anywhere, stocked from the world's

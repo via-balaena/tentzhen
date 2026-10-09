@@ -7,10 +7,11 @@ its instrument #1 is a Red Pitaya-class two-channel digitizer and signal generat
 a LoRa mesh (`docs/mesh.md`). Pronounced "TENT-zhen" (like "tension").
 
 Read before planning anything: `docs/vision.md` (why and for whom), `docs/roadmap.md` (phases and
-acceptance criteria), `docs/verification.md` (how every claim is graded), `docs/sourcing.md`
-(LCSC, JLCPCB, incoming QA), `docs/scope.md` (instrument #1), `docs/mesh.md` (project #2, the
-mesh), `docs/architecture.md` (how records, code and checks fit, and the rules each test holds),
-`docs/prior-art.md` (what already exists, and who built it). The warehouse is described in `docs/data-catalogue.md`, which is generated.
+acceptance criteria), `docs/verification.md` (how every claim is graded), `docs/sourcing.md` (LCSC,
+JLCPCB, incoming QA), `docs/scope.md` (instrument #1), `docs/mesh.md` (project #2, the mesh),
+`docs/architecture.md` (how records, code and checks fit, and the rules each test holds),
+`docs/prior-art.md` (what already exists, and who built it). The warehouse is described in
+`docs/data-catalogue.md`, which is generated.
 
 ## Every claim carries its grade
 

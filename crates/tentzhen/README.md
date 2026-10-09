@@ -1,7 +1,7 @@
 # tentzhen
 
-Host tools for [Tentzhen](https://github.com/via-balaena/tentzhen), a bench of open, verifiable,
-low-cost electronics instruments built from generic parts.
+Host tools for the bench of open, verifiable, low-cost electronics instruments built from generic
+parts that is project #1 of [Tentzhen](https://github.com/via-balaena/tentzhen).
 
 From the repo root, one command so far writes an entry to the lab log, `lab/log/`: one hardware
 action, chained to the entry before it (`crates/records/src/log.rs` describes the format).
