@@ -2,7 +2,7 @@ build = "digitizer"
 version = 1
 # draft: may still change. published: frozen; any change is a new version.
 status = "draft"
-does = "Instrument #1 on module front ends (tier 2): two inputs and two outputs on an ECP5 FPGA board. Two AD9226 modules sample the inputs, a dual AD9767 module drives the outputs, and the host reaches it through the board's USB debugger."
+does = "The two-channel digitizer and signal generator on module front ends (tier 2): two inputs and two outputs on an ECP5 FPGA board. Two AD9226 modules sample the inputs, a dual AD9767 module drives the outputs, and the host reaches it through the board's USB debugger."
 
 # Where each module goes, until a LiteX platform file holds the pins (roadmap.md, Phase 1). A
 # [[pin]] names one board's pins, and this wiring spans four headers, so there is no pin table yet.

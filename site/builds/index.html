@@ -21,7 +21,7 @@
     <div class="nav-menu">
       <button type="button" class="nav-label">PROJECTS</button>
       <div class="nav-items">
-        <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">INSTRUMENT #1</a>
+        <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">DIGITIZER AND GENERATOR</a>
         <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/mesh.md">THE MESH</a>
       </div>
     </div>
@@ -37,7 +37,7 @@
 <thead><tr><th>BUILD</th><th>LATEST</th><th>DOES</th></tr></thead>
 <tbody>
 <tr><td><a href="debug-probe/v2/index.html">debug-probe</a></td><td>v2 · draft</td><td>Flashes and debugs a target over SWD, and bridges the target's UART to USB.</td></tr>
-<tr><td><a href="digitizer/v1/index.html">digitizer</a></td><td>v1 · draft</td><td>Instrument #1 on module front ends (tier 2): two inputs and two outputs on an ECP5 FPGA board. Two AD9226 modules sample the inputs, a dual AD9767 module drives the outputs, and the host reaches it through the board's USB debugger.</td></tr>
+<tr><td><a href="digitizer/v1/index.html">digitizer</a></td><td>v1 · draft</td><td>The two-channel digitizer and signal generator on module front ends (tier 2): two inputs and two outputs on an ECP5 FPGA board. Two AD9226 modules sample the inputs, a dual AD9767 module drives the outputs, and the host reaches it through the board's USB debugger.</td></tr>
 <tr><td><a href="enforcer/v1/index.html">enforcer</a></td><td>v1 · draft</td><td>Holds a supply's output under the limits in lab/limits.toml, below any agent. It measures the output itself, sends the supply only setpoints within the limits, and drives a switch that is open unless it holds it closed. A comparator opens the switch by itself if the supply rises past its threshold, whatever the firmware does.</td></tr>
 <tr><td><a href="supply/v1/index.html">supply</a></td><td>v1 · draft</td><td>A programmable DC supply for Pico and 3.3 V circuits, driven by an agent: a bench supply feeds a DPS5005 running OpenDPS, whose output passes a fuse and the Pico enforcer, which holds it under lab/limits.toml's [supply] limits.</td></tr>
 </tbody>
