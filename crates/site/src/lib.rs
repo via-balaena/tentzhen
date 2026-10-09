@@ -50,8 +50,13 @@ fn page(up: &str, title: &str, body: &str) -> String {
     <a href="{up}builds/index.html">BUILDS</a>
     <a href="{up}parts/index.html">PARTS</a>
     <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/vision.md">VISION</a>
-    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">INSTRUMENT</a>
-    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/mesh.md">MESH</a>
+    <div class="nav-menu">
+      <button type="button" class="nav-label">PROJECTS</button>
+      <div class="nav-items">
+        <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">INSTRUMENT #1</a>
+        <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/mesh.md">THE MESH</a>
+      </div>
+    </div>
     <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/verification.md">VERIFICATION</a>
     <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/roadmap.md">ROADMAP</a>
     <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>

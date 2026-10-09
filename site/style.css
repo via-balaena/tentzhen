@@ -58,6 +58,11 @@ h1, h2, h3, p { margin: 0; }
 .site-nav { display: flex; gap: 36px; font-family: var(--mono); font-size: 13px; letter-spacing: 0.16em; }
 .site-nav a { color: var(--silk); text-decoration: none; }
 .site-nav a:hover { color: var(--teal); }
+.nav-menu { position: relative; }
+.nav-label { padding: 0; border: 0; background: none; font: inherit; letter-spacing: inherit; color: var(--silk); cursor: default; }
+.nav-menu:hover .nav-label, .nav-menu:focus-within .nav-label { color: var(--teal); }
+.nav-items { display: none; position: absolute; top: 100%; left: -18px; z-index: 10; flex-direction: column; gap: 14px; padding: 16px 18px; background: var(--bg); border: 1px solid var(--line); white-space: nowrap; }
+.nav-menu:hover .nav-items, .nav-menu:focus-within .nav-items { display: flex; }
 
 /* ---------- hero: the mural ---------- */
 .hero { position: relative; }
