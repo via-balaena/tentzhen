@@ -100,3 +100,5 @@ Ultrasonic sonar: transmit a chirp, capture the echo, compute range.
   pins as inputs. No build yet.
 - Research: a proven control core in the Lightbulb style (`verification.md`).
 - Research: signing keys in a TROPIC01 secure element.
+- The mesh, project #2 (`mesh.md`): UMSH on nRF52840 boards, then a port to Tock. Its cart
+  goes to Jon for review like the first; nothing is ordered.

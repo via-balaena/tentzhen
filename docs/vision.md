@@ -1,5 +1,9 @@
 # Vision
 
+Tentzhen is a site for economical electronics projects that take advantage of the electronics
+surplus, to help people survive, and eventually thrive, in the AI economic transition happening
+now (Jon, 2026-10-08). The bench below is project #1; the mesh (`mesh.md`) is project #2.
+
 ## Who this is for
 
 Someone with a laptop, a lot of curiosity, and not much money.
@@ -12,8 +16,8 @@ explaining a datasheet, reviewing a schematic, writing a first test.
 
 What is still expensive is the **bench**: the oscilloscope, signal generator, supply and load
 that turn "I built a circuit" into "I know what my circuit does". Red Pitaya's shop listed its
-kits from €415 (Wayback snapshot 2026-09-18; whether that includes VAT is unknown). Tentzhen is
-an attempt to build that bench from generic parts, and to publish every step so others can
+kits from €415 (Wayback snapshot 2026-09-18; whether that includes VAT is unknown). Project #1
+is an attempt to build that bench from generic parts, and to publish every step so others can
 follow.
 
 The name is tent + Shenzhen: a bench you can set up anywhere, stocked from the world's
@@ -76,3 +80,8 @@ the same repo and follows the same rules:
   cutoff.
 - **Parts database:** our own TOML records (identifiers and our measurements) → DuckDB, enriched
   at runtime from each user's own LCSC API key (`sourcing.md`).
+
+## The mesh
+
+Project #2 is a LoRa mesh of handhelds, repeaters and a phone, running UMSH on nRF52840 boards,
+with a port to Tock as the project's own work (`mesh.md`).

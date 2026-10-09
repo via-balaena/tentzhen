@@ -1,14 +1,17 @@
 # Tentzhen
 
-A bench of open, verifiable electronics instruments built from cheap generic parts, for people
-with more curiosity than money. Instrument #1 is a Red Pitaya-class two-channel digitizer and
-signal generator. Pronounced "TENT-zhen" (like "tension").
+A site for economical electronics projects that take advantage of the electronics surplus, to
+help people survive, and eventually thrive, in the AI economic transition happening now (Jon,
+2026-10-08). Project #1 is a bench of open, verifiable instruments built from cheap generic parts;
+its instrument #1 is a Red Pitaya-class two-channel digitizer and signal generator. Project #2 is
+a LoRa mesh (`docs/mesh.md`). Pronounced "TENT-zhen" (like "tension").
 
 Read before planning anything: `docs/vision.md` (why and for whom), `docs/roadmap.md` (phases and
-acceptance criteria), `docs/verification.md` (how every claim is graded), `docs/sourcing.md`
-(LCSC, JLCPCB, incoming QA), `docs/scope.md` (instrument #1), `docs/architecture.md` (how records,
-code and checks fit, and the rules each test holds), `docs/prior-art.md` (what already exists, and
-who built it). The warehouse is described in `docs/data-catalogue.md`, which is generated.
+acceptance criteria), `docs/verification.md` (how every claim is graded), `docs/sourcing.md` (LCSC,
+JLCPCB, incoming QA), `docs/scope.md` (instrument #1), `docs/mesh.md` (project #2, the mesh),
+`docs/architecture.md` (how records, code and checks fit, and the rules each test holds),
+`docs/prior-art.md` (what already exists, and who built it). The warehouse is described in
+`docs/data-catalogue.md`, which is generated.
 
 ## Every claim carries its grade
 
@@ -75,6 +78,7 @@ both read 2026-10-01). So:
 | Gateware tests and proofs | cocotb + Verilator; SymbiYosys |
 | Soft-core firmware (VexRiscv, `riscv32`) | Rust |
 | Pico firmware (bridges, limit enforcement) | Rust on Tock OS |
+| Mesh node firmware (nRF52840) | Rust on Tock OS, a port of UMSH; until it runs, UMSH's own releases |
 | Host software (ingest, SCPI, MCP, CLI, LCSC client) | Rust (tokio, duckdb) |
 | Analog simulation / PCB | ngspice / KiCad |
 | Build reproducibility | Nix |
