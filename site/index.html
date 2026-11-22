@@ -24,6 +24,7 @@
       <div class="nav-items">
         <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">DIGITIZER AND GENERATOR</a>
         <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/mesh.md">THE MESH</a>
+        <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/littlebit.md">HARDWIRED NEURAL NET</a>
       </div>
     </div>
     <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/verification.md">VERIFICATION</a>
@@ -108,6 +109,25 @@
         </dl>
         <div>
           <p class="graded"><span class="grade">unknown</span>Nothing ordered or measured yet.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="stop" aria-labelledby="littlebit">
+    <div class="rail"></div>
+    <div class="stop-body">
+      <div class="stop-head"><span class="ref">U2</span><h2 id="littlebit">A neural network hardwired into an FPGA</h2></div>
+      <p class="lede">LittleBit × Taalas: weights well under one bit each, built into the logic.</p>
+      <div class="split">
+        <dl class="parts">
+          <div><dt>FPGA</dt><dd>Colorlight i9 · Lattice ECP5 LFE5U-45F</dd></div>
+          <div><dt>MODEL</dt><dd>MLP 784 → 256 → 128 → 10 · MNIST first</dd></div>
+          <div><dt>BITS</dt><dd>Binary low-rank factors and scales, after LittleBit</dd></div>
+          <div><dt>ROMS</dt><dd>Weights in LUT logic · the same bits in block RAM</dd></div>
+          <div><dt>FOR</dt><dd>A chip that runs SocialJax and Concordia · local AI companions</dd></div>
+        </dl>
+        <div>
+          <p class="graded"><span class="grade">unknown</span>Nothing built or measured yet.</p>
         </div>
       </div>
     </div>

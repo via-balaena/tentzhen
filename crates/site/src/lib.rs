@@ -55,6 +55,7 @@ fn page(up: &str, title: &str, body: &str) -> String {
       <div class="nav-items">
         <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">DIGITIZER AND GENERATOR</a>
         <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/mesh.md">THE MESH</a>
+        <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/littlebit.md">HARDWIRED NEURAL NET</a>
       </div>
     </div>
     <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/verification.md">VERIFICATION</a>
