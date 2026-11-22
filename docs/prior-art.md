@@ -47,6 +47,10 @@ of record. Each part exists on its own, and several were built in 2026.
 - **A cheaper FPGA board,** the EBAZ4205, a used miner's board with a Zynq-7010, already carries
   AD9226 builds, made with Vivado. A U-Boot fork for it sets up its DDR3 from a generated register
   file, copyright Xilinx; GenZ, the open generator of such files, does not cover DDR3 yet.
+- **Hardwired neural networks** (project #3) are well trodden on Xilinx parts with vendor tools,
+  and done on an ECP5 with open tools (pocket-bnn) and on Tiny Tapeout chips. Low-rank binary
+  factors on an FPGA, and one network compared hardwired and in block RAM, are in nothing we
+  found.
 - **In Chinese,** there are many more open instruments, supplies and loads, several with one unit's
   accuracy measured and published, and agents on instruments from RIGOL and others. The pattern is
   the same: at most one unit's measurements behind some of the numbers, and every limit read in
@@ -199,6 +203,34 @@ table.
 | LiteX's EBAZ4205 target | the board in LiteX: a clock, two LEDs and a UART on the FPGA side, with Vivado as the default toolchain | asking for the ARM side (`cpu_type` "zynq7000") raises `NotImplementedError` | litex-hub/litex-boards at 10debf14, `platforms/ebaz4205.py` and `targets/ebaz4205.py`, **re-read** |
 | embed-me's U-Boot and Buildroot for the EBAZ4205 | U-Boot's first-stage loader calls `ps7_init()`, which sets up the board's DDR3 from `ps7_init_gpl.c`, a register file whose header says it is "automatically generated", copyright Xilinx, under the GPL. A Buildroot config builds that loader and Linux 4.19 | the bitstream comes "from the Vivado build" (its README) | embed-me/u-boot, branch v2019.07-ebaz4205 at ec30ee60, `board/embedme/ebaz4205/` (`ps7_init_gpl.c`, `Makefile`) and `arch/arm/mach-zynq/spl.c`; embed-me/ebaz4205_buildroot at c807c1fd (GPL-3.0), `configs/zynq_ebaz4205_defconfig` and README; all **re-read** |
 | openXC7 and GenZ | open tools for the Zynq-7000: openXC7 places and routes Zynq-7000 FPGAs among others, and GenZ generates the ARM side's setup code. One openXC7 demo uses both, on a PYNQ-Z1's Zynq-7020 | GenZ's code notes "ddr: DDR3, unsupported yet", and that demo builds its boot loader with `-DNODDR` | openXC7/toolchain-installer at 0cb31563, README; openXC7/demo-projects at ff232be4, `ps7-blinky-digilent-pynqz1/`; regymm/GenZ at 842a8f64 (MIT), `zynq7000.py`; all **re-read** |
+
+## Hardwired neural networks
+
+Searched 2026-11-21, for project #3 (`littlebit.md`). A search agent ran 4 web searches, 9 arXiv
+queries and about 50 GitHub repository searches, 3 of them in Chinese, and read the sources it
+names; a row marked **re-read** was then read in its own text. GitHub's repository search matches
+names, descriptions and topics, not READMEs: pocket-bnn turned up for "ulx3s bnn" and not for "ecp5
+bnn", so more may exist. These found nothing: "littlebit fpga", "low-rank binary fpga", "hardwired
+weights fpga", "colorlight neural", "colorlight mnist", "bnn ecp5", and arXiv abstracts with
+low-rank, binary and FPGA together. Not seen: GitHub's code search, Gitee, IEEE and ACM papers,
+Tiny Tapeout's chips beyond one run's list, and Chinese-language sites beyond those 3 queries.
+
+| work | closest part | different | source |
+|---|---|---|---|
+| marph91/pocket-bnn | a binary network with its weights and thresholds as constants in the logic, on an ECP5-85F (the ULX3S) with the open toolchain: "Accuracy on Mnist: 75 %", 41 % of the chip's slices | binarized weights, no low-rank factors and no block-RAM arm; VHDL; last pushed 2021-07-16 | at 04e092f (MPL-2.0), README **re-read**; "constants" in its source as the agent read it |
+| skyline624/ecp5-inference | an int8 language model, `stories260K`, on a Colorlight i9 v7.2 (LFE5U-45F-6BG381C), with openFPGALoader, iverilog and cocotb | its weights are stored and read into block RAM, not hardwired; no license file, so it is read to learn and nothing is copied | at 7e79fa7, README (in French) **re-read**; how it stores weights as the agent read it |
+| LogicNets, PolyLUT, NeuraLUT, LUTNet | weights become LUT truth tables, with MNIST among their tasks | Vivado (LUTNet: Vivado HLS 2016.3) | Apache-2.0 for the first three, BSD-2-Clause for LUTNet, as the agent read them |
+| DWN and dwn2rtl | lookup-table networks trained in PyTorch (DWN), turned into Verilog and testbenches with no vendor tools (dwn2rtl) | lookup tables, not a factorized weight matrix; DWN's training needs CUDA | alanbacellar/DWN at 2b456ac (MIT), dwn2rtl/dwn2rtl at 3130d59 (MIT), licenses **re-read**; the rest as the agent read it |
+| FINN, hls4ml | compilers from a trained network to FPGA logic | FINN needs Vivado or Vitis and targets PYNQ and Alveo boards; hls4ml has no Lattice backend | Xilinx/finn (BSD-3-Clause), fastmachinelearning/hls4ml (Apache-2.0), as the agent read them |
+| rejunity/tt10-lgn-mnist | an MNIST classifier as a logic-gate network on Tiny Tapeout chips: "10K logic gates", "0.8mm x 0.4mm" die area, "97.60% test accuracy", on SKY130 and IHP's 130 nm | a learned network of gates, not weights | at 950a653 (Apache-2.0), README **re-read** |
+| MNIST on small FPGAs, weights in memory | gigwegbe/bnn-goboard (an iCE40-HX1K, weights in a `.mem` ROM, MIT) and semaphoric775/bnn_mnist (a Gowin Tang Nano 9k, block RAM, no license) | stored weights | as the agent read them |
+| Taalas HC1 | "hard-wired with Llama 3.1 8B": "17K tokens/sec per user", from "a custom 3-bit base data type" | a language model in custom silicon; AMD reached "a definitive agreement to acquire Taalas" on 2026-08-06 | taalas.com, "The path to ubiquitous AI" (2026-02-19), **re-read**; AMD's press release of 2026-08-06, **re-read** |
+| LittleBit | the method: W ≈ diag(h) U_sign diag(ℓ) V_signᵀ diag(g), Dual-SVID initialization, Residual Compensation, down to 0.1 bits per weight on language models | written for language models on GPUs, with FP16 scales; its code is CC BY-NC 4.0, for non-commercial use, so none of it is copied | arXiv 2506.13771v5 (NeurIPS 2025), sections 3.2 and 3.3 and Appendix D, **re-read**; SamsungLabs/LittleBit at 42d658b, LICENSE **re-read** |
+
+Building blocks for project #3: Muse Lab's Amaranth platform for the i9
+(wuxx/Colorlight-FPGA-Projects, Apache-2.0); SocialJax's environments and three checkpoints
+(Apache-2.0); Concordia's local model backends (Apache-2.0); LibreLane (Apache-2.0) and Tiny
+Tapeout for Phase 5.
 
 ## Chinese-language sources
 

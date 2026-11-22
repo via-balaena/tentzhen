@@ -19,6 +19,8 @@ trusted, or unknown.
 - [Sourcing](docs/sourcing.md) — LCSC, JLCPCB, incoming QA
 - [Instrument #1](docs/scope.md) — the digitizer and generator
 - [The mesh](docs/mesh.md) — project #2, a LoRa mesh on UMSH, with a port to Tock
+- [LittleBit × Taalas](docs/littlebit.md) — project #3, a neural network hardwired into the i9,
+  toward a chip that runs SocialJax and Concordia
 - [Brand](brand/README.md) — the peregrine mark and the 腾振 lockup
 - [Disclaimer](DISCLAIMER.md) — as is, at your own risk, not certified test equipment
 

@@ -2,7 +2,8 @@
 
 Tentzhen is a site for economical electronics projects that take advantage of the electronics
 surplus, to help people survive, and eventually thrive, in the AI economic transition happening
-now (Jon, 2026-10-08). The bench below is project #1; the mesh (`mesh.md`) is project #2.
+now (Jon, 2026-10-08). The bench below is project #1; the mesh (`mesh.md`) is project #2;
+LittleBit × Taalas (`littlebit.md`) is project #3.
 
 ## Who this is for
 
@@ -85,3 +86,11 @@ the same repo and follows the same rules:
 
 Project #2 is a LoRa mesh of handhelds, repeaters and a phone, running UMSH on nRF52840 boards,
 with a port to Tock as the project's own work (`mesh.md`).
+
+## LittleBit × Taalas
+
+Project #3 is a small neural network whose weights are compressed to well under a bit each and
+built into the i9's logic (`littlebit.md`). It is a first step toward a chip that runs SocialJax
+and Concordia as efficiently as possible, to simulate social conflict and solve it before it
+happens, and toward local AI companions in a humanoid robot, which need security at the hardware
+level. Safety first (Jon, 2026-11-21).

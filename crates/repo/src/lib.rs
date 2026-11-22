@@ -156,6 +156,61 @@ mod tests {
         );
     }
 
+    /// docs/littlebit.md's rank sweep for layer 1 follows from its bit-accounting formula, and so
+    /// does the layer-1 total bits per weight of every run in its experiments table that names its
+    /// rank.
+    #[test]
+    fn the_littlebit_bit_counts_follow_from_the_formula() {
+        let doc = fs::read_to_string(root().join("docs/littlebit.md")).unwrap();
+        assert!(
+            doc.contains("`the_littlebit_bit_counts_follow_from_the_formula`"),
+            "docs/littlebit.md names the test that holds its table"
+        );
+        let rows = |header: &str| -> Vec<Vec<String>> {
+            let start = doc
+                .find(header)
+                .unwrap_or_else(|| panic!("docs/littlebit.md has a table headed {header}"));
+            doc[start..]
+                .lines()
+                .skip(2)
+                .take_while(|line| line.starts_with('|'))
+                .map(|line| {
+                    let cells = line.trim().trim_matches('|').split('|');
+                    cells.map(|cell| cell.trim().to_string()).collect()
+                })
+                .collect()
+        };
+        // Layer 1 is 784 -> 256, with 8-bit scales.
+        let (inputs, outputs) = (784.0, 256.0);
+        let weights = inputs * outputs;
+        let total = |r: f64| (r * (inputs + outputs) + 8.0 * (inputs + outputs + r)) / weights;
+        let sweep = rows("| rank r | sign bits | sign bpw | total bpw, 8-bit scales |");
+        for row in &sweep {
+            let r: f64 = row[0].parse().unwrap();
+            let signs = r * (inputs + outputs);
+            assert_eq!(
+                row[1].replace(',', ""),
+                format!("{signs}"),
+                "sign bits at r = {r}"
+            );
+            let sign_bpw = format!("{:.3}", signs / weights);
+            assert_eq!(row[2], sign_bpw, "sign bpw at r = {r}");
+            assert_eq!(row[3], format!("{:.3}", total(r)), "total bpw at r = {r}");
+        }
+        assert_eq!(sweep.len(), 5, "the sweep's ranks are 4, 8, 16, 32 and 64");
+        let mut runs = 0;
+        for row in rows("| run | model") {
+            let Some(rest) = row[1].split("r = ").nth(1) else {
+                continue;
+            };
+            let r: String = rest.chars().take_while(char::is_ascii_digit).collect();
+            let bpw = format!("{:.3}", total(r.parse().unwrap()));
+            assert_eq!(row[3], bpw, "{}'s layer-1 total bpw", row[0]);
+            runs += 1;
+        }
+        assert_eq!(runs, 7, "E4 to E9 and E12 name their rank");
+    }
+
     /// The script of the Quality Gate's step `name`, less its fetch.
     fn gate_step(name: &str) -> String {
         let workflow =
