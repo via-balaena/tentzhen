@@ -4,14 +4,16 @@ A site for economical electronics projects that take advantage of the electronic
 help people survive, and eventually thrive, in the AI economic transition happening now (Jon,
 2026-10-08). Project #1 is a bench of open, verifiable instruments built from cheap generic parts;
 its instrument #1 is a Red Pitaya-class two-channel digitizer and signal generator. Project #2 is
-a LoRa mesh (`docs/mesh.md`). Pronounced "TENT-zhen" (like "tension").
+a LoRa mesh (`docs/mesh.md`). Project #3 is LittleBit × Taalas, a small neural network with its
+weights hardwired into the i9, a first step toward a chip that runs SocialJax and Concordia
+(`docs/littlebit.md`). Pronounced "TENT-zhen" (like "tension").
 
 Read before planning anything: `docs/vision.md` (why and for whom), `docs/roadmap.md` (phases and
 acceptance criteria), `docs/verification.md` (how every claim is graded), `docs/sourcing.md` (LCSC,
 JLCPCB, incoming QA), `docs/scope.md` (instrument #1), `docs/mesh.md` (project #2, the mesh),
-`docs/architecture.md` (how records, code and checks fit, and the rules each test holds),
-`docs/prior-art.md` (what already exists, and who built it). The warehouse is described in
-`docs/data-catalogue.md`, which is generated.
+`docs/littlebit.md` (project #3, LittleBit × Taalas), `docs/architecture.md` (how records, code
+and checks fit, and the rules each test holds), `docs/prior-art.md` (what already exists, and who
+built it). The warehouse is described in `docs/data-catalogue.md`, which is generated.
 
 ## Every claim carries its grade
 
@@ -73,19 +75,21 @@ both read 2026-10-01). So:
 
 | Layer | Language / tools |
 |---|---|
-| Custom gateware cores (capture, trigger, DDS) | Amaranth — it has `Assert`/`Assume`/`Cover` for SBY; Migen has none |
+| Custom gateware cores (capture, trigger, DDS, LittleBit engines) | Amaranth — it has `Assert`/`Assume`/`Cover` for SBY; Migen has none |
 | SoC integration | LiteX (Migen), importing the Amaranth cores as Verilog |
 | Gateware tests and proofs | cocotb + Verilator; SymbiYosys |
 | Soft-core firmware (VexRiscv, `riscv32`) | Rust |
 | Pico firmware (bridges, limit enforcement) | Rust on Tock OS |
 | Mesh node firmware (nRF52840) | Rust on Tock OS, a port of UMSH; until it runs, UMSH's own releases |
-| Host software (ingest, SCPI, MCP, CLI, LCSC client) | Rust (tokio, duckdb) |
+| Host software (ingest, SCPI, MCP, CLI, LCSC client, golden models) | Rust (tokio, duckdb) |
+| Model training (project #3) | Python, PyTorch |
 | Analog simulation / PCB | ngspice / KiCad |
 | Build reproducibility | Nix |
 
 Python only for gateware, cocotb tests, and throwaway exploration. Anything long-lived gets
-rewritten in Rust. One exception: `brand/mural.py`, the source of the mural and the daybreak
-skyline, which the Quality Gate checks against the committed SVGs.
+rewritten in Rust. Two exceptions: `brand/mural.py`, the source of the mural and the daybreak
+skyline, which the Quality Gate checks against the committed SVGs; and project #3's model
+training, in PyTorch (Jon, 2026-11-21; `docs/littlebit.md`).
 
 ## Conventions
 
