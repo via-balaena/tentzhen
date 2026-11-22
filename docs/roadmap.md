@@ -104,4 +104,5 @@ Ultrasonic sonar: transmit a chirp, capture the echo, compute range.
   goes to Jon for review like the first; nothing is ordered.
 - LittleBit × Taalas, project #3 (`littlebit.md`): a neural network hardwired into the i9, in
   six phases of its own, the last laying out a chip without making one. It needs no parts beyond
-  the i9 and an extension board, and its first board run waits until its simulation is bit-exact.
+  the digitizer's i9 and an extension board, and its first board run waits until its simulation is
+  bit-exact.

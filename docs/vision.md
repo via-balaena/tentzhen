@@ -92,5 +92,5 @@ with a port to Tock as the project's own work (`mesh.md`).
 Project #3 is a small neural network whose weights are compressed to well under a bit each and
 built into the i9's logic (`littlebit.md`). It is a first step toward a chip that runs SocialJax
 and Concordia as efficiently as possible, to simulate social conflict and solve it before it
-happens, and toward local AI companions in a humanoid robot, which need security at the hardware
-level. Safety first (Jon, 2026-11-21).
+happens, and toward local AI companions in a humanoid robot. Safety first, and security at the
+hardware level is very important (Jon, 2026-11-21).

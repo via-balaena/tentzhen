@@ -6,13 +6,13 @@ A small neural network on the Colorlight i9, with its weights compressed to well
 each and built into the FPGA's logic as constants. It measures what hardwiring low-bit weights buys
 and what it costs, on a network small enough to check image by image. Nothing is built yet. It
 needs no parts beyond the i9 and an extension board, already ordered for the digitizer
-(`lab/sourcing.toml`).
+(`lab/sourcing.toml`), and a USB-A port to power them (`scope.md`, "Known part issues").
 
 ## What it is for
 
 The point is a chip that runs SocialJax and Concordia as efficiently as possible, to simulate
 social conflict and solve it before it happens, and local AI companions in a humanoid robot. Safety
-first, and for the physical companion, security at the hardware level. (Jon, 2026-11-21.)
+first, and security at the hardware level is very important. (Jon, 2026-11-21.)
 
 What the two run, read from their sources:
 
@@ -25,7 +25,7 @@ What the two run, read from their sources:
   the policy alone. The repo's Clean Up checkpoint is 1,163,141 bytes, the size of 290,570 float32
   numbers and 861 bytes more. That is the same order as this step's 234,752-weight MLP.
 - **Concordia** (google-deepmind/concordia at d7da449, Apache-2.0) builds its agents from calls to
-  a language model: it "requires access to a standard LLM API", and "you must also provide a text
+  a language model: it "requires access to a standard LLM API", and "You must also provide a text
   embedder for associative memory" (README). Its model registry lists local backends (Ollama,
   Hugging Face, vLLM, Gemma in PyTorch) beside hosted ones, as a search agent read it; not re-read.
   So its compute is language-model inference, the workload Taalas hardwires: its HC1 is "hard-wired
@@ -41,16 +41,16 @@ This step drives nothing but a serial port and an LED. What safety first means f
 written yet. The rule Tentzhen has so far is the bench's: hard limits live in hardware an AI cannot
 reconfigure (`vision.md`, principle 5).
 
-**Security at the hardware level** is for the companion, and Jon names OpenTitan for it
+**Security at the hardware level.** Jon names OpenTitan, more for the physical companion
 (2026-11-21): "Open source silicon root of trust" (lowRISC/opentitan at 3cc49775, Apache-2.0),
 written in SystemVerilog. Its tops are Earl Grey, Darjeeling and English Breakfast, and its FPGA
 builds are Earl Grey's for the CW340 board and English Breakfast's for the CW305
-(`hw/top_*/chip_*_cw3*.core`). Whether any
-of its tops fits the i9's LFE5U-45F is not checked, and it is not part of this step. Tentzhen
-already has a research track for keys in a TROPIC01 secure element (`roadmap.md`), and the mesh
-names an SE050 for its own board (`mesh.md`); whether one part serves the bench, the mesh and the
-companion is not weighed. Hardwired weights have one property of their own here: in silicon they
-cannot change without a new chip, while on the i9 they change with the bitstream.
+(`hw/top_*/chip_*_cw3*.core`). Whether any of its tops fits the i9's LFE5U-45F is not checked, and
+it is not part of this step. Tentzhen already has a research track for keys in a TROPIC01 secure
+element (`roadmap.md`), and the mesh names an SE050 for its own board (`mesh.md`); whether one part
+serves the bench, the mesh and the companion is not weighed. Hardwired weights have one property of
+their own here: in silicon they cannot change without a new chip, while on the i9 they change with
+the bitstream.
 
 ## Where this came from
 
@@ -134,8 +134,8 @@ person's approval in the session, and every load is logged as a `firmware.flash`
 Each directory is made when its first real file arrives (`roadmap.md`, Phase 0).
 
 The pieces meet at one file: the exported weights (signs, scales, shifts and biases) as JSON. The
-golden model and the ROM generator both read it, so the two cannot drift apart. The golden model
-also writes out the intermediate vectors and scores that the cocotb tests compare against.
+golden model and the ROM generator both read it, so they cannot read different weights. The golden
+model also writes out the intermediate vectors and scores that the cocotb tests compare against.
 
 Why these for this project: in Amaranth, the ROM generator is Python that builds the circuit from
 the JSON, with no Verilog text to template; Rust makes every integer widening explicit and stops a
@@ -144,13 +144,13 @@ lab log and the records, which are Rust already.
 
 **Toolchain:** Yosys, nextpnr-ecp5, Project Trellis, Verilator, cocotb and Amaranth, pinned with the
 rest (`roadmap.md`, Phase 0), plus PyTorch and openFPGALoader. Amaranth's ECP5 platform runs Yosys,
-nextpnr-ecp5 and ecppack itself. nextpnr's `--report` writes a "timing and utilization report in
-JSON format" (nextpnr at 15b77f5f, `common/kernel/command.cc`), the source of each run's LUT, EBR
-and Fmax figures. MNIST is fetched and checked against a pinned sha256; its terms are not read, so
-it is not committed. Phase 5 adds LibreLane, "ASIC implementation flow infrastructure, successor to
-OpenLane" (Apache-2.0, librelane/librelane at 8494d4fe), whose README recommends installing it with
-Nix; Tiny Tapeout's local-hardening guide runs it in Docker (TinyTapeout/tinytapeout_www at
-ce1fff22).
+nextpnr-ecp5 and ecppack itself (amaranth at 90449f1e, `amaranth/vendor/_lattice.py`). nextpnr's
+`--report` writes a "timing and utilization report in JSON format" (nextpnr at 15b77f5f,
+`common/kernel/command.cc`), the source of each run's LUT, EBR and Fmax figures. MNIST is fetched
+and checked against a pinned sha256; its terms are not read, so it is not committed. Phase 5 adds
+LibreLane, "ASIC implementation flow infrastructure, successor to OpenLane" (Apache-2.0,
+librelane/librelane at 8494d4fe), whose README recommends installing it with Nix; Tiny Tapeout's
+local-hardening guide runs it in Docker (TinyTapeout/tinytapeout_www at ce1fff22).
 
 ## Model
 
@@ -176,9 +176,8 @@ share of the budget:
 
 The 8 is for 8-bit scales; it changes if the export uses 16-bit ones. It is the paper's Eq. 16
 without the residual path, and with 8 bits a scale where the paper's are FP16, 16 bits each (arXiv
-2506.13771v5, Appendix D).
-Neither counts the bias, an int32 per output: 8,192 bits on layer 1, about as many as its signs at
-r = 8.
+2506.13771v5, Appendix D). Neither counts the bias, an int32 per output: 8,192 bits on layer 1,
+about as many as its signs at r = 8.
 
 **Rank sweep for layer 1** (784 → 256, 200,704 weights):
 
@@ -211,9 +210,9 @@ one scale per output).
    Appendix B.2).
 4. Fake-quantize activations to uint8 during training (ReLU, then a per-layer power-of-two scale),
    so that the trained model matches the integer hardware.
-5. Optional, after the core sweep: the paper's Residual Compensation, a second path of the same
-   shape fitted to what the first leaves, trained with it (section 3.3). Measure whether it is worth
-   its bits.
+5. Optional, after the core sweep: the paper's Residual Compensation, which splits the same bit
+   budget into two lower-rank paths, the second started on what the first leaves (section 3.3).
+   Measure whether two paths beat one at the same bits.
 
 The paper's code (SamsungLabs/LittleBit at 42d658b) is under CC BY-NC 4.0, for non-commercial use
 only, so Tentzhen writes its layer from the paper and copies none of that code.
@@ -356,15 +355,16 @@ Phase 0 may run beside Phase 1: it needs only the board and the toolchain.
    bits per weight and LUTs vs. bits. **Gate 4:** the table is full, and both plots are made.
 6. **Phase 5, a chip's layout, with no chip made.** The largest hardwired LittleBit layer that fits
    one Tiny Tapeout tile, laid out with LibreLane. Its Classic flow takes Verilog, which Amaranth
-   emits, and runs synthesis and OpenROAD's placement and routing for a standard-cell process
-   (`sky130A` in its README's example). The ECP5's own blocks go: no PLL, block RAM or multipliers,
-   so it is Variant A only, and the cocotb layer test runs against the Verilog it lays out. A tile
-   is "about 160x100 um", "enough for about 1000 digital logic gates", with 8 inputs, 8 outputs
-   and 8 bidirectional pins besides the clock and reset (Tiny Tapeout's FAQ), so the layer takes its
-   inputs a few bits at a time. It costs nothing. Its figures rest on LibreLane, OpenROAD and the
-   process kit, which `trusted-base.toml` does not list yet. **Gate 5:** LibreLane finishes the
-   layer with its own checks passing, and its cells and area per weight bit stand beside the i9's
-   LUTs per weight bit (research question 5).
+   emits, and runs Yosys's synthesis and OpenROAD's placement and routing
+   (`librelane/flows/classic.py`) for a standard-cell process (`sky130A` in its README's example).
+   The ECP5's own blocks go: no PLL, block RAM or multipliers, so it is Variant A only, and the
+   cocotb layer test runs against the Verilog it lays out. A tile is "about 160x100 um", "enough for
+   about 1000 digital logic gates" (Tiny Tapeout's FAQ, of its runs TT04 to TT10; the current runs'
+   size is not read), with 8 inputs, 8 outputs and 8 bidirectional pins besides the clock and reset
+   (same FAQ), so the layer takes its inputs a few bits at a time. It costs nothing. Its figures
+   rest on LibreLane, OpenROAD and the process kit, which `trusted-base.toml` does not list yet.
+   **Gate 5:** LibreLane finishes the layer with its own checks passing, and its cells and area per
+   weight bit stand beside the i9's LUTs per weight bit (research question 5).
 
 Gate 0's echo goes through the same DAPLink serial port as the bench's Phase 1 "hello" over UART
 (`roadmap.md`), so whichever runs first settles those pins for both.
@@ -441,11 +441,11 @@ questions, with r = 16–64 as the low end.
 - **Tiny character model:** a text predictor of a few hundred thousand parameters, using block RAM,
   as the closest thing to an LLM. ecp5-inference already runs one, `stories260K`, on an i9
   (`prior-art.md`, "Hardwired neural networks").
-- **Tiny Tapeout:** Phase 5's layer made on a real chip shuttle. SkyWater 130 nm shuttles
-  (TTSKY26d and TTSKY26e) close 2026-11-30 and a GF180 one (TTGF26c) 2026-12-07, with chips
-  expected in May 2027, and runs are listed into 2028 (Tiny Tapeout's chips page, at ce1fff22).
-  A tile costs money, so submitting one is Jon's decision; its price is on Tiny Tapeout's
-  calculator, not here.
+- **Tiny Tapeout:** Phase 5's layer made on a real chip shuttle. SkyWater 130 nm shuttles (TTSKY26d
+  and TTSKY26e) close 2026-11-30 and a GF180 one (TTGF26c; GF180 per the FAQ) 2026-12-07, with chips
+  expected in May 2027, and runs are listed into 2028 (Tiny Tapeout's chips page, at ce1fff22). A
+  tile costs money, so submitting one is Jon's decision; its price is on Tiny Tapeout's calculator,
+  not here.
 - **Write-up:** the accuracy-vs-bits and LUTs-vs-bits plots, as a post or a workshop paper.
 
 ## What exists already
