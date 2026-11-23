@@ -1,0 +1,16 @@
+measures = "Whether the i9's LED blinks under Gate 0's blinky, and what it does once power-off has cleared the blinky from the FPGA"
+setup = "The Colorlight i9 seated in its i5/i9 extension board, powered and loaded over the board's USB, with nothing on the headers. openFPGALoader loaded the blinky (gateware/bringup/blinky.py) into the FPGA's SRAM (lab log seq 2). Jon watched the LEDs by eye, then unplugged the USB and plugged it back in (seq 3). What the green LED did before the load is unknown."
+log = { first = "37ed1ec286a3613925b6ed258b968324959729c01ab822f2ebdde26f8202e43f", last = "6faf7c5b6640ca5ccac0316aacb54949160e735dad9d4e13d6cba4a47b1694a4" }
+toolchain = { tentzhen = "0fad277", amaranth = "0.5.10", oss-cad-suite = "2026-11-21", openfpgaloader = "1.2.0" }
+
+[[device]]
+part = "LFE5U-45F"
+revision = "Colorlight i9 v7.2"
+gateware_sha256 = "4c81180ecb906f4c26e7685b68e3d55d115acd15aac24f31cf4c83701a9b7369"
+
+[results]
+green_led_blinks = true
+green_led_rate = "about once a second, by eye"
+green_led_board = "the i9 module"
+green_led_after_power_cycle = "off"
+red_led = "solid"

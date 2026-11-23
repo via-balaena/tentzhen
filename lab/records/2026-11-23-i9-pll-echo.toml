@@ -1,0 +1,19 @@
+measures = "Whether Gate 0's echo and blinky run from the ECP5's PLL at 50 MHz: bytes echo at 115,200 baud but not at 57,600, the rate the same design would echo at from 25 MHz, and the LED blinks about once a second, not once every 2 s"
+setup = "i9-2, Jon's #2: the Colorlight i9 seated in its own i5/i9 extension board, the only board on the lab computer's USB, powered and loaded over it, with nothing on the headers. Before the load it ran the 25 MHz blinky from SRAM (lab log seq 11 of 2026-11-22). Jon saw its green LED blinking about once a second (seq 14), and 282 bytes sent to the DAPLink's serial port, COM4, at 115,200 baud brought nothing back in 2 s (seq 15). openFPGALoader then loaded the PLL echo (gateware/bringup/pll_echo.py) into the FPGA's SRAM (seq 16). A PowerShell script sent 282 bytes to COM4, 8N1, in one write: the byte values 0 to 255, then a line of text. It read back until it had as many as it sent or nothing arrived for 2 s. It ran at 115,200 baud (seq 17), at 57,600 (seq 18), and at 115,200 again (seq 19). Jon was asked whether the LED flashed about 10 times in 10 s or about 5, and reported it by eye (seq 20)."
+log = { first = "f3e5aa7a773f07fb616595f18cc8a85bf5ca5535a96c4a4c824f554f1c60d054", last = "4791cd8bbac5061458f35303334449eec825b6d0e4166d44f961f2e51f8a9157" }
+toolchain = { tentzhen = "a3ddb36", amaranth = "0.5.10", oss-cad-suite = "2026-11-21", openfpgaloader = "1.2.0" }
+
+[[device]]
+part = "LFE5U-45F"
+revision = "Colorlight i9 v7.2"
+gateware_sha256 = "5782f1d3336817dec13d160c45a2e448bf38e79b8eb6de2b3da01f411dff47d4"
+
+[results]
+before_load_echo = false
+before_load_received = "nothing in 2 s, at 115,200 baud"
+echo_match = true
+echo_received = "all 282 bytes, in order, within 0.038 s of the write; again after the 57,600 run, within 0.032 s"
+echo_at_57600_match = false
+echo_at_57600_received = "195 bytes, the first already unlike the first sent: f8 f8 f8 f8 f8 f8 f8 08"
+green_led_before_load = "blinking about once a second"
+green_led_rate = "about once a second, by eye: Jon chose it over once every 2 s"

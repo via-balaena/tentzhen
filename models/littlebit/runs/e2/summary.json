@@ -1,0 +1,193 @@
+{
+  "run": "E2",
+  "model": "784 -> 256 -> 128 -> 10 MLP: layers 0 and 2 dense, their weights float in training and int8 at export, each followed by uint8 activations; layer 4 dense float",
+  "weights": 234752,
+  "parameters": 235146,
+  "recipe": {
+    "optimizer": "Adam",
+    "learning_rate": 0.001,
+    "schedule": "cosine, by step, to 0",
+    "epochs": 20,
+    "batch": 128,
+    "seed": 0,
+    "pixels": "floor(p / 2) / 128",
+    "deterministic_algorithms": true
+  },
+  "quantized": {
+    "weights": "int8",
+    "start": {
+      "run": "E1",
+      "weights_sha256": "92cb2e1c131b64c1c7fb21fa688a9bef90da442331037fec5aea065a4d279b4f"
+    },
+    "init": "E1's weights and biases, as they are",
+    "activations": "floor(y / 2^e) clamped to 0..255, times 2^e; the gradient passed where 0 <= y < 256 * 2^e",
+    "activation_exponents": [
+      -4,
+      -3
+    ],
+    "init_test_correct": 9828
+  },
+  "mnist_sha256": {
+    "train-images-idx3-ubyte.gz": "440fcabf73cc546fa21475e81ea370265605f56be210a4024d2ca8f203523609",
+    "train-labels-idx1-ubyte.gz": "3552534a0a558bbed6aed32b30c495cca23d567ec52cac8be1a0730e8010255c",
+    "t10k-images-idx3-ubyte.gz": "8d422c7b0a1c1c79245a5bcf07fe86e33eeafee792b84584aec276f5a2dbc4e6",
+    "t10k-labels-idx1-ubyte.gz": "f7ae60f92e00ec6debd23a6088c31dbd2371eca3ffa0defaefb259924204aec6"
+  },
+  "train_correct": 60000,
+  "train_images": 60000,
+  "test_correct": 9835,
+  "test_images": 10000,
+  "curve": [
+    {
+      "epoch": 1,
+      "train_loss": 0.015820434053242207,
+      "test_correct": 9742
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.01501893463594218,
+      "test_correct": 9777
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.011889865537298223,
+      "test_correct": 9787
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.007495220507852112,
+      "test_correct": 9809
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.008333712399207676,
+      "test_correct": 9798
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.005691227654375446,
+      "test_correct": 9820
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.002527995324872124,
+      "test_correct": 9822
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.0006115039668909352,
+      "test_correct": 9819
+    },
+    {
+      "epoch": 9,
+      "train_loss": 0.0002511507088405779,
+      "test_correct": 9833
+    },
+    {
+      "epoch": 10,
+      "train_loss": 0.00017260566271434073,
+      "test_correct": 9833
+    },
+    {
+      "epoch": 11,
+      "train_loss": 0.00013812788194821527,
+      "test_correct": 9830
+    },
+    {
+      "epoch": 12,
+      "train_loss": 0.000115335106428635,
+      "test_correct": 9831
+    },
+    {
+      "epoch": 13,
+      "train_loss": 9.993589196625786e-05,
+      "test_correct": 9831
+    },
+    {
+      "epoch": 14,
+      "train_loss": 9.012749645820198e-05,
+      "test_correct": 9837
+    },
+    {
+      "epoch": 15,
+      "train_loss": 8.01527540180056e-05,
+      "test_correct": 9839
+    },
+    {
+      "epoch": 16,
+      "train_loss": 7.313835913858687e-05,
+      "test_correct": 9836
+    },
+    {
+      "epoch": 17,
+      "train_loss": 6.827611931754897e-05,
+      "test_correct": 9832
+    },
+    {
+      "epoch": 18,
+      "train_loss": 6.504430092851786e-05,
+      "test_correct": 9835
+    },
+    {
+      "epoch": 19,
+      "train_loss": 6.292746312489423e-05,
+      "test_correct": 9837
+    },
+    {
+      "epoch": 20,
+      "train_loss": 6.161910967396882e-05,
+      "test_correct": 9835
+    }
+  ],
+  "layout": [
+    {
+      "name": "0.weight",
+      "shape": [
+        256,
+        784
+      ]
+    },
+    {
+      "name": "0.bias",
+      "shape": [
+        256
+      ]
+    },
+    {
+      "name": "2.weight",
+      "shape": [
+        128,
+        256
+      ]
+    },
+    {
+      "name": "2.bias",
+      "shape": [
+        128
+      ]
+    },
+    {
+      "name": "4.weight",
+      "shape": [
+        10,
+        128
+      ]
+    },
+    {
+      "name": "4.bias",
+      "shape": [
+        10
+      ]
+    }
+  ],
+  "weights_sha256": "136d948832d3d7990db1639c9f01982304d99a5e16c91dbde642c484afa23d12",
+  "seconds": 23.87618000000657,
+  "device": "NVIDIA GeForce RTX 4070 Ti",
+  "versions": {
+    "python": "3.12.15",
+    "torch": "2.15.0+cu132",
+    "cuda": "13.2",
+    "cudnn": 92600,
+    "numpy": "2.5.5"
+  }
+}

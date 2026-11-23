@@ -6,3 +6,8 @@ members = ["crates/*", "firmware/*"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/via-balaena/tentzhen"
+
+# crates/littlebit's tests score 70,000 MNIST images through the golden model: on the lab computer
+# that took 157 s unoptimized and 12 s optimized, with the same counts (2026-11-22).
+[profile.dev.package.tentzhen-littlebit]
+opt-level = 3

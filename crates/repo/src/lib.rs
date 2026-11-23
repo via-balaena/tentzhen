@@ -5,8 +5,9 @@
 mod tests {
     use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
+    use std::io::Write;
     use std::path::{Path, PathBuf};
-    use std::process::Command;
+    use std::process::{Command, Stdio};
     use toml::{Table, Value};
 
     fn root() -> PathBuf {
@@ -123,6 +124,7 @@ mod tests {
                 }
             }
         }
+        let gateware = gateware_tests();
         let (mut tests, mut paths) = (0, 0);
         for (i, token) in now.split('`').enumerate() {
             if i % 2 == 0 {
@@ -135,7 +137,7 @@ mod tests {
             if is_name {
                 tests += 1;
                 assert!(
-                    source.contains(&format!("fn {token}()")),
+                    source.contains(&format!("fn {token}()")) || gateware.contains(token),
                     "docs/architecture.md names the test {token}, which does not exist"
                 );
             } else if token.contains('<') {
@@ -158,7 +160,9 @@ mod tests {
 
     /// docs/littlebit.md's rank sweep for layer 1 follows from its bit-accounting formula, and so
     /// does the layer-1 total bits per weight of every run in its experiments table that names its
-    /// rank.
+    /// rank, E10's at its own widths, and of E3, whose binary layer has a sign per weight and an
+    /// 8-bit scale per output. So does its table of E7's and E10's bits, in which E10's rank is
+    /// the largest whose hidden layers hold no more bits than E7's.
     #[test]
     fn the_littlebit_bit_counts_follow_from_the_formula() {
         let doc = fs::read_to_string(root().join("docs/littlebit.md")).unwrap();
@@ -198,17 +202,123 @@ mod tests {
             assert_eq!(row[3], format!("{:.3}", total(r)), "total bpw at r = {r}");
         }
         assert_eq!(sweep.len(), 5, "the sweep's ranks are 4, 8, 16, 32 and 64");
+        let table = rows("| run | model");
+        // E3's binary layer: a sign per weight and an 8-bit scale per output.
+        let binary = table
+            .iter()
+            .find(|row| row[1].starts_with("binary dense, one scale per output"))
+            .expect("the experiments table has E3, binary dense");
+        assert_eq!(
+            binary[3],
+            format!("{:.3}", (weights + 8.0 * outputs) / weights),
+            "E3's layer-1 total bpw"
+        );
+        let number = |text: &str| -> f64 {
+            let digits: String = text.chars().take_while(char::is_ascii_digit).collect();
+            digits.parse().unwrap()
+        };
         let mut runs = 0;
-        for row in rows("| run | model") {
+        for row in table {
             let Some(rest) = row[1].split("r = ").nth(1) else {
                 continue;
             };
-            let r: String = rest.chars().take_while(char::is_ascii_digit).collect();
-            let bpw = format!("{:.3}", total(r.parse().unwrap()));
-            assert_eq!(row[3], bpw, "{}'s layer-1 total bpw", row[0]);
+            // A run of another shape names it, as E10's "784 → 1024 → 512 → 10": its layer 1 is
+            // 784 -> 1024.
+            let outputs = row[1].split("784 → ").nth(1).map_or(outputs, number);
+            let r = number(rest);
+            let bpw = (r * (inputs + outputs) + 8.0 * (inputs + outputs + r)) / (inputs * outputs);
+            assert_eq!(
+                row[3],
+                format!("{bpw:.3}"),
+                "{}'s layer-1 total bpw",
+                row[0]
+            );
             runs += 1;
         }
-        assert_eq!(runs, 7, "E4 to E9 and E12 name their rank");
+        assert_eq!(runs, 9, "E4 to E12 name their rank");
+
+        // E10's budget: each row's sign bits, 8-bit scales and their sum over the two hidden
+        // layers, and the output layer's int8 weights, follow from its widths and rank.
+        let budget = rows("| run | widths | r | sign bits |");
+        for row in &budget {
+            let widths: Vec<f64> = row[1].split(" → ").map(number).collect();
+            let r = number(&row[2]);
+            let hidden = [(widths[0], widths[1]), (widths[1], widths[2])];
+            let signs: f64 = hidden.iter().map(|(i, o)| r * (i + o)).sum();
+            let scales: f64 = hidden.iter().map(|(i, o)| 8.0 * (i + o + r)).sum();
+            let output = 8.0 * widths[2] * widths[3];
+            let want = [signs, scales, signs + scales, output].map(|n| format!("{n}"));
+            let got = [3, 4, 5, 6].map(|k| row[k].replace(',', ""));
+            assert_eq!(got, want, "{}'s bits", row[0]);
+        }
+        let names: Vec<&str> = budget.iter().map(|row| row[0].as_str()).collect();
+        assert_eq!(names, ["E7", "E10", "E10's shape at r = 10"]);
+        let total = |k: usize| number(&budget[k][5].replace(',', ""));
+        assert!(
+            total(1) <= total(0) && total(2) > total(0),
+            "E10's r = 9 is the largest that fits E7's bits"
+        );
+    }
+
+    /// docs/littlebit.md's table of Clean Up's policy follows from its shapes: a layer's weights
+    /// are kernel x kernel x channels in x channels out, its multiply-accumulates are its weights
+    /// times the positions it runs at, and the totals are the sums. So do the shares, the ratio to
+    /// the MNIST network and the two sign bit rates its text gives.
+    #[test]
+    fn the_clean_up_policy_counts_follow_from_its_shapes() {
+        let doc = fs::read_to_string(root().join("docs/littlebit.md")).unwrap();
+        let header = "| layer | kernel | channels in | channels out | positions | weights | MACs per decision |";
+        let start = doc
+            .find(header)
+            .expect("docs/littlebit.md has Clean Up's table");
+        let rows: Vec<Vec<String>> = doc[start..]
+            .lines()
+            .skip(2)
+            .take_while(|line| line.starts_with('|'))
+            .map(|line| {
+                let cells = line.trim().trim_matches('|').split('|');
+                cells.map(|c| c.trim().replace(',', "")).collect()
+            })
+            .collect();
+        let n = |s: &str| -> u64 { s.parse().unwrap_or_else(|_| panic!("{s:?} is not a count")) };
+        let (mut weights, mut macs, mut conv_weights, mut conv_macs) = (0, 0, 0, 0);
+        let (total, layers) = rows.split_last().unwrap();
+        for row in layers {
+            let (k, _) = row[1].split_once(" × ").unwrap();
+            let w = n(k) * n(k) * n(&row[2]) * n(&row[3]);
+            assert_eq!(n(&row[5]), w, "{}'s weights", row[0]);
+            assert_eq!(
+                n(&row[6]),
+                w * n(&row[4]),
+                "{}'s multiply-accumulates",
+                row[0]
+            );
+            weights += w;
+            macs += w * n(&row[4]);
+            if row[0].starts_with("conv") {
+                conv_weights += w;
+                conv_macs += w * n(&row[4]);
+            }
+        }
+        assert_eq!(total[0], "total");
+        assert_eq!((n(&total[5]), n(&total[6])), (weights, macs));
+        // "286,112 for the policy alone", as "What it is for" counted it, less its biases.
+        assert_eq!(weights, 286_112);
+        let percent = |a: u64, b: u64| (100 * a + b / 2) / b;
+        let mnist = 234_752;
+        let sign_bpw = |r: f64, i: f64, o: f64| format!("{:.3}", r * (i + o) / (i * o));
+        for said in [
+            format!(
+                "They hold {} % of the weights",
+                percent(conv_weights, weights)
+            ),
+            format!("do {} % of the\n  arithmetic", percent(conv_macs, macs)),
+            format!("about {} times the MNIST", (macs + mnist / 2) / mnist),
+            format!("would be {}, against", sign_bpw(16.0, 475.0, 32.0)),
+            format!("{} at r = 16.", sign_bpw(16.0, 3872.0, 64.0)),
+        ] {
+            assert!(doc.contains(&said), "docs/littlebit.md lacks {said:?}");
+        }
     }
 
     /// The script of the Quality Gate's step `name`, less its fetch.
@@ -256,10 +366,12 @@ mod tests {
             repo
         }
 
+        /// Runs git in the scratch repo, apart from the machine's config. Git for Windows turns
+        /// `core.autocrlf` on, so undoing a change would check a file out with CRLF.
         fn git(&self, args: &[&str]) {
             let ok = Command::new("git")
                 .args(["-c", "user.name=t", "-c", "user.email=t@t"])
-                .args(["-c", "commit.gpgsign=false"])
+                .args(["-c", "commit.gpgsign=false", "-c", "core.autocrlf=false"])
                 .args(args)
                 .current_dir(&self.dir)
                 .status()
@@ -285,16 +397,25 @@ mod tests {
         }
 
         /// Whether the step passes with `change` made to the working tree, which is then undone.
+        /// The script, with `BASE`, goes to bash on its standard input. On Windows the first
+        /// `bash` can be WSL's, in System32, which parses a `-c` script once more before bash
+        /// runs it (`$BASE` and `$f` come out empty) and passes on only the variables `WSLENV`
+        /// names.
         fn passes(&self, change: impl FnOnce(&Self)) -> bool {
             change(self);
-            let ok = Command::new("bash")
-                .args(["-e", "-c", &self.script])
-                .env("BASE", "main")
+            let mut bash = Command::new("bash")
+                .arg("-e")
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
                 .current_dir(&self.dir)
-                .output()
-                .unwrap()
-                .status
-                .success();
+                .spawn()
+                .unwrap();
+            let script = format!("BASE=main\n{}\n", self.script);
+            let mut stdin = bash.stdin.take().unwrap();
+            stdin.write_all(script.as_bytes()).unwrap();
+            drop(stdin);
+            let ok = bash.wait_with_output().unwrap().status.success();
             self.git(&["checkout", "-q", "--", "."]);
             self.git(&["clean", "-q", "-f", "-d"]);
             ok
@@ -416,6 +537,55 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Each Python project under models/ pins its own dependencies to one version each, its Python
+    /// to one release (`.python-version`) in the one series `requires-python` allows, and the rest
+    /// in the uv.lock beside it (CLAUDE.md: "Pin every dependency version"). That the lock matches
+    /// its pyproject.toml is held only where `uv sync --locked` runs, not here.
+    #[test]
+    fn every_python_dependency_is_pinned() {
+        let mut projects = 0;
+        for entry in fs::read_dir(root().join("models")).unwrap() {
+            let dir = entry.unwrap().path();
+            let file = dir.join("pyproject.toml");
+            if !file.is_file() {
+                continue;
+            }
+            projects += 1;
+            let at = file.strip_prefix(root()).unwrap().display().to_string();
+            let p = manifest(&file);
+            let project = p["project"].as_table().unwrap();
+            for dep in project["dependencies"].as_array().unwrap() {
+                let dep = dep.as_str().unwrap();
+                let pinned = dep.split_once("==").is_some_and(|(name, version)| {
+                    !name.is_empty()
+                        && !version.is_empty()
+                        && !version.contains(['*', ',', ';', ' ', '<', '>', '='])
+                });
+                assert!(pinned, "{at}: {dep} is not pinned to one version");
+            }
+            let allowed = project["requires-python"].as_str().unwrap();
+            let series = allowed
+                .strip_prefix("==")
+                .and_then(|s| s.strip_suffix(".*"))
+                .unwrap_or_else(|| panic!("{at}: requires-python names one series, not {allowed}"));
+            let release = fs::read_to_string(dir.join(".python-version"))
+                .unwrap_or_else(|_| panic!("{at}: no .python-version beside it"));
+            let release = release.trim();
+            let one_release = release.starts_with(&format!("{series}."))
+                && release.split('.').count() == 3
+                && release.split('.').all(|n| n.parse::<u32>().is_ok());
+            assert!(
+                one_release,
+                "{at}: .python-version names one release in {series}, not {release:?}"
+            );
+            assert!(dir.join("uv.lock").is_file(), "{at}: no uv.lock beside it");
+        }
+        assert!(
+            projects >= 1,
+            "found {projects} Python projects under models/"
+        );
     }
 
     /// The Pico enforcer's build script reads lab/limits.toml through crates/lab, so the safety
@@ -544,6 +714,50 @@ mod tests {
         }
     }
 
+    /// Every text file is LF in the index and in the checkout the test runs in, so the bytes the
+    /// lab log's chain, the Quality Gate's steps and the tests compare are the bytes committed. Git
+    /// for Windows turns `core.autocrlf` on in its own config, and without `.gitattributes`'s
+    /// `eol=lf` that checks out every line with CRLF. Only the fonts' licenses are kept byte for
+    /// byte as committed (`-text`).
+    #[test]
+    fn every_text_file_checks_out_with_lf() {
+        let out = Command::new("git")
+            .args(["ls-files", "--eol", "-z"])
+            .current_dir(root())
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git ls-files --eol");
+        let listing = String::from_utf8(out.stdout).unwrap();
+        let (mut files, mut kept) = (0, 0);
+        for entry in listing.split_terminator('\0') {
+            // `i/<eol> w/<eol> attr/<attributes>`, a tab, and the path.
+            let (eol, path) = entry.split_once('\t').unwrap();
+            let mut fields = eol.split_whitespace();
+            let (index, tree) = (fields.next().unwrap(), fields.next().unwrap());
+            let attr = fields.collect::<Vec<_>>().join(" ");
+            files += 1;
+            if attr == "attr/-text" {
+                kept += 1;
+                assert!(
+                    path.starts_with("site/fonts/OFL-") && path.ends_with(".txt"),
+                    "{path} is kept as it is: only the fonts' licenses are"
+                );
+                continue;
+            }
+            assert_eq!(attr, "attr/text=auto eol=lf", "{path}");
+            for (side, eol) in [("index", index), ("checkout", tree)] {
+                assert!(
+                    !eol.ends_with("/crlf") && !eol.ends_with("/mixed"),
+                    "{path} has {eol} line endings in the {side}: LF only"
+                );
+            }
+        }
+        assert!(
+            files >= 100 && kept == 3,
+            "found {files} files, {kept} kept"
+        );
+    }
+
     /// The Kani harnesses and tests in the workspace, by package name.
     #[derive(Default)]
     struct Code {
@@ -551,8 +765,48 @@ mod tests {
         tests: BTreeMap<String, BTreeSet<String>>,
     }
 
+    /// The tests under gateware/: in each `test_*.py`, the cocotb tests, functions marked
+    /// `@cocotb.test(...)` through any other decorators between the mark and the `async def`; and
+    /// pytest's own, the top-level functions named `test_*`, which run the cocotb tests or check
+    /// the Python that builds the gateware. The gateware's tests are cocotb, as CLAUDE.md's
+    /// language policy has them, run by pytest, so a referent names one as `gateware <name>`
+    /// (docs/littlebit.md, "Grading a training run").
+    fn gateware_tests() -> BTreeSet<String> {
+        let mut found = BTreeSet::new();
+        let mut stack = vec![root().join("gateware")];
+        while let Some(dir) = stack.pop() {
+            for entry in fs::read_dir(dir).unwrap() {
+                let path = entry.unwrap().path();
+                let name = path.file_name().unwrap().to_string_lossy().into_owned();
+                if path.is_dir() {
+                    stack.push(path);
+                    continue;
+                }
+                if !(name.starts_with("test_") && name.ends_with(".py")) {
+                    continue;
+                }
+                let mut pending = false;
+                for line in fs::read_to_string(&path).unwrap().lines() {
+                    if let Some(rest) = line.strip_prefix("def test_") {
+                        found.insert(format!("test_{}", rest.split('(').next().unwrap()));
+                    }
+                    let line = line.trim();
+                    if line.starts_with("@cocotb.test(") {
+                        pending = true;
+                    } else if let (true, Some(rest)) = (pending, line.strip_prefix("async def ")) {
+                        found.insert(rest.split('(').next().unwrap().to_string());
+                        pending = false;
+                    } else if !line.starts_with('@') {
+                        pending = false;
+                    }
+                }
+            }
+        }
+        found
+    }
+
     /// Reads every member's sources for functions marked `#[kani::proof]` or `#[test]`, through
-    /// any other attributes between the mark and the `fn`.
+    /// any other attributes between the mark and the `fn`; and the cocotb tests, as `gateware`'s.
     fn code() -> Code {
         let mut code = Code::default();
         for m in members() {
@@ -595,6 +849,7 @@ mod tests {
                 }
             }
         }
+        code.tests.insert("gateware".into(), gateware_tests());
         code
     }
 
@@ -742,6 +997,16 @@ mod tests {
                 "names no test",
             ),
             (
+                "test",
+                "gateware uart_never_written".into(),
+                "names no test",
+            ),
+            (
+                "test",
+                "tentzhen-enforcer uart_carries_every_byte_back_to_back".into(),
+                "names no test",
+            ),
+            (
                 "proof",
                 "gateware/none.sby; SymbiYosys 0.60".into(),
                 "naming a file",
@@ -763,6 +1028,33 @@ mod tests {
         assert_eq!(
             referent_problem("proof", "Cargo.toml; a tool 1.0", &code, &kani),
             None
+        );
+        // A cocotb test is named as `gateware <name>`.
+        assert_eq!(
+            referent_problem(
+                "test",
+                "gateware uart_carries_every_byte_back_to_back",
+                &code,
+                &kani
+            ),
+            None
+        );
+        // So is a pytest test there, and a helper that isn't a test is not one.
+        assert_eq!(
+            referent_problem(
+                "test",
+                "gateware test_pll_refuses_what_ecppll_would_not_use",
+                &code,
+                &kani
+            ),
+            None
+        );
+        assert!(!code.tests["gateware"].contains("echoes_every_byte"));
+        assert!(!code.tests["gateware"].contains("pll"));
+        assert!(
+            code.tests["gateware"].len() >= 5,
+            "{:?}",
+            code.tests["gateware"]
         );
     }
 }

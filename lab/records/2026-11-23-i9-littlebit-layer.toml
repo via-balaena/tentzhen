@@ -1,0 +1,17 @@
+measures = "Whether r16's first LittleBit layer, run by the layer engine on the i9 at 50 MHz from the PLL, answers each input over the UART exactly as the integer golden model computes it: every y and z of its 256 outputs"
+setup = "i9-2, Jon's #2: the Colorlight i9 seated in its own i5/i9 extension board, the only board on the lab computer's USB, powered and loaded over it, with nothing on the headers. Before the load it ran the PLL echo (gateware/bringup/pll_echo.py, lab log seq 16). A layer frame sent to COM4 then, 0xA5 and r16 layer 1's test vector 2, came back as an echo, all 785 bytes (seq 21), and the host command, `cargo run -p tentzhen-littlebit -- layer COM4 vectors`, failed on its first input with no answer (seq 22). openFPGALoader then loaded the layer design (gateware/bringup/littlebit_layer.py) into the FPGA's SRAM (seq 23). The host command sent the 6 test vectors for r16's first layer (gateware/cores/tests/littlebit_vectors.json) (seq 24), and then MNIST's first 1,000 test images, each pixel shifted right by 1 as the network shifts it (seq 25), one frame at a time at 115,200 baud, 8N1, and compared each answer's 256 y and z with the golden model's (crates/littlebit/src/integer.rs, from models/littlebit/runs/r16/integer.json)."
+log = { first = "a4097940344e3f68f609112eb527a8c3c54724a0e03443671e8148cfe6c6194c", last = "68332bbe9847fdfb28a5c8f48606261df4f8b9e7a43be2b9c89873843e7b26ff" }
+toolchain = { tentzhen = "89fccdc", amaranth = "0.5.10", oss-cad-suite = "2026-11-21", openfpgaloader = "1.2.0", serialport = "4.10.1" }
+
+[[device]]
+part = "LFE5U-45F"
+revision = "Colorlight i9 v7.2"
+gateware_sha256 = "00fe67f6eddd9769985614c666ce629df12e732a101c81880d640fc5a9fd8627"
+
+[results]
+before_load_answer = false
+before_load_received = "the frame echoed back, all 785 bytes, and no answer; the host command timed out on its first input"
+vectors_match = true
+vectors_answered = "6 of 6 inputs exactly as the golden model, every y and z of 256 outputs, in 1.1 s"
+mnist_match = true
+mnist_answered = "1,000 of 1,000 test images exactly as the golden model, every y and z of 256 outputs, none differing, in 180.0 s"

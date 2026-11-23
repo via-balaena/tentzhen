@@ -1,0 +1,244 @@
+{
+  "run": "E10",
+  "model": "784 -> 1024 -> 512 -> 10 MLP: layers 0 and 2 LittleBit at r = 9, each followed by uint8 activations; layer 4 dense float",
+  "weights": 1332224,
+  "parameters": 40124,
+  "recipe": {
+    "optimizer": "Adam",
+    "learning_rate": 0.001,
+    "schedule": "cosine, by step, to 0",
+    "epochs": 20,
+    "batch": 128,
+    "seed": 0,
+    "pixels": "floor(p / 2) / 128",
+    "deterministic_algorithms": true
+  },
+  "littlebit": {
+    "rank": 9,
+    "start": {
+      "run": "E10-start",
+      "weights_sha256": "cfbdd0652bdc470b107783f85b50aeaeb54ad00da4a8f9655346d89916ad6766"
+    },
+    "init": "Dual-SVID: U' and V' from W's truncated SVD, each with the square root of the singular values; h and g from rank-one fits of |U'| and |V'|, each fit split by the square root of its singular value; l the product of the fits' other halves",
+    "sign": "+1 where w >= 0, else -1; the gradient passed where |w| <= 1",
+    "activations": "floor(y / 2^e) clamped to 0..255, times 2^e; the gradient passed where 0 <= y < 256 * 2^e",
+    "activation_exponents": [
+      -5,
+      -5
+    ],
+    "init_test_correct": 4849
+  },
+  "mnist_sha256": {
+    "train-images-idx3-ubyte.gz": "440fcabf73cc546fa21475e81ea370265605f56be210a4024d2ca8f203523609",
+    "train-labels-idx1-ubyte.gz": "3552534a0a558bbed6aed32b30c495cca23d567ec52cac8be1a0730e8010255c",
+    "t10k-images-idx3-ubyte.gz": "8d422c7b0a1c1c79245a5bcf07fe86e33eeafee792b84584aec276f5a2dbc4e6",
+    "t10k-labels-idx1-ubyte.gz": "f7ae60f92e00ec6debd23a6088c31dbd2371eca3ffa0defaefb259924204aec6"
+  },
+  "train_correct": 57827,
+  "train_images": 60000,
+  "test_correct": 9555,
+  "test_images": 10000,
+  "curve": [
+    {
+      "epoch": 1,
+      "train_loss": 0.2867323664824168,
+      "test_correct": 9288
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.21783966666062674,
+      "test_correct": 9344
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.21620354464848837,
+      "test_correct": 9412
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.20864539240201313,
+      "test_correct": 9374
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.20236279520193737,
+      "test_correct": 9394
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.20274885358810424,
+      "test_correct": 9414
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.19969214092890422,
+      "test_correct": 9384
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.19601836719512938,
+      "test_correct": 9180
+    },
+    {
+      "epoch": 9,
+      "train_loss": 0.19212560193538666,
+      "test_correct": 9442
+    },
+    {
+      "epoch": 10,
+      "train_loss": 0.1879987665494283,
+      "test_correct": 9376
+    },
+    {
+      "epoch": 11,
+      "train_loss": 0.18221501874128979,
+      "test_correct": 9376
+    },
+    {
+      "epoch": 12,
+      "train_loss": 0.18072561319669087,
+      "test_correct": 9488
+    },
+    {
+      "epoch": 13,
+      "train_loss": 0.17521688396135965,
+      "test_correct": 9452
+    },
+    {
+      "epoch": 14,
+      "train_loss": 0.1722939910729726,
+      "test_correct": 9469
+    },
+    {
+      "epoch": 15,
+      "train_loss": 0.16540676166216534,
+      "test_correct": 9484
+    },
+    {
+      "epoch": 16,
+      "train_loss": 0.16088134495019912,
+      "test_correct": 9420
+    },
+    {
+      "epoch": 17,
+      "train_loss": 0.15704155097007752,
+      "test_correct": 9438
+    },
+    {
+      "epoch": 18,
+      "train_loss": 0.1503619770606359,
+      "test_correct": 9471
+    },
+    {
+      "epoch": 19,
+      "train_loss": 0.1398528001944224,
+      "test_correct": 9532
+    },
+    {
+      "epoch": 20,
+      "train_loss": 0.1309469941576322,
+      "test_correct": 9555
+    }
+  ],
+  "layout": [
+    {
+      "name": "0.g",
+      "shape": [
+        784
+      ]
+    },
+    {
+      "name": "0.v",
+      "shape": [
+        784,
+        9
+      ]
+    },
+    {
+      "name": "0.l",
+      "shape": [
+        9
+      ]
+    },
+    {
+      "name": "0.u",
+      "shape": [
+        1024,
+        9
+      ]
+    },
+    {
+      "name": "0.h",
+      "shape": [
+        1024
+      ]
+    },
+    {
+      "name": "0.bias",
+      "shape": [
+        1024
+      ]
+    },
+    {
+      "name": "2.g",
+      "shape": [
+        1024
+      ]
+    },
+    {
+      "name": "2.v",
+      "shape": [
+        1024,
+        9
+      ]
+    },
+    {
+      "name": "2.l",
+      "shape": [
+        9
+      ]
+    },
+    {
+      "name": "2.u",
+      "shape": [
+        512,
+        9
+      ]
+    },
+    {
+      "name": "2.h",
+      "shape": [
+        512
+      ]
+    },
+    {
+      "name": "2.bias",
+      "shape": [
+        512
+      ]
+    },
+    {
+      "name": "4.weight",
+      "shape": [
+        10,
+        512
+      ]
+    },
+    {
+      "name": "4.bias",
+      "shape": [
+        10
+      ]
+    }
+  ],
+  "weights_sha256": "6a29596e8044efa06692bf3cb2f63d9c20345d07ffa9b9565b19ab6998607d17",
+  "seconds": 54.5951492000022,
+  "device": "NVIDIA GeForce RTX 4070 Ti",
+  "versions": {
+    "python": "3.12.15",
+    "torch": "2.15.0+cu132",
+    "cuda": "13.2",
+    "cudnn": 92600,
+    "numpy": "2.5.5"
+  }
+}

@@ -1,0 +1,16 @@
+measures = "Whether bytes sent from the computer to the i9 at 115,200 baud come back under Gate 0's echo, and whether anything echoes once power-off has cleared it from the FPGA"
+setup = "The Colorlight i9 seated in its i5/i9 extension board, powered and loaded over the board's USB, with nothing on the headers. openFPGALoader loaded the echo (gateware/bringup/uart_echo.py) into the FPGA's SRAM (lab log seq 4). A PowerShell script on the computer sent 278 bytes to the DAPLink's serial port, COM3, at 115,200 baud, 8N1, in one write: the byte values 0 to 255, then a line of text. It read back what came until it had as many as it sent or nothing arrived for 2 s (seq 5). Jon then unplugged the USB and plugged it back in (seq 6), the same script ran again (seq 7), and then the port was read for 3 s with nothing sent (seq 8)."
+log = { first = "616e4f3a119a515f0dada90334530ce90d6547c6da703c5402789606ae6dd8ef", last = "cbca577be5adfbd0f2eb4e0b330a47b964824085d3872ba2cd67e6046cb914bd" }
+toolchain = { tentzhen = "ff53731", amaranth = "0.5.10", oss-cad-suite = "2026-11-21", openfpgaloader = "1.2.0" }
+
+[[device]]
+part = "LFE5U-45F"
+revision = "Colorlight i9 v7.2"
+gateware_sha256 = "dadc84aea3f8d9a05b034b1e4d868c548e7cb8a81d9f52cc65fc80708a08d12d"
+
+[results]
+echo_match = true
+echo_received = "all 278 bytes, in order, within 0.067 s of the write"
+after_power_cycle_echo = false
+after_power_cycle_received = "278 bytes over 4.8 s, every one 0x00 or 0x01, the first already unlike the bytes sent"
+after_power_cycle_unsent = "174 bytes in 3 s with nothing sent: 155 of 0x00 and 19 of 0x01"

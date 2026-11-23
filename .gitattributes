@@ -1,0 +1,8 @@
+# Every text file is LF in the repo and in every checkout, on any OS. The lab log's hash chain,
+# the Quality Gate's byte-for-byte steps and the tests compare bytes, and Git for Windows turns
+# core.autocrlf on in its own config, which without this checks out every line with CRLF: the
+# records stop loading. Held by every_text_file_checks_out_with_lf (docs/architecture.md, "Rules").
+* text=auto eol=lf
+
+# The fonts' licenses, kept byte for byte as committed: the IBM Plex ones with CRLF.
+site/fonts/OFL-*.txt -text

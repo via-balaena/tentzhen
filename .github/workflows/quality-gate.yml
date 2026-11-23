@@ -27,8 +27,11 @@ jobs:
   gate:
     name: Quality Gate
     runs-on: ubuntu-24.04
-    # A cold cache builds DuckDB from source twice (check and test): about 17 minutes.
-    timeout-minutes: 40
+    # A cold cache builds DuckDB from source twice (clippy and test), and the gateware's cocotb
+    # tests take 12 to 15 minutes more. A run with no cache is cut off at 40: via-balaena's first
+    # run of this branch was, in the cocotb step, after clippy's 10 minutes and the tests' 15
+    # (run 45261560163, 2026-11-23). A run whose cache is warm takes 16 to 20.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -46,7 +49,42 @@ jobs:
           restore-keys: cargo-${{ runner.os }}-
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      # MNIST for crates/littlebit's tests, which re-score the committed training runs. Its terms
+      # are unread, so it is fetched, never committed; the tests refuse a file that is not its pin
+      # in models/littlebit/mnist.toml, so this step only downloads.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/mnist
+          key: mnist-${{ hashFiles('models/littlebit/mnist.toml') }}
+      - name: Fetch MNIST from the mirror models/littlebit/mnist.toml names
+        run: |
+          mkdir -p "$RUNNER_TEMP/mnist"
+          mirror=$(sed -n 's/^mirror = "\(.*\)"$/\1/p' models/littlebit/mnist.toml)
+          for f in $(sed -n 's/^"\([a-z0-9-]*\.gz\)" = .*/\1/p' models/littlebit/mnist.toml); do
+            [ -f "$RUNNER_TEMP/mnist/$f" ] || curl -sSfL -o "$RUNNER_TEMP/mnist/$f" "$mirror$f"
+          done
+          ls -l "$RUNNER_TEMP/mnist"
       - run: cargo test --workspace --locked
+        env:
+          MNIST_DIR: ${{ runner.temp }}/mnist
+      # The gateware's cocotb tests, on Verilator, with OSS CAD Suite's Linux build of the same day
+      # as the lab computer's. The archive is cached, and checked against its sha256 every run.
+      # The full-network test has the golden model score MNIST's 10,000 test images, by `cargo
+      # run`, into its own temporary folder, so it needs MNIST too.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/oss-cad-suite-linux-x64-20261121.tgz
+          key: oss-cad-suite-linux-x64-20261121
+      - name: The gateware's cocotb tests, on Verilator from OSS CAD Suite 2026-11-21
+        env:
+          MNIST_DIR: ${{ runner.temp }}/mnist
+        run: |
+          f="$RUNNER_TEMP/oss-cad-suite-linux-x64-20261121.tgz"
+          [ -f "$f" ] || curl -sSfL -o "$f" "https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2026-11-21/oss-cad-suite-linux-x64-20261121.tgz"
+          echo "da62ff9cd16a69fc23607f3430459a3ca405561063e93910bf71d99012bb59e2  $f" | sha256sum -c -
+          tar xzf "$f" -C "$RUNNER_TEMP"
+          source "$RUNNER_TEMP/oss-cad-suite/environment"
+          python3 -m pytest -q -rA gateware
       - name: The enforcer builds for the RP2350, with no standard library
         run: cargo build -p tentzhen-enforcer --target thumbv8m.main-none-eabi --locked
       - name: Kani checks the enforcer's rules

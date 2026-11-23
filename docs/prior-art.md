@@ -51,6 +51,12 @@ of record. Each part exists on its own, and several were built in 2026.
   and done on an ECP5 with open tools (pocket-bnn) and on Tiny Tapeout chips. Low-rank binary
   factors on an FPGA, and one network compared hardwired and in block RAM, are in nothing we
   found.
+- **A chip's layout** for a hardwired network has been done on Tiny Tapeout: a ternary MLP for
+  MNIST with its weights constant-folded into the logic, on a 2×2 tile, and a binary one on a 1×2.
+  Printed-electronics papers build MLPs as circuits for one trained model and judge them by area.
+  Low-rank binary factors laid out in silicon are in nothing we found. Tiny Tapeout's GitHub
+  Action runs LibreLane in Docker on GitHub's computers, so a layout needs no LibreLane on the lab
+  computer.
 - **In Chinese,** there are many more open instruments, supplies and loads, several with one unit's
   accuracy measured and published, and agents on instruments from RIGOL and others. The pattern is
   the same: at most one unit's measurements behind some of the numbers, and every limit read in
@@ -232,6 +238,34 @@ Building blocks for project #3: Muse Lab's Amaranth platform for the i9
 (Apache-2.0); Concordia's local model backends (Apache-2.0); LibreLane (Apache-2.0) and Tiny
 Tapeout for Phase 5.
 
+## A chip's layout
+
+Searched 2026-11-21, for Phase 5 of project #3 (`littlebit.md`): what already lays out a hardwired
+network on an open process, and where LibreLane can run. Six web searches; about ten GitHub
+repository searches; four GitHub code searches over the TinyTapeout organization, whose shuttle
+repos hold every tile's datasheet, `info.yaml` and layout figures; and arXiv's API for the
+printed-electronics papers. Every row was read in its own text, through GitHub's API or arXiv's,
+except where it says otherwise. These found nothing: repository searches for "amaranth
+tinytapeout", "amaranth tiny tapeout", "tinytapeout bnn", "tinytapeout binary neural", "tt_um
+mnist" and "sky130 binary neural network". Not seen: Tiny Tapeout tiles whose datasheets use none
+of the words searched for ("mnist", "neural network", "binary neural"), the papers behind the
+printed-electronics abstracts, IEEE and ACM papers, and SiliconCompiler's and OpenROAD Flow
+Scripts' own docs.
+
+| work | closest part | different | source |
+|---|---|---|---|
+| kenchangh/mnist-character-recognition (`tt_um_kenchangh_mnist`, on TTSKY26c) | an MNIST MLP, 64→32→10, whose ternary weights "are baked into the netlist as Verilog constants, so synthesis constant-folds them into plain logic — no RAM, no ROM macros, no weight loading", on a 2×2 sky130A tile. Its integer model scores "80.3 %" on MNIST cut to 8×8 binary pixels. Synthesis gives 2,165 cells for its 2,368 weights (64×32 + 32×10), and its layout has no DRC or LVS errors | ternary weights, no low-rank factors; 64 input bits, not 784 pixels; Verilog; its accuracy is its model's, not a chip's | at 33c215e5 (Apache-2.0); its datasheet, `info.yaml`, `stats/synthesis-stats.txt` and `stats/metrics.csv` in TinyTapeout/tinytapeout-sky-26c, **re-read** |
+| Petros-Emmanouilidis/ttnn (`tt_um_petros`, on TTSKY26b) | a binary network with its first layer's weights as constants in the SystemVerilog (`l0_weights`), combinational, on a 1×2 tile; its Python model scores "70%" on its test data | binary, 8 hidden units; scikit-learn's 8×8 digits, not MNIST | at 8b03b852 (Apache-2.0), `src/ttnn.sv` and its datasheet, **re-read** |
+| Tiny Tapeout tiles that load their weights | binary or small networks on one tile: `tt_um_BNN` (TTSKY25a), `tt_um_vmm_bnn` and `tt_um_dean_foulds_ai_accelerator` (TTSKY26b), `tt_um_four_bit_nn_accel` (TTSKY26c), `tt_um_gregac_tiny_nn` (TT10) | the weights are loaded from outside and held in flops or shift registers, not hardwired | their datasheets in TinyTapeout's shuttle repos, **re-read** |
+| Printed MLPs as bespoke circuits (Kokkinis, Armeniakos, Afentaki, Saglam, Zervakis, Tahoori and others) | MLPs built as circuits for one trained model, "Bespoke (fully-customized) design" (arXiv 2312.17612), judged by area, the measure of research question 5: "for up to 5% accuracy loss up to 8x area reduction" (arXiv 2301.11142) | printed electronics, not silicon standard cells; their full texts are unread, so their flows and per-weight figures are not known here. A web search's summary says 2301.11142's weights are constants in the circuit and that it synthesizes with Synopsys Design Compiler | arXiv 2301.11142, 2303.08255, 2312.17612 and 2412.06542, abstracts **re-read**; the summary as summarised |
+| LibreLane | the flow Phase 5 names. Its install guide ranks Nix "(Best)", an AppImage "(Easiest)" on Linux or WSL, then Docker; on Windows it "*requires* WSL2". Its FAQ compares it with OpenROAD Flow Scripts, SiliconCompiler and OpenLane, and lists its open process kits as `sky130`, `gf180mcu` and `ihp-sg13g2` (beta) | the building block itself, not yet in `trusted-base.toml`. Latest releases 3.0.17 (2026-10-26) and 3.1.0.dev6 (2026-11-08) | librelane/librelane at 8494d4fe (Apache-2.0): `docs/source/installation/index.md`, `installation/wsl/_common.md`, `faq.md`, **re-read** |
+| Tiny Tapeout's GDS action | hardens a tile on GitHub's `ubuntu-24.04` runners: pip-installs LibreLane, 3.0.14 by default for sky130A, and runs it in LibreLane's Docker image (`--dockerized`). The template's workflow adds Tiny Tapeout's precheck and a gate-level test | lays out a Tiny Tapeout project, with its pins and tile, on GitHub's computers; nothing is installed on the lab computer | TinyTapeout/tt-gds-action at d4783dbe, `action.yml`; tt-support-tools at 0922544e, `project.py` and `tt_tool.py`; ttsky-verilog-template at a42e6662, `.github/workflows/gds.yaml`; all Apache-2.0, **re-read** |
+| Amaranth on Tiny Tapeout | virantha/tt10-enigma, `language: "Amaranth"`, hardened on TT10; htfab/tt10-py-checkers, one of whose layers is Amaranth | not networks. Tiny Tapeout's templates are Verilog, one for each shuttle, and one Chisel, none Amaranth | tt10-enigma at 68fa8233 and tt10-py-checkers at cd434374, both Apache-2.0, datasheets **re-read**; TinyTapeout/tinytapeout_www at ce1fff22, `content/hdl/templates/_index.md`, **re-read** |
+
+**The tile.** A sky130A 1×1 tile is 161.00 × 111.52 µm and a 2×2 is 334.88 × 225.76 µm
+(tt-support-tools at 0922544e, `tech/sky130A/tile_sizes.yaml`). The FAQ's "about 160x100 um" is
+of TT04 to TT10.
+
 ## Chinese-language sources
 
 Searched in Chinese on 2026-09-30: OSHWHub (立创开源硬件平台, JLC's open-hardware platform,
@@ -340,6 +374,13 @@ Each is a candidate, to be proposed where it lands:
     QA").
 12. **Publish incoming-QA results by seller,** which we found no one doing in the open, and offer
     them to the DS18B20 study's author, whose data is sorted by family.
+13. **Lay out Phase 5 on GitHub's computers,** as Tiny Tapeout's action does: LibreLane in its
+    Docker image, the version and the action pinned. Nix in WSL stays an option for working
+    through a failed run by hand, and needs WSL's disk moved off C: first.
+14. **Set Phase 5 beside kenchangh's tile:** the same process kit and tile, with its cells per
+    weight as the nearest figure research question 5 has.
+15. **Read the printed-MLP papers in full** before research question 5 settles how area per
+    weight bit is counted.
 
 ## Building blocks we use
 
@@ -367,5 +408,7 @@ Safe-SDL's authors (safety below the agent), the authors of Self-Verifying Measu
 front end), the ESP32 load's author (our load's topology), the S-ELO and XS1 authors (calibration,
 published), RIGOL's UVerse team (agents on instruments, with confirmation on the host), the authors
 of instrumentControl and WaveBench, rIC3's authors, the 一生一芯 course, and the reviewers at 数码之家.
+For project #3: kenchangh and Petros Emmanouilidis, whose hardwired networks are on Tiny Tapeout
+tiles.
 Kazumoto Kojima, whose i5ether carries no license, so we could build on it only once it has one. And
 the projects we build on, upstream first when we find a bug.

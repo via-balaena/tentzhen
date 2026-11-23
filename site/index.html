@@ -124,10 +124,11 @@
           <div><dt>MODEL</dt><dd>MLP 784 → 256 → 128 → 10 · MNIST first</dd></div>
           <div><dt>BITS</dt><dd>Binary low-rank factors and scales, after LittleBit</dd></div>
           <div><dt>ROMS</dt><dd>Weights in LUT logic · the same bits in block RAM</dd></div>
-          <div><dt>FOR</dt><dd>A chip that runs SocialJax and Concordia · local AI companions</dd></div>
+          <div><dt>FOR</dt><dd>Simulations with trained agents: SocialJax, Concordia · local AI companions</dd></div>
         </dl>
         <div>
-          <p class="graded"><span class="grade">unknown</span>Nothing built or measured yet.</p>
+          <p class="graded"><span class="grade measured">measured</span>On a Colorlight i9 at 50 MHz, the network at r = 16 scored MNIST's first 1,000 test images exactly as the golden model does, 1,219 clocks each (2026-11-23-i9-littlebit-network).</p>
+          <p class="graded"><span class="grade tested">tested</span>97.17 % of MNIST's 10,000 test images right, at 0.125 bits a weight in its first layer; the gateware scores all 10,000 as the golden model does.</p>
         </div>
       </div>
     </div>

@@ -1,0 +1,18 @@
+[package]
+name = "tentzhen-littlebit"
+version = "0.0.0"
+description = "Project #3's golden model: MNIST read by its pins, training runs scored, a LittleBit run's integer export, run, and the board checked against it"
+publish = false
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+flate2 = "=1.1.10"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+# The host side of the board runs (src/board.rs), over the DAPLink's serial port. Without its
+# default features it needs no libudev to build on Linux.
+serialport = { version = "=4.10.1", default-features = false }
+sha2 = "=0.11.0"
+toml = "=1.1.6"

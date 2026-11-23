@@ -1,0 +1,19 @@
+measures = "Whether r16, the whole LittleBit network, hardwired into the i9 (Variant A) and run at 50 MHz from the PLL, scores each image over the UART exactly as the integer golden model does, every one of its 10 scores and the digit (check 3, Gate 3), and how many clocks it counts for each image"
+setup = "i9-2, Jon's #2: the Colorlight i9 seated in its own i5/i9 extension board, the only board on the lab computer's USB, powered and loaded over it, with nothing on the headers. Before the load it ran r16's first layer (gateware/bringup/littlebit_layer.py, lab log seq 23). The host command, `cargo run -p tentzhen-littlebit -- network COM4 vectors`, then failed: it refused image 1's answer, which started 0x01, not 0x5a (seq 26). openFPGALoader then loaded the whole network (gateware/littlebit/network.py, built from the gateware at main 34dedf8, the same bitstream byte for byte as Gate 2's build) into the FPGA's SRAM (seq 27). The host command sent the 6 network test images for r16 (gateware/cores/tests/littlebit_vectors.json) (seq 28), and then MNIST's first 1,000 test images, the pixels as MNIST stores them, since the network shifts them itself (seq 29), one frame at a time at 115,200 baud, 8N1. It compared each answer's 10 scores and digit with the golden model's (crates/littlebit/src/integer.rs, from models/littlebit/runs/r16/integer.json), and read the clocks the network counted."
+log = { first = "562ad5b62d37084248342c786fee1ae03f9618fd3b340c6d017131d629755d7b", last = "d5a537291b61d683faf16766e3223746083f559287265a922b544bbd0b2abb33" }
+toolchain = { tentzhen = "cb60f2a", amaranth = "0.5.10", oss-cad-suite = "2026-11-21", openfpgaloader = "1.2.0", serialport = "4.10.1" }
+
+[[device]]
+part = "LFE5U-45F"
+revision = "Colorlight i9 v7.2"
+gateware_sha256 = "754c51aef2aabe3598296aacbada86a962afd274002b39c0ab929c387d52047b"
+
+[results]
+before_load_answer = false
+before_load_received = "the layer design's answer, not the network's: the host command refused image 1's answer, which started 0x01, not 0x5a; which bytes of the layer's 1,281-byte answers it read is not established"
+vectors_match = true
+vectors_answered = "6 of 6 images exactly as the golden model, every score and the digit, in 0.4 s"
+mnist_match = true
+mnist_answered = "1,000 of 1,000 test images exactly as the golden model, every score and the digit, none differing, in 72.8 s: 13.73 images a second over the serial link"
+mnist_digits_right = "974 of the 1,000 digits are MNIST's labels"
+clocks_each_image = "1,219 on every one of the 1,006 images, as the network counted them"

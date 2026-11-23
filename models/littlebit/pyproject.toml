@@ -1,0 +1,24 @@
+# Project #3's model training (docs/littlebit.md, "Languages and layout"): PyTorch, the exception
+# CLAUDE.md names for it. uv reads this file; uv.lock beside it pins every package, with hashes.
+[project]
+name = "tentzhen-littlebit"
+version = "0.0.0"
+description = "LittleBit x Taalas: the training, the rank sweep and the weight export"
+requires-python = "==3.12.*"
+dependencies = [
+    "numpy==2.5.5",
+    "torch==2.15.0",
+]
+
+[tool.uv]
+# Scripts run in its environment; it is not a package to install.
+package = false
+
+# PyTorch's CUDA 13.2 build, from PyTorch's own index, on Windows and Linux; macOS takes PyPI's.
+[[tool.uv.index]]
+name = "pytorch-cu132"
+url = "https://download.pytorch.org/whl/cu132"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu132", marker = "sys_platform == 'linux' or sys_platform == 'win32'" }]

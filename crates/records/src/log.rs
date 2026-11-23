@@ -139,7 +139,7 @@ pub fn append(
 ) -> Result<Entry, String> {
     let dir = root.join(LOG);
     fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-    let lock = File::open(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    let lock = open_folder(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     lock.lock()
         .map_err(|e| format!("{}: cannot lock: {e}", dir.display()))?;
     let log = parse(&read(root)?)?;
@@ -182,6 +182,29 @@ pub fn append(
         .map_err(|e| format!("{}: {e}", path.display()))?;
     written.record = record;
     Ok(written)
+}
+
+/// The file whose lock [`append`] holds for the log's folder `dir`: the folder itself, opened as a
+/// file. Windows cannot lock a folder (`File::open` on one is "Access is denied", and `LockFileEx`
+/// on a folder's handle is "The parameter is incorrect"), so there it is a file in the system's
+/// temp folder named for the folder's full path: outside `lab/`, where every file is a record
+/// (`every_file_in_the_records_folders_is_loaded`), and the same file for every writer on the
+/// machine.
+fn open_folder(dir: &Path) -> std::io::Result<File> {
+    #[cfg(windows)]
+    {
+        let full = dir.canonicalize()?;
+        let name = sha256_hex(full.to_string_lossy().as_bytes());
+        OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(std::env::temp_dir().join(format!("tentzhen-log-{}.lock", &name[..16])))
+    }
+    #[cfg(not(windows))]
+    {
+        File::open(dir)
+    }
 }
 
 /// `t` in UTC, to the second, as an entry's `at`.
