@@ -17,6 +17,10 @@ dependencies = [
     "pillow==11.1.0",
 ]
 
+[project.optional-dependencies]
+# On Linux, as in WSL2, JAX's CUDA build, SocialJax's own pin: `uv sync --locked --extra cuda`.
+cuda = ["jax[cuda12]==0.6.2"]
+
 [tool.uv]
 # Scripts run in its environment; it is not a package to install.
 package = false

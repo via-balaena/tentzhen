@@ -47,3 +47,14 @@ The first has JAX draw from 9 keys every way Clean Up draws (`split`, `uniform`,
 draw the same, bit for bit (`jax_s_random_numbers_are_these_bit_for_bit`). The second fails unless
 the committed file is what this JAX writes. It needs no SocialJax. The Quality Gate has no JAX, so
 it checks the Rust against the file, and the file against JAX is checked by hand.
+
+## Timing it
+
+    uv run --locked python bench.py D:\tentzhen-downloads\SocialJax
+
+times the game at 1, 16, 256 and 1,024 games at once, with moves drawn at random and with the
+policy choosing them, as the median of 5 timings of 1,000 steps. On an NVIDIA GPU it also reads the
+board's power through nvidia-smi. JAX's CUDA build has no Windows wheel, so on the GPU it runs under
+WSL2, with the `cuda` extra (`uv run --locked --extra cuda ...`). Nothing else may use the GPU while
+it runs: two JAX processes sharing one under WSL slow each other about 30 times. The results are in
+`docs/littlebit.md`, "The goal: cheaper than a GPU per game step".

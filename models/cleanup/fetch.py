@@ -15,11 +15,11 @@ PINS = tomllib.loads(Path(__file__).with_name("socialjax.toml").read_text())
 
 
 def check(folder):
-    """Refuses a checkout whose commit or checkpoint is not the pin."""
+    """Refuses a checkout whose commit or checkpoint is not the pin. The commit is read from
+    .git/HEAD, which `fetch` leaves holding the pinned commit itself (a detached checkout), so the
+    check needs no git: git in WSL refuses a repo cloned from Windows, as another user's."""
     folder = Path(folder)
-    head = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=folder, check=True, capture_output=True, text=True
-    ).stdout.strip()
+    head = (folder / ".git" / "HEAD").read_text().strip()
     if head != PINS["commit"]:
         raise ValueError(f"{folder}: at {head}, not the pinned {PINS['commit']}")
     checkpoint = folder / PINS["checkpoint"]["path"]

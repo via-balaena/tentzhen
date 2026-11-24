@@ -238,6 +238,56 @@ Building blocks for project #3: Muse Lab's Amaranth platform for the i9
 (Apache-2.0); Concordia's local model backends (Apache-2.0); LibreLane (Apache-2.0) and Tiny
 Tapeout for Phase 5.
 
+## Simulations in hardware
+
+Searched 2026-11-23, for project #3's goal of running multi-agent simulations more cheaply a game
+step than a GPU (`littlebit.md`, "The goal: cheaper than a GPU per game step").
+
+- **How it was searched.** A search agent ran about 30 web searches, and GitHub repository and code
+  searches through `gh`. It read pages through a tool that summarises them.
+- **Read in their own text,** through GitHub's API: rial, LoWA and KohakuTPU, and EnvPool's PR #433.
+- **Not seen:**
+  - ACM's page for FA3C, which refused the request, so FA3C's figures come from search snippets;
+  - PufferLib 2.0's PDF;
+  - AMD's own release on completing its purchase of Taalas.
+
+Every speed-up and efficiency ratio below is its authors' own, each against a different baseline.
+
+| work | closest part | different | source |
+|---|---|---|---|
+| FPGA-Gym (NeurIPS 2024, Open-World Agents workshop) | RL environments' steps written in Verilog on a PCIe FPGA board, grid worlds (FrozenLake, CliffWalking, Taxi) among its 8: "4.36 to 972.6×" the fastest software framework | single-agent; the agents stay on the host, behind a Gymnasium interface; Vivado 2018.2; no steps a second or board named on the pages read | neurips.cc/virtual/2024/100961 and Selinaee/FPGA_Gym (MIT), as the agent read them |
+| Asseman et al., IBM's Neural Computer (arXiv 2005.04536, 2020) | the Atari console, the image preprocessing and the network all on FPGAs, "about 1 million frames per second" on "432 Xilinx FPGAs" | single-agent, for neuroevolution; no claim to match software bit for bit | as the agent read it |
+| FA3C (ASPLOS 2019), FIXAR (DAC 2021), LearningGroup (FPT 2022) | RL on FPGAs: FIXAR's fixed-point training at 2,638.0 IPS/W, 15.4× a CPU and GPU; LearningGroup's multi-agent training on chip at 12.43× a Titan RTX's energy efficiency | all accelerate a training loop on Xilinx parts; none hardwires weights, and none puts the environment beside the policy | arXiv 2102.12103 and 2210.16624, as the agent read them; FA3C from search snippets |
+| SocialJax (arXiv 2503.14576v2), its Table 1 | Clean Up with random moves on an A100 and 14 CPU cores: 9.9 × 10⁵ steps a second at 1,024 games, 2.1 × 10⁶ at 4,096 | no figure with a trained policy choosing the moves | as the agent read it |
+| JaxMARL, EnvPool, CuLE, XLand-MiniGrid, PufferLib 2.0 | environments on GPUs and CPUs at 10⁶ to 10⁷ steps a second with random moves | the baselines to beat, each on its own hardware | as the agent read them; XLand-MiniGrid's A100 figure and PufferLib from search summaries only |
+| craftax.cu (a gist by brycelelbach, 2026-04-28) | Craftax, a JAX environment, hand-written in CUDA: 54,177,909 steps a second at 4,096 environments on an RTX Pro 6000, and training at 3,007,291 against JAX's 107,000 on an RTX 3090 | one author, unreviewed; shows a CUDA port can beat JAX by tens of times, so a GPU's bar isn't fixed | as the agent read it |
+| EnvPool's Craftax port (sail-sg/envpool PR #433, merged 2026-08-28) | Craftax's rules and its Threefry streams in C++, with a pinned JAX as the oracle: "State, rewards… and uint8 rendered frames must match exactly", but for "one-to-two-ULP differences caused by… fused multiply-add order in specific combined JAX reset/step graphs" | C++ on a CPU, not hardware; EnvPool's docs now say it uses "EnvPool's native random-number generator" instead | the PR, read in its own text by the agent; EnvPool's license not checked |
+| Threefry and Philox in HDL: mdgrape/rial (RIKEN, Chisel, BSD-2-Clause), SDMuhsin/LoWA (Verilog), KohakuBlueleaf/KohakuTPU | rial's `Threefry4x32Generator`, 20 rounds; LoWA's `rn_tf.v`, Threefry-2x32 unrolled to a block a clock; KohakuTPU's Philox-4x32-10 | none claims to match JAX's streams; rial is 4 × 32; LoWA's is 13 rounds, and JAX's 20 (`jax/_src/prng.py`); LoWA has no license, so it is read, never copied; KohakuTPU's license is unstated | read in their own text by the agent |
+| HNLPU, "Metal-Embedding" (arXiv 2508.16151v2, 2026-01-13) | weights encoded in the topology of a chip's metal wiring: 249,960 tokens a second and 36 tokens a joule | modelled, not said to be made; a language model | as the agent read it |
+| Taalas HC1, checked by others | heise: "independent measurements by third parties are not yet available" (2026-02-21); the demo server's own figures, read by a gist's author, averaged about 14,200 tokens a second | no controlled benchmark by anyone but Taalas; AMD's purchase was reported complete on 2026-11-17, by a secondary site | heise.de/-11185112 and a gist by instax-dutta (2026-07-20), as the agent read them; AMD's release not read |
+| QuaRL/ActorQ (arXiv 1910.01055), Deep Binary RL for Scalable Verification (arXiv 2203.05704), Low Precision Policy Distillation (arXiv 1809.09260) | RL policies at 8 bits, binarized, or distilled to low precision | none uses low-rank binary factors, and none measures a compressed policy's return in a multi-agent social dilemma | as the agent read them |
+
+What this means for the plan:
+
+- **Already done:**
+  - environments in HDL, single-agent, with the policy on the host;
+  - a whole game and its network on FPGAs, single-agent, on Xilinx parts;
+  - FPGA trainers and actors;
+  - Threefry in HDL;
+  - a JAX environment rebuilt with its Threefry streams and matched exactly against a pinned JAX,
+    in C++.
+- **Not found:**
+  - a multi-agent social-dilemma game on one chip with its policy;
+  - hardware matched bit for bit with JAX;
+  - any of it on open tools and a cheap ECP5;
+  - low-rank binary factors in an RL policy, with its return measured;
+  - a published cost per game step, policy included, against a GPU.
+- **To reuse:**
+  - EnvPool's method: a pinned oracle, each field compared exactly, and its warning about fused
+    multiply-adds;
+  - rial's Threefry structure, should the gateware need one (BSD-2-Clause);
+  - Random123's known answers, which `crates/cleanup` checks.
+
 ## A chip's layout
 
 Searched 2026-11-21, for Phase 5 of project #3 (`littlebit.md`): what already lays out a hardwired
@@ -409,6 +459,7 @@ front end), the ESP32 load's author (our load's topology), the S-ELO and XS1 aut
 published), RIGOL's UVerse team (agents on instruments, with confirmation on the host), the authors
 of instrumentControl and WaveBench, rIC3's authors, the 一生一芯 course, and the reviewers at 数码之家.
 For project #3: kenchangh and Petros Emmanouilidis, whose hardwired networks are on Tiny Tapeout
-tiles.
+tiles; FPGA-Gym's authors, whose environments run in Verilog; and the authors of EnvPool's Craftax
+port, who matched a JAX environment exactly outside JAX.
 Kazumoto Kojima, whose i5ether carries no license, so we could build on it only once it has one. And
 the projects we build on, upstream first when we find a bug.

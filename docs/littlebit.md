@@ -39,6 +39,10 @@ changing only its scales, is a first experiment of its own ("Training with the s
 Whether what it finds carries from a 234,752-weight network to the ones above is `unknown` until a
 later step runs one of them.
 
+What "as efficiently as possible" is measured by (Jon, 2026-11-23): beating GPUs on cost for
+multi-agent simulations with trained agents, the price of a game step with the game and its policy
+running ("The goal: cheaper than a GPU per game step", below).
+
 That is the half the chip is for. Running SocialJax here means running simulations with agents
 already trained: the chip runs their fixed policies, and training them stays on a GPU (Jon,
 2026-11-23). SocialJax's agents learn by reinforcement learning, which changes the policy with
@@ -1345,6 +1349,95 @@ questions, with r = 16–64 as the low end.
 | wrong balls for the clock, LED or UART | nothing works on the board | Gate 0, a blinky and an echo, before the network |
 | Yosys folds or duplicates ROM logic unexpectedly | Variant A's figures mislead | read the post-synthesis LUT breakdown; synthesize one layer alone and compare |
 
+## The goal: cheaper than a GPU per game step
+
+Jon, 2026-11-23: "the goal is to beat gpus at cost for this exact type of ml, basically solving
+societal conflict before it actually happens irl". That means multi-agent simulations run with
+agents already trained. The order: first match JAX, then "eventually build a system that is
+completely optimized for the fpga/an asiic". So the measure is cost per game step, the hardware's
+price over its life plus its energy, with the game and its trained policy both running. Speed
+alone isn't the measure.
+
+**The bar on the GPU** (`models/cleanup/bench.py`, 2026-11-24, 00:20 to 00:23 UTC). This is
+SocialJax's Clean Up on the lab computer's RTX 4070 Ti: driver 621.01, WSL2's Ubuntu 24.04, JAX
+0.6.2 with its CUDA 12 build (the `cuda` extra in `models/cleanup/pyproject.toml`).
+
+- **How each row is timed.** A run of 1,000 steps is compiled, run once to warm up, then timed 5
+  times; the table gives the median, then the slowest to the fastest.
+- **How the power is read.** nvidia-smi's `power.draw.instant`, read every 100 ms, which nvidia-smi's
+  own help gives as accurate to within 5 W. It is the board alone, not the computer around it.
+- **The two loads.** Moves drawn at random time the game alone. With the policy, every agent's move
+  is drawn from SocialJax's trained policy, all 7 agents of every game each step. A game step is 7
+  agents' moves.
+
+| games at once | random moves, game steps a second | with the policy, game steps a second | board watts, with the policy | millijoules a game step, with the policy |
+|---|---|---|---|---|
+| 1 | 4,041 (3,369 to 5,376) | 4,330 (4,264 to 4,412) | 59 | 13.6 |
+| 16 | 58,957 (50,112 to 68,037) | 45,937 (32,205 to 48,048) | 92 | 2.29 |
+| 256 | 430,364 (429,806 to 430,713) | 164,390 (164,183 to 164,724) | 233 | 1.42 |
+| 1,024 | 613,662 (612,195 to 616,270) | 177,885 (177,616 to 178,549) | 255 | 1.44 |
+
+Idle, with JAX loaded, the board drew 27 W. With random moves at 1,024 games it drew 160 W, 0.26 mJ
+a game step. These are `bench.py`'s figures, and no test re-checks them. An earlier run, timed once
+a row, gave 179,348 game steps a second with the policy at 1,024 games, and 620,407 with random
+moves. new-melting-pot measured about 630,000 random game steps a second at 1,024 games on the same
+card, on JAX 0.12.
+
+What it means for the plan:
+
+- **The bar is 1.44 mJ, and 1/177,885 of a second, a game step.** That's with the policy at 1,024
+  games. Fewer games at once cost more a step: 13.6 mJ with one game.
+- **The policy is most of the time.** At 1,024 games it takes about 71 % of a step: 1 −
+  177,885/613,662. A chip that runs the policy alone, beside a GPU running the game, could at most
+  bring a step to the game's own 613,662 a second.
+- **The whole computer draws more than the board.** How much is `unknown`. So is the i9's energy a
+  game step, until a design runs; its power is measured on the bench, within `lab/limits.toml`.
+  Prices are what was paid, not a shop's listing (CLAUDE.md).
+- **The GPU's bar can rise.** A hand-written CUDA port of another JAX environment, Craftax, ran tens
+  of times faster than JAX on its author's own figures (`prior-art.md`, "Simulations in
+  hardware"). So a claim to beat a GPU names which GPU program it beats. This one is SocialJax's.
+- **One i9 is unlikely to beat it on speed alone.** Rough arithmetic, `unknown` until built: put
+  the whole game on the chip, with the policy at rank 16 on every layer. Make each layer a
+  hardwired kernel that positions stream through, and pipeline the layers. Then conv 1 takes 121
+  clocks a move, at a position a clock, and convs 2 and 3 and the dense layer take about 484 each.
+  At 59.375 MHz that is about 120,000 moves a second, or 17,500 game steps: about 10 times short
+  of the GPU, anywhere from 3 to 30 times. Games are independent, so boards add up. Whether a
+  few i9s cost less a step than one GPU is the question the measurements answer.
+
+**The plan.** Each step is a PR, and its claims carry their grades.
+
+1. **Match JAX.** First JAX's random numbers in Rust (`crates/cleanup`). Then:
+   - Clean Up's game in Rust, step for step against trajectories SocialJax plays.
+   - The integer policy: LittleBit on the convolutions and the dense layer, scored in the game
+     against the float baseline's 524.2. Its draw is defined so that the chip and the golden model
+     both make it exactly, with a JAX copy that matches them.
+   - The game and the policy in gateware, checked in cocotb against the golden model, then on the
+     i9.
+
+   One cheap early check: synthesize conv 1 with the real policy's signs and read nextpnr's LUTs and
+   clock, to replace the guess of a LUT a weight with a figure.
+2. **Measure the cost a game step on both.** The i9's power on the bench, the GPU's as above, and
+   what each cost.
+3. **Build for the FPGA or an ASIC.** Shape the game and the policy for the hardware, judged by score
+   against the float baseline rather than bit for bit against JAX.
+
+**What exists already** (searched 2026-11-23; `prior-art.md`, "Simulations in hardware"):
+
+- **Environments written in HDL:** FPGA-Gym. They are single-agent, with the policy on the host.
+- **A whole game and network on FPGAs:** IBM's Atari neuroevolution, on 432 Xilinx FPGAs.
+- **FPGA actors and trainers for RL:** FA3C, FIXAR and LearningGroup.
+- **Threefry in HDL:** rial and LoWA. Neither claims to match JAX's streams.
+- **A JAX environment rebuilt, Threefry streams and all, and checked exactly against a pinned JAX:**
+  EnvPool's Craftax port, in C++ on a CPU.
+
+Not found:
+
+- a multi-agent social-dilemma game run on one chip with its policy;
+- hardware matched bit for bit with JAX;
+- any of it on open tools and an ECP5;
+- low-rank binary factors in an RL policy, with its return measured;
+- a published cost per game step, policy included, against a GPU.
+
 ## Open questions
 
 - 8-bit or 16-bit scales? Start with 8, and switch only if check 1 fails (Jon's spec). It passed
@@ -1380,3 +1473,8 @@ found puts LittleBit-style low-rank binary factors on an FPGA, and none compares
 weights hardwired and in block RAM. On the i9 itself, ecp5-inference runs a small int8 language
 model from stored weights. In silicon, a logic-gate network on Tiny Tapeout classifies MNIST in
 "10K logic gates".
+
+For the goal of running simulations more cheaply than a GPU, searched 2026-11-23 (`prior-art.md`,
+"Simulations in hardware"): environments in HDL and whole single-agent games on FPGAs exist, and so
+does a JAX environment matched exactly outside JAX, in C++. A multi-agent social dilemma on one chip
+with its policy, matched bit for bit with JAX, was not found ("The goal", above).
