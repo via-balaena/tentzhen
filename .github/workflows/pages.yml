@@ -19,10 +19,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
-    name: Publish site/
+  build:
+    name: Package site/
     # A Quality Gate run on main's push, in this repo: `branches: [main]` above matches the branch's
-    # name alone, which a pull request from a fork can share.
+    # name alone, which a pull request from a fork can share. `deploy` needs this job and has no
+    # `if:`, so when this guard skips it, `deploy` is skipped too ("If a job fails or is skipped,
+    # all jobs that need it are skipped unless the jobs use a conditional expression that causes
+    # the job to continue": github/docs at daeca22ac0,
+    # data/reusables/actions/jobs/section-using-jobs-in-a-workflow-needs.md).
     if: >-
       (github.event_name == 'workflow_run'
         && github.event.workflow_run.conclusion == 'success'
@@ -34,20 +38,36 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The commit the Quality Gate passed, not whatever main is by now.
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           persist-credentials: false
-      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site
+
+  # The deploy is a job of its own, after the upload's. deploy-pages finds the artifact by listing
+  # the run's artifacts (`listArtifacts()`, src/internal/api-client.js at 368f8252), and in the
+  # upload's own job that listing found none on every publish from 2026-11-22 on: runs 44984168041
+  # and 45294564779 (twice), each after the upload had finalized the artifact.
+  # actions/deploy-pages#451 reports the same, and that moving the upload to an earlier job fixed
+  # it there. Whether it fixes it here is unknown until a publish passes.
+  deploy:
+    name: Publish site/
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # Reads the repo's Pages site (`repos.getPages`, src/api-client.js at 45bfe019), so it runs
+      # here, in the job that holds the pages permission.
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
