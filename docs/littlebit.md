@@ -207,6 +207,7 @@ person's approval in the session, and every load is logged as a `firmware.flash`
 | piece | language | where |
 |---|---|---|
 | training and the rank sweep | Python, PyTorch: the exception CLAUDE.md names for it | `models/littlebit/` |
+| SocialJax's Clean Up and its trained policy, played on the computer | Python, JAX, as SocialJax is written: the same exception | `models/cleanup/` |
 | the weight export and the integer golden model | Rust | `crates/littlebit` |
 | the layer engine, the output layer, the weight-ROM generator, the whole network | Amaranth | `gateware/cores/littlebit.py` |
 | the UART | Amaranth | `gateware/cores/uart.py` |
@@ -1081,6 +1082,11 @@ Gate 0's echo goes through the same DAPLink serial port as the bench's Phase 1 "
   inverted MNIST and Fashion-MNIST (`models/littlebit/train_frozen.py`, 2026-11-23). On
   Fashion-MNIST the scales get about three quarters of the way from training the output layer
   alone to training everything ("Training with the signs fixed").
+- [x] Play SocialJax's Clean Up with its own trained policy on the computer, the float baseline
+  for the first real workload (`models/cleanup/`, 2026-11-23): 524.2 a game when the agents draw
+  from the policy, and 0 when they take its most likely action, so the chip is to give the 9
+  scores and the computer to draw ("After MNIST: Clean Up's policy", "The float baseline"). Next:
+  compress the policy, and the convolutions' integer export and golden model.
 
 ## Experiments
 
@@ -1205,10 +1211,12 @@ What it doesn't show:
 
 The first real objective after MNIST passes Gate 3 is SocialJax's Clean Up policy hardwired into
 the i9, and its convolutions come early, not when that step starts (Jon, 2026-11-22). The game runs
-on the computer: each step it sends an agent's 11 × 11 × 19 observation over the UART, the i9 picks
-one of the 9 actions, and the computer plays it. Agents on the i9 and on the computer can share a
-game. The check is MNIST's: the hardwired policy picks the action the golden model does on every
-observation, and its game score stands beside the float policy's.
+on the computer: each step it sends an agent's 11 × 11 × 19 observation over the UART, the i9 gives
+the 9 actions' scores, and the computer draws an action from them and plays it. The plan had the i9
+pick the action itself, but the trained policy taking its most likely action never scores ("The
+float baseline", below). Agents on the i9 and on the computer can share a game. The check is
+MNIST's: the hardwired policy gives the golden model's 9 scores on every observation, and its game
+score stands beside the float policy's.
 
 The policy as SocialJax builds it (`algorithms/utils/networks.py` at 18e2171). Flax's convolutions
 default to stride 1 and "same" padding (google/flax at v0.10.7, the version SocialJax pins,
@@ -1243,10 +1251,51 @@ What it means for the plan:
   where LittleBit pays: 0.254 at r = 16.
 - **How long a decision takes** is `unknown` until the engine is designed: it depends on how many
   multiply-accumulates it does in a cycle.
-- **Running SocialJax needs JAX,** pinned at `jax[cuda12]==0.6.2`. Whether its CUDA build runs on the
-  lab computer's Windows, or it needs WSL or the CPU, is `unknown` until tried.
+- **Running SocialJax needs JAX,** pinned at `jax[cuda12]==0.6.2`. Its CUDA build has no Windows
+  wheel, so the lab computer runs JAX 0.6.2 on the CPU instead, which is fast enough to play the
+  game ("The float baseline", below).
 
-## Risks
+**The float baseline** (`models/cleanup/`, 2026-11-23). This is SocialJax's own trained policy
+playing Clean Up on the computer, the figure the hardwired policy is to stand beside.
+
+- **The checkpoint and the game.** SocialJax's checkpoint for Clean Up was trained by IPPO with
+  individual rewards from seed 30, as one network shared by all 7 agents
+  (`checkpoints/clean_up_seed30_reward_individual.pkl` at 18e2171). It is played as it was
+  trained: 7 agents, 1,000 steps, individual rewards. `models/cleanup/fetch.py` clones SocialJax at
+  that commit, outside the repo, and checks the checkpoint's sha256.
+- **Loading it safely.** The checkpoint is a pickle, and unpickling can run any code a file names.
+  `pickletools`, which runs nothing, read the classes this one names: NumPy's array
+  reconstruction, its array and its dtype. `models/cleanup/policy.py` refuses any other. It runs
+  the network as SocialJax builds it, with Flax's own layers.
+- **The environment.** JAX 0.6.2 on the CPU, Flax 0.10.7, chex, NumPy and Pillow, the versions
+  SocialJax pins, are all its environments import (`models/cleanup/uv.lock`).
+- **How the games were played.** All 100 at once, seeded 0 to 99, each agent acting one of three
+  ways, fixed before the first game:
+
+| how an agent acts | games | return, mean (sd) | the actions taken most |
+|---|---|---|---|
+| drawn from the policy, as SocialJax plays it | 100 | 524.2 (211.6) | up 41 %, zap_clean 24 % |
+| the policy's most likely action | 100 | 0.0 in every game | zap_clean 71 %; up never |
+| uniformly at random | 100 | 4.0 (17.0) | each about 11 % |
+
+A game's return is its 7 agents' rewards summed over its 1,000 steps. Out of 700,000 actions in
+each mode, the policy's most likely one was `up` none of the time, and `zap_clean` 497,680 times.
+These are `play.py`'s figures, and a second run of each mode gave the same returns, game by game.
+No test re-checks them: the game runs in JAX, and nothing in Rust plays it.
+
+What it means for the plan:
+
+- **The chip can't pick the most likely action.** That never eats an apple: the agents fire the
+  cleaning beam, turn and move down, and never move up. The policy is trained to be drawn from,
+  so the i9 gives the 9 scores, as the MNIST network gives its 10, and the computer draws the
+  action. A chip that draws for itself, from its own noise, is a later choice.
+- **The input is mostly bits.** Over every step of the 100 drawn games, 14 of the observation's 19
+  channels were never above 1, and 3 more, channels 3, 4 and 18, were 0 throughout. The other 2,
+  16 and 17, are inventory counts and reached 81. If that holds, each of the 121 cells takes 14
+  bits and a byte for each count, 30 bits, so an observation is 3,630 bits, against 2,299 bytes as
+  19 uint8s a cell.
+- **The scores, not the action, are what to match.** The golden model and the gateware compare the
+  9 scores exactly, as MNIST's 10 are. The game score then tests how much the compression costs.
 
 The biggest risk is accuracy at very low rank. If r ≤ 8 collapses, the project still answers its
 questions, with r = 16–64 as the low end.
