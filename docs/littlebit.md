@@ -1438,6 +1438,103 @@ Not found:
 - low-rank binary factors in an RL policy, with its return measured;
 - a published cost per game step, policy included, against a GPU.
 
+## How small the policy can get
+
+The compression sweep, 2026-11-24. Smaller students are trained to act as SocialJax's policy does,
+and each is scored by playing the game. This was moved ahead of the game's golden model because it
+is the biggest lever on cost: what a move computes sets the hardware for everything after it (Jon,
+2026-11-24, agreeing the order).
+
+**How it was run.** The bar, set before the first run: a student keeps the policy's score if its
+mean return is at least 90 % of the teacher's on the same games.
+
+- **The evaluation games.** All 1,000 seeded 1,000 to 1,999. The bar was first set over 100 games.
+  It became 1,000 after the teacher's own 100-game means came out at 521.0 and 481.0 on two sets of
+  seeds, and before any student was scored.
+- **The teacher's games.** `models/cleanup/rollouts.py` records the teacher playing 100 games,
+  seeded 0 to 99, on the GPU. That gives 700,000 observations, each with the teacher's logits.
+- **Training.** `models/littlebit/distill.py` trains each student in PyTorch to the teacher's
+  action distribution, by KL divergence. The recipe is the same for all, fixed before the first
+  run: Adam at 10⁻³, cosine-decayed over 20 epochs of 4,096, from seed 0.
+- **Where a student starts.** One of the teacher's shape starts from its weights, and its LittleBit
+  layers from Dual-SVID of them. The others start from PyTorch's own initialization, "fresh".
+- **Scoring.** `rollouts.py` plays each student on the evaluation games, its moves drawn from its
+  logits, as SocialJax plays, on the GPU.
+- **Round 2: one step of DAgger.** A student plays 100 games of its own, seeded 200 to 299, and the
+  teacher's logits are recorded for every observation it meets. The student is then trained
+  again, fresh, on the teacher's games and its own.
+
+Every LittleBit student keeps the 9 logits' layer in float: 576 multiply-adds and 576 weights.
+Activations are float throughout; the integer form is the next step. The difference is each
+student's return less the teacher's, game by game on the same seeds, with its standard error.
+
+| student | convolutions | LittleBit | a move computes | it holds | return | of the teacher | difference | keeps it |
+|---|---|---|---|---|---|---|---|---|
+| teacher | 32, 32, 32 | — | 4,321,952 multiply-adds | 286,112 weights | 479.4 | | | |
+| t32 | 32, 32, 32 | — | 4,321,952 multiply-adds | 286,112 weights | 483.6 | 101 % | +4.2 ± 8.2 | yes |
+| w16 | 16, 16, 16 | — | 1,605,744 multiply-adds | 140,784 weights | 446.2 | 93 % | −33.1 ± 7.8 | yes |
+| w8 | 8, 8, 8 | — | 665,816 multiply-adds | 71,576 weights | 453.3 | 95 % | −26.1 ± 7.6 | yes |
+| w4 | 4, 4, 4 | — | 300,396 multiply-adds | 37,836 weights | 435.9 | 91 % | −43.4 ± 7.7 | not settled: 0.6 standard errors over the bar |
+| dense-r16 | 32, 32, 32 | the dense layer, r = 16 | 4,074,144 multiply-adds and 62,976 sign additions | 38,304 weights and 62,976 sign bits | 466.7 | 97 % | −12.7 ± 8.1 | yes |
+| dense-r4 | 32, 32, 32 | the dense layer, r = 4 | 4,074,144 multiply-adds and 15,744 sign additions | 38,304 weights and 15,744 sign bits | 461.6 | 96 % | −17.8 ± 8.1 | yes |
+| all-r16, all-r8, all-r4 | 32, 32, 32 | every layer, from the teacher | — | — | 0.0 in every game | 0 % | | no: never trained |
+| all-r16-fresh | 32, 32, 32 | every layer, r = 16, fresh | 2,285,616 sign additions, 148,691 scalings | 83,376 sign bits, 5,291 scales | 413.8 | 86 % | −65.5 ± 7.9 | no |
+| all-r4-fresh | 32, 32, 32 | every layer, r = 4, fresh | 571,404 sign additions, 144,311 scalings | 20,844 sign bits, 5,231 scales | 390.4 | 81 % | −89.0 ± 7.3 | no |
+| w8-all-r8 | 8, 8, 8 | every layer, r = 8 | 631,704 sign additions, 81,883 scalings | 14,424 sign bits, 1,843 scales | 386.6 | 81 % | −92.7 ± 7.5 | no |
+| w8-all-r4 | 8, 8, 8 | every layer, r = 4 | 315,852 sign additions, 80,423 scalings | 7,212 sign bits, 1,823 scales | 386.9 | 81 % | −92.5 ± 7.3 | no |
+| w8, DAgger | 8, 8, 8 | — | 665,816 multiply-adds | 71,576 weights | 525.4 | 110 % | +46.0 ± 8.1 | yes |
+| w8-all-r4, DAgger | 8, 8, 8 | every layer, r = 4 | 315,852 sign additions, 80,423 scalings | 7,212 sign bits, 1,823 scales | 468.6 | 98 % | −10.8 ± 7.7 | yes |
+| all-r16-fresh, DAgger | 32, 32, 32 | every layer, r = 16 | 2,285,616 sign additions, 148,691 scalings | 83,376 sign bits, 5,291 scales | 469.1 | 98 % | −10.2 ± 7.7 | yes |
+
+**From one training run to the next.** The two DAgger students that matter most were trained
+again from seeds 1 and 2, on the same data. The seed sets both the starting weights and the order
+of the batches. (A first retrain at seed 0 gave the same held-out KL to 4 digits, so it showed
+only that training repeats, as new-melting-pot pointed out.)
+
+| student, with DAgger | seed 0 | seed 1 | seed 2 | against the teacher, game by game |
+|---|---|---|---|---|
+| w8 | 525.4 | 517.5 | 512.9 | +46.0 ± 8.1, +38.1 ± 8.5, +33.5 ± 8.5 |
+| w8-all-r4 | 468.6 | 446.3 | 488.7 | −10.8 ± 7.7, −33.1 ± 7.5, +9.3 ± 7.9 |
+
+So w8 outscores its teacher in all three runs, each by at least 3.9 standard errors. w8-all-r4
+keeps 93 to 102 % and clears the bar in all three, the closest by 2.1 standard errors. Its score
+moves about twice as far between runs as w8's.
+
+How these are known:
+
+- **The scripts' figures.** They come from `rollouts.py` and `distill.py`, one training run per
+  student but for the two above, and no test re-checks them. The students' files are kept outside
+  the repo, in `D:\tentzhen-data\cleanup\`, and none is committed.
+- **What the counts follow.** The arithmetic and weight counts are `distill.py`'s `costs`: a
+  LittleBit layer adds r (fan-in + out) signs and scales fan-in + r + out values at each position.
+- **Pairing hardly helps.** On the same seed, a student's return and the teacher's correlate at
+  only 0.0 to 0.12, since different moves soon make different games. So the standard errors are
+  about what independent games would give.
+
+What it means for the plan:
+
+- **The convolutions can be 8 wide, not 32.** That is 6.5 times less arithmetic. After one DAgger
+  step, that student scores 34 to 46 more a game than its teacher, in each of three training runs.
+  Why a student outscores its teacher is `unknown`.
+- **The whole policy can be LittleBit.** At 8 wide and r = 4 it is 7,212 sign bits and 1,823
+  scales, and after one DAgger step it keeps 93 to 102 % of the score over three training runs.
+  That is 316,000 sign additions and 80,000 scalings a move, against the teacher's 4.3 million
+  multiply-adds.
+- **Training on the student's own games matters more than rank.** The fully LittleBit students sat
+  at 81 to 86 % whatever their rank, until one round of DAgger lifted them to 98 %. A student
+  trained only on the teacher's games meets situations its teacher never showed it.
+- **Dual-SVID from the teacher fails when every layer is factorized.** The factorized network starts
+  near random, at a KL of 1.77 nats, and never recovers. Started fresh, the same shapes train.
+  Factorizing only the dense layer from the teacher also starts near random, at 1.77, but it
+  trains back, to 97 %. Why the whole network doesn't is `unknown`.
+- **The same seeds make different games on the CPU and the GPU.** On the CPU the teacher replays
+  seeds 0 to 99 exactly, 524.2 as `play.py` first gave. On the GPU the same seeds score 481.0. The
+  two round floats differently, so the drawn moves differ, and from then on so do the games. The
+  CPU is the one to match bit for bit.
+- **Next.**
+  - The integer form: uint8 activations, as MNIST's layers have, scored the same way.
+  - Then synthesize the chosen student's layers for the i9, for nextpnr's LUTs and clock.
+
 ## Open questions
 
 - 8-bit or 16-bit scales? Start with 8, and switch only if check 1 fails (Jon's spec). It passed

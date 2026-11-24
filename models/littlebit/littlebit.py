@@ -110,8 +110,42 @@ class LittleBitLinear(nn.Module):
         t = t @ Sign.apply(self.u).T
         return t * self.h + self.bias
 
+    def dense(self):
+        """The weight matrix the factors make, out x in: diag(h) sign(U) diag(l) sign(V)^T diag(g),
+        with sign()'s gradient as in `forward`."""
+        return (Sign.apply(self.u) * self.l) @ Sign.apply(self.v).T * self.h[:, None] * self.g
+
     def extra_repr(self):
         return f"in={self.g.numel()}, out={self.h.numel()}, rank={self.rank}"
+
+
+class LittleBitConv2d(nn.Module):
+    """A convolution at stride 1 with "same" padding, whose kernel, as a matrix out x (in x kernel
+    x kernel), is a LittleBit layer's (`LittleBitLinear`). It convolves with the dense kernel the
+    factors make, which computes what applying the factors to each window would."""
+
+    def __init__(self, n_in, n_out, kernel, rank):
+        super().__init__()
+        self.shape = (n_out, n_in, kernel, kernel)
+        self.linear = LittleBitLinear(n_in * kernel * kernel, n_out, rank)
+
+    @classmethod
+    def from_dense(cls, weight, bias, rank):
+        """Dual-SVID's start from a kernel `weight` (out x in x kernel x kernel) and its bias."""
+        n_out, n_in, kernel, _ = weight.shape
+        layer = cls(n_in, n_out, kernel, rank)
+        layer.linear = LittleBitLinear.from_dense(weight.reshape(n_out, -1), bias, rank)
+        return layer
+
+    def dense(self):
+        return self.linear.dense().reshape(self.shape)
+
+    def forward(self, x):
+        return nn.functional.conv2d(x, self.dense(), self.linear.bias, padding=self.shape[2] // 2)
+
+    def extra_repr(self):
+        n_out, n_in, kernel, _ = self.shape
+        return f"in={n_in}, out={n_out}, kernel={kernel}, rank={self.linear.rank}"
 
 
 class BinaryLinear(nn.Module):

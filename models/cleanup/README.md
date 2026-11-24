@@ -58,3 +58,16 @@ board's power through nvidia-smi. JAX's CUDA build has no Windows wheel, so on t
 WSL2, with the `cuda` extra (`uv run --locked --extra cuda ...`). Nothing else may use the GPU while
 it runs: two JAX processes sharing one under WSL slow each other about 30 times. The results are in
 `docs/littlebit.md`, "The goal: cheaper than a GPU per game step".
+
+## Compressing it
+
+    uv run --locked python students.py teacher D:\tentzhen-downloads\SocialJax teacher.npz
+    uv run --locked python rollouts.py D:\tentzhen-downloads\SocialJax teacher 100 0 teacher-0 --record
+    uv run --locked python rollouts.py D:\tentzhen-downloads\SocialJax student.npz 1000 1000 eval
+
+The first writes SocialJax's policy as a student file, and refuses unless that file gives the
+checkpoint's logits. The second plays 100 games and records every observation with the teacher's
+logits for it, what `models/littlebit/distill.py` trains a smaller student on. A student given in
+place of `teacher` plays instead, and the teacher still labels what it sees: that is DAgger's step.
+The third scores a student on the 1,000 evaluation games. 100 recorded games take 1.6 GB, so
+keep them on a large drive. The results are in `docs/littlebit.md`, "How small the policy can get".
