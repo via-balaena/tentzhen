@@ -686,12 +686,27 @@ mod tests {
         );
     }
 
-    /// tentzhen.com is published from main only, after main's Quality Gate passed on that commit:
-    /// the Pages workflow's guard names each condition. `branches: [main]` matches a branch's name
-    /// alone, which a pull request from a fork can share. The guard is on the job that uploads
-    /// `site/`, and the deploy is a job of its own that needs that one and has no `if:` that could
-    /// run it when the guard skipped the upload. (In the upload's own job, deploy-pages found no
-    /// artifact: actions/deploy-pages#451, and the comment in pages.yml.)
+    /// The Pages workflow's guard, as the `if:` of the job that uploads `site/`.
+    const GUARD: &str = concat!(
+        "    if: >-\n",
+        "      (github.event_name == 'workflow_run'\n",
+        "        && github.event.workflow_run.conclusion == 'success'\n",
+        "        && github.event.workflow_run.event == 'push'\n",
+        "        && github.event.workflow_run.head_branch == 'main'\n",
+        "        && github.event.workflow_run.head_repository.full_name == github.repository)\n",
+        "      || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')\n",
+    );
+
+    /// tentzhen.com is published from main only, after main's Quality Gate passed on that commit.
+    /// `branches: [main]` matches a branch's name alone, which a pull request from a fork can
+    /// share, so the job that uploads `site/` is guarded, and its `if:` is [`GUARD`] exactly: a
+    /// condition dropped, `|| true` added, or the `if:` turned into a comment fails here. The
+    /// deploy is a job of its own (in the upload's own job, deploy-pages found no artifact:
+    /// actions/deploy-pages#451, and the comment in pages.yml). It needs the upload's job and has
+    /// no `if:` of its own, so a guard that skips the upload skips it: "If a job fails or is
+    /// skipped, all jobs that need it are skipped unless the jobs use a conditional expression that
+    /// causes the job to continue" (github/docs at daeca22ac0,
+    /// data/reusables/actions/jobs/section-using-jobs-in-a-workflow-needs.md).
     #[test]
     fn the_pages_workflow_publishes_only_a_commit_main_s_gate_passed() {
         let (_, gate) = workflows()
@@ -703,16 +718,7 @@ mod tests {
             .into_iter()
             .find(|(f, _)| f == "pages.yml")
             .unwrap();
-        for needed in [
-            "workflows: [Quality Gate]",
-            "github.event.workflow_run.conclusion == 'success'",
-            "github.event.workflow_run.event == 'push'",
-            "github.event.workflow_run.head_branch == 'main'",
-            "github.event.workflow_run.head_repository.full_name == github.repository",
-            "(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')",
-            "ref: ${{ github.event.workflow_run.head_sha || github.sha }}",
-            "path: site\n",
-        ] {
+        for needed in ["workflows: [Quality Gate]", "path: site\n"] {
             assert!(pages.contains(needed), "pages.yml lacks {needed:?}");
         }
         let jobs = jobs(&pages);
@@ -730,19 +736,25 @@ mod tests {
             !deploy.contains("uses: actions/upload-pages-artifact@"),
             "the deploy is a job of its own, not the upload's"
         );
-        for condition in [
-            "github.event.workflow_run.conclusion == 'success'",
-            "github.event.workflow_run.event == 'push'",
-            "github.event.workflow_run.head_branch == 'main'",
-            "github.event.workflow_run.head_repository.full_name == github.repository",
-            "(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')",
-            "ref: ${{ github.event.workflow_run.head_sha || github.sha }}",
-        ] {
-            assert!(
-                guarded.contains(condition),
-                "the upload's job, {upload}, lacks {condition:?}"
-            );
-        }
+        // The job's own `if:`, at the job's key indent, and the lines indented under it.
+        let lines: Vec<&str> = guarded.lines().collect();
+        let at = lines
+            .iter()
+            .position(|l| l.starts_with("    if:"))
+            .unwrap_or_else(|| panic!("the upload's job, {upload}, has no if:"));
+        let end = lines[at + 1..]
+            .iter()
+            .position(|l| !l.starts_with("      "))
+            .map_or(lines.len(), |n| at + 1 + n);
+        assert_eq!(
+            lines[at..end].join("\n") + "\n",
+            GUARD,
+            "the upload's job, {upload}, is guarded by GUARD, exactly"
+        );
+        assert!(
+            guarded.contains("ref: ${{ github.event.workflow_run.head_sha || github.sha }}"),
+            "the upload's job, {upload}, checks out the commit the gate passed"
+        );
         assert!(
             deploy.lines().any(|l| l == format!("    needs: {upload}")),
             "the deploy needs {upload}, so the guard that skips {upload} skips it too"

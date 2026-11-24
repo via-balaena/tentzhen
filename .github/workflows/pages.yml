@@ -22,8 +22,11 @@ jobs:
   build:
     name: Package site/
     # A Quality Gate run on main's push, in this repo: `branches: [main]` above matches the branch's
-    # name alone, which a pull request from a fork can share. `deploy` needs this job, so when this
-    # guard skips it, `deploy` is skipped too.
+    # name alone, which a pull request from a fork can share. `deploy` needs this job and has no
+    # `if:`, so when this guard skips it, `deploy` is skipped too ("If a job fails or is skipped,
+    # all jobs that need it are skipped unless the jobs use a conditional expression that causes
+    # the job to continue": github/docs at daeca22ac0,
+    # data/reusables/actions/jobs/section-using-jobs-in-a-workflow-needs.md).
     if: >-
       (github.event_name == 'workflow_run'
         && github.event.workflow_run.conclusion == 'success'
@@ -48,9 +51,9 @@ jobs:
   # The deploy is a job of its own, after the upload's. deploy-pages finds the artifact by listing
   # the run's artifacts (`listArtifacts()`, src/internal/api-client.js at 368f8252), and in the
   # upload's own job that listing found none on every publish from 2026-11-22 on: runs 44984168041
-  # and 45294564779 (twice), each after the upload had finalized the artifact. actions/deploy-pages
-  # #451 reports the same, and that moving the upload to an earlier job fixed it there. Whether it
-  # fixes it here is unknown until a publish passes.
+  # and 45294564779 (twice), each after the upload had finalized the artifact.
+  # actions/deploy-pages#451 reports the same, and that moving the upload to an earlier job fixed
+  # it there. Whether it fixes it here is unknown until a publish passes.
   deploy:
     name: Publish site/
     needs: build
