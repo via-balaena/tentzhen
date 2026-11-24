@@ -3,7 +3,8 @@
 Tentzhen is a site for economical electronics projects that take advantage of the electronics
 surplus, to help people survive, and eventually thrive, in the AI economic transition happening
 now (Jon, 2026-10-08). The bench below is project #1; the mesh (`mesh.md`) is project #2;
-LittleBit × Taalas (`littlebit.md`) is project #3.
+LittleBit × Taalas (`littlebit.md`) is project #3; the open fab and the town around it (`fab.md`)
+is project #4.
 
 ## Who this is for
 
@@ -94,3 +95,17 @@ built into the i9's logic (`littlebit.md`). It is a first step toward a chip tha
 and Concordia as efficiently as possible, to simulate social conflict and solve it before it
 happens, and toward local AI companions in a humanoid robot. Safety first, and security at the
 hardware level is very important (Jon, 2026-11-21).
+
+## The open fab
+
+Project #4 is an open-source fab, built up to scrappily and in public. It makes the computers
+project #3 points to: chips that simulate conflict so it can be resolved before it happens (Jon,
+2026-11-24) (`fab.md`).
+
+- **The town:** a town grows around the fab, as brownfield-compute's grows around its data
+  center, and a city like Shenzhen grows from there.
+- **Safety first:** the town's safety comes before everything else in it. No fab step that
+  handles chemicals, heat, high voltage, vacuum or pressure starts without a safety plan Jon has
+  approved.
+- **The steps:** they start with what already exists: Hacker Fab's open stepper and transistor
+  process, and the open process kits of project #3's shuttles.

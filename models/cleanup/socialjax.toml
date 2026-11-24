@@ -1,0 +1,11 @@
+# SocialJax, pinned: the repo the Clean Up game and its trained policy come from (Apache-2.0),
+# the commit fetch.py checks out, and the sha256 of the checkpoint it checks. read 2026-11-23.
+repo = "https://github.com/cooperativex/SocialJax.git"
+commit = "18e21718e52e659bd4cf9c29df2ddfc03dbaca3c"
+
+# The IPPO policy for Clean Up, trained with individual rewards from seed 30, one network shared by
+# all 7 agents (algorithms/IPPO/config/ippo_base.yaml: PARAMETER_SHARING). A pickle of NumPy
+# float32 arrays, nothing else: policy.py loads it allowing only those three classes.
+[checkpoint]
+path = "checkpoints/clean_up_seed30_reward_individual.pkl"
+sha256 = "c2681adc35db056a4a846a770811a62dc03cabced57b5d9df87e4eb579f6f15f"

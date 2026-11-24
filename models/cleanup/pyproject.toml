@@ -1,0 +1,26 @@
+# SocialJax's Clean Up, the game the hardwired policy is to play (docs/littlebit.md, "After MNIST:
+# Clean Up's policy"), run on the computer with its trained policy. JAX, Flax, chex, NumPy and
+# Pillow are all its environments import, each at the version SocialJax pins at 18e2171
+# (requirements.txt), and JAX on the CPU: SocialJax's `jax[cuda12]` has no build for Windows.
+# uv reads this file; uv.lock beside it pins every package, with hashes.
+[project]
+name = "tentzhen-cleanup"
+version = "0.0.0"
+description = "LittleBit x Taalas: SocialJax's Clean Up and its trained policy"
+requires-python = "==3.12.*"
+dependencies = [
+    "chex==0.1.84",
+    "flax==0.10.7",
+    "jax==0.6.2",
+    "jaxlib==0.6.2",
+    "numpy==1.26.4",
+    "pillow==11.1.0",
+]
+
+[project.optional-dependencies]
+# On Linux, as in WSL2, JAX's CUDA build, SocialJax's own pin: `uv sync --locked --extra cuda`.
+cuda = ["jax[cuda12]==0.6.2"]
+
+[tool.uv]
+# Scripts run in its environment; it is not a package to install.
+package = false

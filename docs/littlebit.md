@@ -39,6 +39,10 @@ changing only its scales, is a first experiment of its own ("Training with the s
 Whether what it finds carries from a 234,752-weight network to the ones above is `unknown` until a
 later step runs one of them.
 
+What "as efficiently as possible" is measured by (Jon, 2026-11-23): beating GPUs on cost for
+multi-agent simulations with trained agents, the price of a game step with the game and its policy
+running ("The goal: cheaper than a GPU per game step", below).
+
 That is the half the chip is for. Running SocialJax here means running simulations with agents
 already trained: the chip runs their fixed policies, and training them stays on a GPU (Jon,
 2026-11-23). SocialJax's agents learn by reinforcement learning, which changes the policy with
@@ -207,8 +211,11 @@ person's approval in the session, and every load is logged as a `firmware.flash`
 | piece | language | where |
 |---|---|---|
 | training and the rank sweep | Python, PyTorch: the exception CLAUDE.md names for it | `models/littlebit/` |
+| SocialJax's Clean Up and its trained policy, played on the computer | Python, JAX, as SocialJax is written: the same exception | `models/cleanup/` |
 | the weight export and the integer golden model | Rust | `crates/littlebit` |
+| Clean Up's golden model, so far JAX's random numbers | Rust | `crates/cleanup` |
 | the layer engine, the output layer, the weight-ROM generator, the whole network | Amaranth | `gateware/cores/littlebit.py` |
+| a layer as a hardwired kernel, a window a clock | Amaranth | `gateware/cores/littlebit_kernel.py` |
 | the UART | Amaranth | `gateware/cores/uart.py` |
 | the top level: the network behind the UART | Amaranth | `gateware/littlebit/network.py` |
 | tests of the gateware | cocotb on Verilator, run by pytest | `gateware/cores/tests/` and `gateware/littlebit/tests/` |
@@ -933,6 +940,9 @@ inside the bitstream.
   saturates some latents and clamps some outputs at each end. The engine takes the windows as the
   golden model builds them; gateware that builds them from a grid is not written yet. Each layer
   test runs in both variants, the tables in logic and in block RAM.
+- A kernel test: the hardwired kernel, a made-up layer of Clean Up's conv1's shape, against the
+  golden model on the 121 windows of an observation's grid
+  (`gateware/cores/tests/test_littlebit_kernel.py`, "A hardwired kernel for conv1").
 - An output-layer test: r16's output layer alone against the golden model, given all zeros, all
   255 and 4 random inputs. A made-up layer from 4 inputs to 5 is tested too: its scores reach both
   ends of an int32, and some tie, so the argmax must pick the first of the highest
@@ -1081,6 +1091,11 @@ Gate 0's echo goes through the same DAPLink serial port as the bench's Phase 1 "
   inverted MNIST and Fashion-MNIST (`models/littlebit/train_frozen.py`, 2026-11-23). On
   Fashion-MNIST the scales get about three quarters of the way from training the output layer
   alone to training everything ("Training with the signs fixed").
+- [x] Play SocialJax's Clean Up with its own trained policy on the computer, the float baseline
+  for the first real workload (`models/cleanup/`, 2026-11-23): 524.2 a game when the agents draw
+  from the policy, and 0 when they take its most likely action, so the chip is to give the 9
+  scores and the computer to draw ("After MNIST: Clean Up's policy", "The float baseline"). Next:
+  compress the policy, and the convolutions' integer export and golden model.
 
 ## Experiments
 
@@ -1205,10 +1220,12 @@ What it doesn't show:
 
 The first real objective after MNIST passes Gate 3 is SocialJax's Clean Up policy hardwired into
 the i9, and its convolutions come early, not when that step starts (Jon, 2026-11-22). The game runs
-on the computer: each step it sends an agent's 11 × 11 × 19 observation over the UART, the i9 picks
-one of the 9 actions, and the computer plays it. Agents on the i9 and on the computer can share a
-game. The check is MNIST's: the hardwired policy picks the action the golden model does on every
-observation, and its game score stands beside the float policy's.
+on the computer: each step it sends an agent's 11 × 11 × 19 observation over the UART, the i9 gives
+the 9 actions' scores, and the computer draws an action from them and plays it. The plan had the i9
+pick the action itself, but the trained policy taking its most likely action never scores ("The
+float baseline", below). Agents on the i9 and on the computer can share a game. The check is
+MNIST's: the hardwired policy gives the golden model's 9 scores on every observation, and its game
+score stands beside the float policy's.
 
 The policy as SocialJax builds it (`algorithms/utils/networks.py` at 18e2171). Flax's convolutions
 default to stride 1 and "same" padding (google/flax at v0.10.7, the version SocialJax pins,
@@ -1243,10 +1260,86 @@ What it means for the plan:
   where LittleBit pays: 0.254 at r = 16.
 - **How long a decision takes** is `unknown` until the engine is designed: it depends on how many
   multiply-accumulates it does in a cycle.
-- **Running SocialJax needs JAX,** pinned at `jax[cuda12]==0.6.2`. Whether its CUDA build runs on the
-  lab computer's Windows, or it needs WSL or the CPU, is `unknown` until tried.
+- **Running SocialJax needs JAX,** pinned at `jax[cuda12]==0.6.2`. Its CUDA build has no Windows
+  wheel, so the lab computer runs JAX 0.6.2 on the CPU instead, which is fast enough to play the
+  game ("The float baseline", below).
 
-## Risks
+**The float baseline** (`models/cleanup/`, 2026-11-23). This is SocialJax's own trained policy
+playing Clean Up on the computer, the figure the hardwired policy is to stand beside.
+
+- **The checkpoint and the game.** SocialJax's checkpoint for Clean Up was trained by IPPO with
+  individual rewards from seed 30, as one network shared by all 7 agents
+  (`checkpoints/clean_up_seed30_reward_individual.pkl` at 18e2171). It is played as it was
+  trained: 7 agents, 1,000 steps, individual rewards. `models/cleanup/fetch.py` clones SocialJax at
+  that commit, outside the repo, and checks the checkpoint's sha256.
+- **Loading it safely.** The checkpoint is a pickle, and unpickling can run any code a file names.
+  `pickletools`, which runs nothing, read the classes this one names: NumPy's array
+  reconstruction, its array and its dtype. `models/cleanup/policy.py` refuses any other. It runs
+  the network as SocialJax builds it, with Flax's own layers.
+- **The environment.** JAX 0.6.2 on the CPU, Flax 0.10.7, chex, NumPy and Pillow, the versions
+  SocialJax pins, are all its environments import (`models/cleanup/uv.lock`).
+- **How the games were played.** All 100 at once, seeded 0 to 99, each agent acting one of three
+  ways, fixed before the first game:
+
+| how an agent acts | games | return, mean (sd) | the actions taken most |
+|---|---|---|---|
+| drawn from the policy, as SocialJax plays it | 100 | 524.2 (211.6) | up 41 %, zap_clean 24 % |
+| the policy's most likely action | 100 | 0.0 in every game | zap_clean 71 %; up never |
+| uniformly at random | 100 | 4.0 (17.0) | each about 11 % |
+
+A game's return is its 7 agents' rewards summed over its 1,000 steps. Out of 700,000 actions in
+each mode, the policy's most likely one was `up` none of the time, and `zap_clean` 497,680 times.
+These are `play.py`'s figures, and a second run of each mode gave the same returns, game by game.
+No test re-checks them: the game runs in JAX, and nothing in Rust plays it.
+
+What it means for the plan:
+
+- **The chip can't pick the most likely action.** That never eats an apple: the agents fire the
+  cleaning beam, turn and move down, and never move up. The policy is trained to be drawn from,
+  so the i9 gives the 9 scores, as the MNIST network gives its 10, and the computer draws the
+  action. A chip that draws for itself, from its own noise, is a later choice.
+- **The input is mostly bits.** Over every step of the 100 drawn games, 14 of the observation's 19
+  channels were never above 1, and 3 more, channels 3, 4 and 18, were 0 throughout. The other 2,
+  16 and 17, are inventory counts and reached 81. If that holds, each of the 121 cells takes 14
+  bits and a byte for each count, 30 bits, so an observation is 3,630 bits, against 2,299 bytes as
+  19 uint8s a cell.
+- **The scores, not the action, are what to match.** The golden model and the gateware compare the
+  9 scores exactly, as MNIST's 10 are. The game score then tests how much the compression costs.
+
+**JAX's random numbers, in Rust** (`crates/cleanup`, 2026-11-23). For a hardwired game to be checked
+against SocialJax's step for step, its golden model has to draw the random numbers JAX draws, and
+then the gateware the golden model's. So that comes first. JAX 0.6.2 draws with Threefry-2x32, 20
+rounds of 32-bit adds, rotations and exclusive-ors (`jax/_src/prng.py`), which is cheap in LUTs and
+needs no multiplier. Its layout is the one JAX calls "partitionable", the default since 0.5.0
+(`jax/_src/config.py`), and SocialJax doesn't change it: nothing at 18e2171 sets JAX's PRNG
+options. In this layout the i-th number drawn from a key is the hash of the counter i.
+
+- **What the game draws.** Clean Up's randomness all goes through four calls: `split`; `uniform`, for
+  apple regrowth and dirt spawning (`clean_up.py`, lines 1051 to 1068); `randint`, as int8 for
+  the agents' first facings (line 1363) and in the type of the agents' positions for a respawn's
+  facing (`movement.py`, line 147); and `permutation`, of spawn points at a reset and a respawn
+  (`clean_up.py`, lines 1323 and 1325; `movement.py`, line 140), and of the agents, as a random
+  order that settles who wins a contested cell (`movement.py`, line 61). Zapping draws nothing.
+- **A quirk to copy.** Each step draws three times from one key, for apple regrowth, the dirt's noise
+  and the dirt's chance, and a draw from a key begins with every smaller draw from the same key. So
+  the three repeat each other's first numbers. A match has to repeat them too.
+- **What is matched.** `crates/cleanup/src/random.rs` gives the same bits as JAX for the hash, a
+  seed's key, `split`, `bits`, `uniform`, `randint` as int8, int16 and int32, at the ends of each
+  type and on empty and reversed ranges, and `permutation`, both of 0 to n − 1 and of rows. It
+  matches on 9 keys, at sizes from 1 to 1,700, a shuffle sorting once and twice: `tested`,
+  `jax_s_random_numbers_are_these_bit_for_bit`, against the vectors `models/cleanup/
+  random_vectors.py` writes from JAX itself. The hash also gives Random123's three known answers
+  (`threefry_gives_random123_s_known_answers`). Breaking the split's order or `randint`'s multiplier
+  on purpose failed the test (by hand, once each). That the vectors are JAX's is
+  `random_vectors.py --check`, run by
+  hand: the Quality Gate has no JAX.
+- **What is left for the game.** Two places in it compute in floats: the chance an apple regrows, one
+  float32 division and multiplication a step, compared with uniform draws; and the dirt's noise,
+  a uniform draw times 10⁻⁴ added to each cell's label, which is then sorted. Both are small, and
+  IEEE float32 rounds them one way. Whether XLA's GPU build divides with the same rounding as
+  its CPU build is `unknown`, so the CPU is the reference. The policy's own draw, a categorical one
+  through Gumbel noise and a float logarithm, is not one to copy: the integer policy will be drawn
+  from in a way the chip and its golden model can both do exactly, with a JAX copy of it.
 
 The biggest risk is accuracy at very low rank. If r ≤ 8 collapses, the project still answers its
 questions, with r = 16–64 as the low end.
@@ -1260,8 +1353,665 @@ questions, with r = 16–64 as the low end.
 | wrong balls for the clock, LED or UART | nothing works on the board | Gate 0, a blinky and an echo, before the network |
 | Yosys folds or duplicates ROM logic unexpectedly | Variant A's figures mislead | read the post-synthesis LUT breakdown; synthesize one layer alone and compare |
 
+## The goal: cheaper than a GPU per game step
+
+Jon, 2026-11-23: "the goal is to beat gpus at cost for this exact type of ml, basically solving
+societal conflict before it actually happens irl". That means multi-agent simulations run with
+agents already trained. The order: first match JAX, then "eventually build a system that is
+completely optimized for the fpga/an asiic". So the measure is cost per game step, the hardware's
+price over its life plus its energy, with the game and its trained policy both running. Speed
+alone isn't the measure.
+
+**The bar on the GPU** (`models/cleanup/bench.py`, 2026-11-24, 00:20 to 00:23 UTC). This is
+SocialJax's Clean Up on the lab computer's RTX 4070 Ti: driver 621.01, WSL2's Ubuntu 24.04, JAX
+0.6.2 with its CUDA 12 build (the `cuda` extra in `models/cleanup/pyproject.toml`).
+
+- **How each row is timed.** A run of 1,000 steps is compiled, run once to warm up, then timed 5
+  times; the table gives the median, then the slowest to the fastest.
+- **How the power is read.** nvidia-smi's `power.draw.instant`, read every 100 ms, which nvidia-smi's
+  own help gives as accurate to within 5 W. It is the board alone, not the computer around it.
+- **The two loads.** Moves drawn at random time the game alone. With the policy, every agent's move
+  is drawn from SocialJax's trained policy, all 7 agents of every game each step. A game step is 7
+  agents' moves.
+
+| games at once | random moves, game steps a second | with the policy, game steps a second | board watts, with the policy | millijoules a game step, with the policy |
+|---|---|---|---|---|
+| 1 | 4,041 (3,369 to 5,376) | 4,330 (4,264 to 4,412) | 59 | 13.6 |
+| 16 | 58,957 (50,112 to 68,037) | 45,937 (32,205 to 48,048) | 92 | 2.29 |
+| 256 | 430,364 (429,806 to 430,713) | 164,390 (164,183 to 164,724) | 233 | 1.42 |
+| 1,024 | 613,662 (612,195 to 616,270) | 177,885 (177,616 to 178,549) | 255 | 1.44 |
+
+Idle, with JAX loaded, the board drew 27 W. With random moves at 1,024 games it drew 160 W, 0.26 mJ
+a game step. These are `bench.py`'s figures, and no test re-checks them. An earlier run, timed once
+a row, gave 179,348 game steps a second with the policy at 1,024 games, and 620,407 with random
+moves. new-melting-pot measured about 630,000 random game steps a second at 1,024 games on the same
+card, on JAX 0.12.
+
+What it means for the plan:
+
+- **The bar is 1.44 mJ, and 1/177,885 of a second, a game step.** That's with the policy at 1,024
+  games. Fewer games at once cost more a step: 13.6 mJ with one game.
+- **The policy is most of the time.** At 1,024 games it takes about 71 % of a step: 1 −
+  177,885/613,662. A chip that runs the policy alone, beside a GPU running the game, could at most
+  bring a step to the game's own 613,662 a second.
+- **The whole computer draws more than the board.** How much is `unknown`. So is the i9's energy a
+  game step, until a design runs; its power is measured on the bench, within `lab/limits.toml`.
+  Prices are what was paid, not a shop's listing (CLAUDE.md).
+- **The GPU's bar can rise.** A hand-written CUDA port of another JAX environment, Craftax, ran tens
+  of times faster than JAX on its author's own figures (`prior-art.md`, "Simulations in
+  hardware"). So a claim to beat a GPU names which GPU program it beats. This one is SocialJax's.
+- **One i9 is unlikely to beat it on speed alone.** Rough arithmetic, `unknown` until built: put
+  the whole game on the chip, with the policy at rank 16 on every layer. Make each layer a
+  hardwired kernel that positions stream through, and pipeline the layers. Then conv 1 takes 121
+  clocks a move, at a position a clock, and convs 2 and 3 and the dense layer take about 484 each.
+  At 59.375 MHz that is about 120,000 moves a second, or 17,500 game steps: about 10 times short
+  of the GPU, anywhere from 3 to 30 times. Games are independent, so boards add up. Whether a
+  few i9s cost less a step than one GPU is the question the measurements answer.
+
+**The plan.** Each step is a PR, and its claims carry their grades.
+
+1. **Match JAX.** First JAX's random numbers in Rust (`crates/cleanup`). Then:
+   - Clean Up's game in Rust, step for step against trajectories SocialJax plays.
+   - The integer policy: LittleBit on the convolutions and the dense layer, playing as the float
+     policy does ("Whether a student plays as the teacher does"). Its draw is defined so that the
+     chip and the golden model both make it exactly, with a JAX copy that matches them.
+   - The game and the policy in gateware, checked in cocotb against the golden model, then on the
+     i9.
+
+   One cheap early check: synthesize conv 1 with the real policy's signs and read nextpnr's LUTs and
+   clock, to replace the guess of a LUT a weight with a figure.
+2. **Measure the cost a game step on both.** The i9's power on the bench, the GPU's as above, and
+   what each cost.
+3. **Build for the FPGA or an ASIC.** Shape the game and the policy for the hardware, judged by
+   whether it plays as the trained agents do ("Whether a student plays as the teacher does")
+   rather than bit for bit against JAX.
+
+**What exists already** (searched 2026-11-23; `prior-art.md`, "Simulations in hardware"):
+
+- **Environments written in HDL:** FPGA-Gym. They are single-agent, with the policy on the host.
+- **A whole game and network on FPGAs:** IBM's Atari neuroevolution, on 432 Xilinx FPGAs.
+- **FPGA actors and trainers for RL:** FA3C, FIXAR and LearningGroup.
+- **Threefry in HDL:** rial and LoWA. Neither claims to match JAX's streams.
+- **A JAX environment rebuilt, Threefry streams and all, and checked exactly against a pinned JAX:**
+  EnvPool's Craftax port, in C++ on a CPU.
+
+Not found:
+
+- a multi-agent social-dilemma game run on one chip with its policy;
+- hardware matched bit for bit with JAX;
+- any of it on open tools and an ECP5;
+- low-rank binary factors in an RL policy, with its return measured;
+- a published cost per game step, policy included, against a GPU.
+
+## How small the policy can get
+
+The compression sweep, 2026-11-24. Smaller students are trained to act as SocialJax's policy does,
+and each is scored by playing the game. This was moved ahead of the game's golden model because it
+is the biggest lever on cost: what a move computes sets the hardware for everything after it (Jon,
+2026-11-24, agreeing the order).
+
+**How it was run.** The bar, set before the first run: a student keeps the policy's score if its
+mean return is at least 90 % of the teacher's on the same games. That bar has since been replaced:
+a student must play as the teacher does, not only score as it does, and under the new bar none of
+these students does ("Whether a student plays as the teacher does", below).
+
+- **The evaluation games.** All 1,000 seeded 1,000 to 1,999. The bar was first set over 100 games.
+  It became 1,000 after the teacher's own 100-game means came out at 521.0 and 481.0 on two sets of
+  seeds, and before any student was scored.
+- **The teacher's games.** `models/cleanup/rollouts.py` records the teacher playing 100 games,
+  seeded 0 to 99, on the GPU. That gives 700,000 observations, each with the teacher's logits.
+- **Training.** `models/littlebit/distill.py` trains each student in PyTorch to the teacher's
+  action distribution, by KL divergence. The recipe is the same for all, fixed before the first
+  run: Adam at 10⁻³, cosine-decayed over 20 epochs of 4,096, from seed 0.
+- **Where a student starts.** One of the teacher's shape starts from its weights, and its LittleBit
+  layers from Dual-SVID of them. The others start from PyTorch's own initialization, "fresh".
+- **Scoring.** `rollouts.py` plays each student on the evaluation games, its moves drawn from its
+  logits, as SocialJax plays, on the GPU.
+- **Round 2: one step of DAgger.** A student plays 100 games of its own, seeded 200 to 299, and the
+  teacher's logits are recorded for every observation it meets. The student is then trained
+  again, fresh, on the teacher's games and its own.
+
+Every LittleBit student keeps the 9 logits' layer in float: 576 multiply-adds and 576 weights.
+Activations are float throughout; the integer form is the next step. The difference is each
+student's return less the teacher's, game by game on the same seeds, with its standard error.
+
+| student | convolutions | LittleBit | a move computes | it holds | return | of the teacher | difference | keeps it |
+|---|---|---|---|---|---|---|---|---|
+| teacher | 32, 32, 32 | — | 4,321,952 multiply-adds | 286,112 weights | 479.4 | | | |
+| t32 | 32, 32, 32 | — | 4,321,952 multiply-adds | 286,112 weights | 483.6 | 101 % | +4.2 ± 8.2 | yes |
+| w16 | 16, 16, 16 | — | 1,605,744 multiply-adds | 140,784 weights | 446.2 | 93 % | −33.1 ± 7.8 | yes |
+| w8 | 8, 8, 8 | — | 665,816 multiply-adds | 71,576 weights | 453.3 | 95 % | −26.1 ± 7.6 | yes |
+| w4 | 4, 4, 4 | — | 300,396 multiply-adds | 37,836 weights | 435.9 | 91 % | −43.4 ± 7.7 | not settled: 0.6 standard errors over the bar |
+| dense-r16 | 32, 32, 32 | the dense layer, r = 16 | 4,074,144 multiply-adds and 62,976 sign additions | 38,304 weights and 62,976 sign bits | 466.7 | 97 % | −12.7 ± 8.1 | yes |
+| dense-r4 | 32, 32, 32 | the dense layer, r = 4 | 4,074,144 multiply-adds and 15,744 sign additions | 38,304 weights and 15,744 sign bits | 461.6 | 96 % | −17.8 ± 8.1 | yes |
+| all-r16, all-r8, all-r4 | 32, 32, 32 | every layer, from the teacher | — | — | 0.0 in every game | 0 % | | no: never trained |
+| all-r16-fresh | 32, 32, 32 | every layer, r = 16, fresh | 2,285,616 sign additions, 148,691 scalings | 83,376 sign bits, 5,291 scales | 413.8 | 86 % | −65.5 ± 7.9 | no |
+| all-r4-fresh | 32, 32, 32 | every layer, r = 4, fresh | 571,404 sign additions, 144,311 scalings | 20,844 sign bits, 5,231 scales | 390.4 | 81 % | −89.0 ± 7.3 | no |
+| w8-all-r8 | 8, 8, 8 | every layer, r = 8 | 631,704 sign additions, 81,883 scalings | 14,424 sign bits, 1,843 scales | 386.6 | 81 % | −92.7 ± 7.5 | no |
+| w8-all-r4 | 8, 8, 8 | every layer, r = 4 | 315,852 sign additions, 80,423 scalings | 7,212 sign bits, 1,823 scales | 386.9 | 81 % | −92.5 ± 7.3 | no |
+| w8, DAgger | 8, 8, 8 | — | 665,816 multiply-adds | 71,576 weights | 525.4 | 110 % | +46.0 ± 8.1 | yes |
+| w8-all-r4, DAgger | 8, 8, 8 | every layer, r = 4 | 315,852 sign additions, 80,423 scalings | 7,212 sign bits, 1,823 scales | 468.6 | 98 % | −10.8 ± 7.7 | yes |
+| all-r16-fresh, DAgger | 32, 32, 32 | every layer, r = 16 | 2,285,616 sign additions, 148,691 scalings | 83,376 sign bits, 5,291 scales | 469.1 | 98 % | −10.2 ± 7.7 | yes |
+
+**From one training run to the next.** The two DAgger students that matter most were trained
+again from seeds 1 and 2, on the same data. The seed sets both the starting weights and the order
+of the batches. (A first retrain at seed 0 gave the same held-out KL to 4 digits, so it showed
+only that training repeats, as new-melting-pot pointed out.)
+
+| student, with DAgger | seed 0 | seed 1 | seed 2 | against the teacher, game by game |
+|---|---|---|---|---|
+| w8 | 525.4 | 517.5 | 512.9 | +46.0 ± 8.1, +38.1 ± 8.5, +33.5 ± 8.5 |
+| w8-all-r4 | 468.6 | 446.3 | 488.7 | −10.8 ± 7.7, −33.1 ± 7.5, +9.3 ± 7.9 |
+
+So w8 outscores its teacher in all three runs, each by at least 3.9 standard errors. w8-all-r4
+keeps 93 to 102 % and clears the bar in all three, the closest by 2.1 standard errors. Its score
+moves about twice as far between runs as w8's.
+
+How these are known:
+
+- **The scripts' figures.** They come from `rollouts.py` and `distill.py`, one training run per
+  student but for the two above, and no test re-checks them. The students' files are kept outside
+  the repo, in `D:\tentzhen-data\cleanup\`, and none is committed.
+- **What the counts follow.** The arithmetic and weight counts are `distill.py`'s `costs`: a
+  LittleBit layer adds r (fan-in + out) signs and scales fan-in + r + out values at each position.
+- **Pairing hardly helps.** On the same seed, a student's return and the teacher's correlate at
+  only 0.0 to 0.12, since different moves soon make different games. So the standard errors are
+  about what independent games would give.
+
+What it means for the plan:
+
+- **The convolutions can be 8 wide, not 32.** That is 6.5 times less arithmetic. After one DAgger
+  step, that student scores 34 to 46 more a game than its teacher, in each of three training runs.
+  Why a student outscores its teacher is `unknown`.
+- **The whole policy can be LittleBit.** At 8 wide and r = 4 it is 7,212 sign bits and 1,823
+  scales, and after one DAgger step it keeps 93 to 102 % of the score over three training runs.
+  That is 316,000 sign additions and 80,000 scalings a move, against the teacher's 4.3 million
+  multiply-adds.
+- **Training on the student's own games matters more than rank.** The fully LittleBit students sat
+  at 81 to 86 % whatever their rank, until one round of DAgger lifted them to 98 %. A student
+  trained only on the teacher's games meets situations its teacher never showed it.
+- **Dual-SVID from the teacher fails when every layer is factorized.** The factorized network starts
+  near random, at a KL of 1.77 nats, and never recovers. Started fresh, the same shapes train.
+  Factorizing only the dense layer from the teacher also starts near random, at 1.77, but it
+  trains back, to 97 %. Why the whole network doesn't is `unknown`.
+- **The same seeds make different games on the CPU and the GPU.** On the CPU the teacher replays
+  seeds 0 to 99 exactly, 524.2 as `play.py` first gave. On the GPU the same seeds score 481.0. The
+  two round floats differently, so the drawn moves differ, and from then on so do the games. The
+  CPU is the one to match bit for bit.
+- **Next.** The integer form, and a bar on behaviour, not score: the next section.
+
+## Whether a student plays as the teacher does
+
+The integer form of w8-all-r4 changed the bar. Started from w8-all-r4's DAgger student and
+calibrated, untrained, it scored 737 a game, 152 % of the teacher. It got there by playing another
+game. 5.8 of its 7 players do a tenth of the cleaning or more, against the teacher's 4.0; they zap
+1.7 times as often; and the river holds 18 % less dirt. The chip
+is to simulate the agents it was given, so a student that scores higher by acting differently is a
+different agent. So the bar from here: a student must play as the teacher does, measure by measure,
+and its score is one measure of 30 (Jon, 2026-11-24, agreeing to the recommendation).
+
+**How it is measured.**
+
+- **What a game records.** Besides each game's return, `models/cleanup/rollouts.py` records each
+  agent's apples, how often it took each of the 9 actions, and how often it was zapped. For the
+  town, it records the river's dirt and the apples on the map each step, and the dirt the beams
+  removed. Clean Up starts the next game inside its own 1,000th step, so what is read from the
+  game's state counts 999 steps a game.
+- **The 30 measures.** `models/cleanup/behaviour.py` adapts new-melting-pot's report and
+  comparison (its `sims/jaxtown/coop_report.py` and `compare.py` at 480062a, Apache-2.0):
+  - the return;
+  - each player's apples and clean beams, ranked within the game, most first;
+  - zaps fired, and times zapped;
+  - how many players fired at least a tenth of the clean beams;
+  - the dirt removed;
+  - the dirt, and the apples on the map, each step on average;
+  - the share of each of the 9 actions.
+- **The rule, set before any student was compared.** A student matches a measure if its mean over
+  the 1,000 evaluation games is within 3 standard errors of the difference between two independent
+  1,000-game means of the teacher's: 3 × √2 × the teacher's standard deviation / √1,000. It plays as
+  the teacher does if it matches all 30. With 30 measures, the teacher itself would fail one by
+  chance about 8 % of the time.
+- **The rule on the teacher itself.** On 1,000 other games, seeded 3,000 to 3,999, the teacher
+  matches all 30. The closest call is the dirt removed: 4.6 less, against a tolerance of 6.5.
+- **Every policy was played again.** GPU runs don't repeat. The teacher on the evaluation games,
+  by the same program twice, scored 485.5 and 484.9, and only 579 of the 1,000 games came out the
+  same. The earlier program, before these records were added, gave 479.4, with 537 games the same.
+  Why is `unknown`. So each policy here was played again by the same program, and each run counts
+  as an independent sample, as the √2 assumes.
+
+The held-out KL and the same top action are `distill.py`'s, on the last 5 % of a student's
+training observations. For a DAgger student those are the end of its own games, not the teacher's,
+so its figures are on other observations than the rest's. "Where it misses" counts the measures
+missed of each kind:
+
+- apples and beams, of the 7 ranked players each;
+- zaps, fired and received;
+- the town: the cleaners, the dirt removed, and the dirt and apples a step;
+- actions, the 9 shares.
+
+w8-all-r4's DAgger student at seed 0 was trained twice, the second time with the same held-out KL
+to 4 digits. Its two rows differ by 2 measures, which shows how much the count moves on its own.
+
+| student | started from | measures that match, of 30 | return | held-out KL, nats | same top action | where it misses |
+|---|---|---|---|---|---|---|
+| teacher, seeds 1,000 to 1,999 | — | the reference | 485.5 | — | — | — |
+| teacher, seeds 3,000 to 3,999 | — | 30 | 480.0 | — | — | — |
+| t32 | the teacher | 30 | 484.5 | 0.001 | 99.5 % | — |
+| t32-fresh | fresh | 27 | 471.3 | 0.125 | 83.7 % | apples 1; beams 1; actions 1 |
+| w16 | fresh | 6 | 442.4 | 0.131 | 82.0 % | return; apples 5; beams 5; zaps 2; the town 3; actions 8 |
+| w8 | fresh | 18 | 453.7 | 0.137 | 80.9 % | return; apples 3; beams 3; the town 1; actions 4 |
+| w4 | fresh | 19 | 429.5 | 0.149 | 80.2 % | return; apples 6; beams 2; actions 2 |
+| dense-r16 | the teacher | 23 | 464.0 | 0.127 | 84.9 % | beams 1; zaps 1; the town 1; actions 4 |
+| dense-r4 | the teacher | 24 | 457.6 | 0.149 | 81.6 % | return; apples 1; beams 1; zaps 1; actions 2 |
+| all-r16-fresh | fresh | 3 | 410.2 | 0.160 | 79.3 % | return; apples 5; beams 6; zaps 2; the town 4; actions 9 |
+| all-r4-fresh | fresh | 11 | 392.9 | 0.182 | 78.8 % | return; apples 6; beams 6; zaps 1; the town 1; actions 4 |
+| w8-all-r8 | fresh | 14 | 388.8 | 0.174 | 77.1 % | return; apples 5; beams 1; zaps 1; the town 1; actions 7 |
+| w8-all-r4 | fresh | 3 | 385.7 | 0.200 | 77.3 % | return; apples 6; beams 7; zaps 1; the town 3; actions 9 |
+| w8, DAgger, seed 0 | fresh | 16 | 523.9 | 0.138 | 82.5 % | return; apples 6; beams 2; the town 1; actions 4 |
+| w8, DAgger, seed 1 | fresh | 14 | 520.9 | 0.163 | 81.7 % | return; apples 6; beams 3; the town 3; actions 3 |
+| w8, DAgger, seed 2 | fresh | 16 | 516.7 | 0.146 | 82.2 % | return; apples 6; beams 3; actions 4 |
+| w8-all-r4, DAgger, seed 0 | fresh | 13 | 473.6 | 0.244 | 74.3 % | apples 3; beams 3; zaps 1; the town 2; actions 8 |
+| w8-all-r4, DAgger, seed 0 again | fresh | 11 | 471.7 | 0.244 | 74.3 % | apples 3; beams 4; zaps 1; the town 3; actions 8 |
+| w8-all-r4, DAgger, seed 1 | fresh | 15 | 454.3 | 0.255 | 73.5 % | return; apples 3; beams 3; the town 1; actions 7 |
+| w8-all-r4, DAgger, seed 2 | fresh | 7 | 490.1 | 0.248 | 75.1 % | apples 5; beams 6; zaps 2; the town 2; actions 8 |
+| all-r16-fresh, DAgger | fresh | 8 | 467.3 | 0.102 | 85.8 % | apples 3; beams 7; zaps 2; the town 2; actions 8 |
+| w8-all-r4, integer, calibrated only | w8-all-r4, DAgger, seed 0 again | 1 | 737.1 | 0.386 | 69.7 % | return; apples 7; beams 7; zaps 2; the town 3; actions 9 |
+| w8-all-r4, integer, trained 20 epochs | w8-all-r4, DAgger, seed 0 again | 14 | 440.8 | 0.231 | 76.2 % | return; apples 4; beams 4; zaps 1; the town 1; actions 5 |
+
+**What it showed.**
+
+- **No student trained to a new shape plays as the teacher does.** t32 does, but t32 started from
+  the teacher's own weights and still picks the teacher's likeliest action 99.5 % of the time: it
+  is the teacher. Closest of the rest:
+  - t32-fresh, the teacher's own shape trained from scratch, at 27 of 30;
+  - dense-r4 and dense-r16, which keep the teacher's convolutions, at 24 and 23.
+- **The recipe limits faithfulness before size does.** Every float student started fresh and
+  trained on the teacher's games alone, from 4 to 32 wide, ends at a held-out KL of 0.12 to 0.15
+  nats a move, and picks the teacher's likeliest
+  action 80 to 84 % of the time. Even at the teacher's size, this recipe doesn't make a faithful
+  student.
+- **The students' cleaners clean less.** Of the 20 students besides t32, 19 fire fewer clean beams
+  than the teacher from the player who fires the most, 17 of them by more than the tolerance. 18 do
+  from the second, 16 by more than the tolerance.
+- **The students hedge.** On the teacher's held-out observations, the teacher's choice of action
+  has an entropy of 0.80 nats. Nine students were measured besides t32:
+  - those with float convolutions, 0.93 to 0.96;
+  - w8-all-r4's DAgger student, 1.05;
+  - its integer forms, 1.03 trained and 1.29 calibrated only.
+
+  Where the clean beam is the teacher's likeliest action, a third of the observations, the teacher
+  gives it 0.58 and the students 0.44 to 0.53. Whether this is why they clean less is `unknown`.
+- **Sharpening doesn't fix it.** Each of four students had its logits scaled by the k that gives
+  it the teacher's entropy on the teacher's held-out observations, which is the same as scaling its
+  logits layer. All four play further from the teacher, and score less. Their cleaners fire more
+  beams but clear less dirt, and they zap less. The scaling also raises each one's KL, on the
+  teacher's last 35,000 observations, for all four:
+
+  | student, its logits × k | k | measures that match, of 30 | return | KL before, then after | dirt cleared a beam |
+  |---|---|---|---|---|---|
+  | t32-fresh | 1.240 | 6 | 373.3 | 0.125, 0.137 | 0.208 |
+  | w8, DAgger, seed 0 | 1.224 | 4 | 429.9 | 0.107, 0.117 | 0.212 |
+  | w8-all-r4, DAgger, seed 0 | 1.422 | 3 | 304.9 | 0.187, 0.211 | 0.194 |
+  | w8-all-r4, integer, trained | 1.372 | 5 | 299.0 | 0.177, 0.200 | 0.203 |
+
+  The DAgger students trained on those observations, so their KLs are compared only before and
+  after the scaling. new-melting-pot suggested checking the KL alongside the measures.
+- **Beams fired stand for cleaning within one policy, not across policies.** In the teacher's
+  games, a game's beams and the dirt they cleared correlate at 0.79 and 0.77 on the two sets of
+  seeds, with 0.244 dirt cleared a beam in both. The sharpened students clear 0.21 a beam. So the
+  dirt removed is measured, not inferred from the beams.
+- **The extra score came from playing another game.** w8's DAgger students outscore the teacher,
+  517 to 524 a game. At seed 0, players 2 to 7 eat more apples, and players 1 and 2 fire 18 and 19
+  fewer beams. The calibrated integer student's 737 goes further. Every player eats more, and the
+  cleaning moves from players 1 and 2 to players 3 to 7.
+- **The integer form, trained, is no further from the teacher than its float start.** Trained 20
+  epochs, it matches 14 of 30. Its float start, the second training of w8-all-r4's DAgger student
+  at seed 0, matches 11, and the first training 13. But that start wasn't faithful either.
+- **KL on recorded games doesn't rank the students.** On the same held-out observations, w16, at
+  0.131, matches 6 measures, and dense-r4, at 0.149, matches 24.
+
+How these are known: these are `rollouts.py`'s, `behaviour.py`'s and `distill.py`'s figures, one run
+each, and no test re-checks them. The entropies, the counts across students, the sharpened students
+and their KLs come from throwaway scripts. They are kept with the students' files in
+`D:\tentzhen-data\cleanup\scripts\`, outside the repo.
+
+What it means for the plan:
+
+- **No student is chosen for the hardware yet.** A hardwired layer's cost on the i9 follows from
+  its shape and from its weights' values. How much from each is `unknown` until one is
+  synthesized. So synthesizing w8-all-r4's shape, for nextpnr's LUTs and clock, can go ahead
+  meanwhile: it measures exactly that.
+- **Next, the recipe, on the teacher's own shape.** Make a fresh t32 play as the teacher does, then
+  shrink it ("A recipe that makes a faithful student", below). To try:
+  - more of the teacher's games than 100;
+  - more rounds of DAgger;
+  - longer training;
+  - and, for new-melting-pot's question, whether the cleaners spend less time at the river or fire
+    less while there.
+
+## A recipe that makes a faithful student
+
+The next step was to fix the recipe on the teacher's own shape before shrinking it (Jon,
+2026-11-24). Each student below starts fresh and is scored on the behaviour bar on both sets of
+seeds. The scoring seeds stay apart from every training seed:
+
+- the teacher's first 100 games, seeded 0 to 99;
+- 400 more, seeded 10,000 to 10,399, recorded for this;
+- the DAgger games, seeded 200 to 299.
+
+`distill.py` now keeps the recorded observations in the computer's memory and moves each batch to
+the GPU as it is used, since 500 games' are 8.2 GB. The change is meant to move only where the
+observations wait, not which batches are drawn or the arithmetic on them. Nothing checks that a
+run matches one from before it.
+
+The held-out KL is on the last 5 % of the training observations. With 500 games, that is the last
+25 of the teacher's first 100; with 100, the last 5.
+
+Every student trained at the same rate, 0.001, falling to 0 on a cosine, in batches of 4,096, from
+seed 0. The KLs are those of the last epoch.
+
+| student | games trained on | epochs | a move computes | it holds | KL, training, then held out | same top action, held out | measures that match, seeds 1,000 on, then 3,000 on | return, both |
+|---|---|---|---|---|---|---|---|---|
+| t32-fresh | 100 | 20 | 4,321,952 multiply-adds | 286,112 weights | 0.079, 0.125 | 83.7 % | 27, not played | 471.3 |
+| t32-fresh | 100 | 100 | 4,321,952 multiply-adds | 286,112 weights | 0.042, 0.101 | 86.6 % | 30, 28 | 499.9, 494.0 |
+| t32-fresh | 500 | 20 | 4,321,952 multiply-adds | 286,112 weights | 0.052, 0.057 | 89.7 % | 30, 30 | 492.8, 487.7 |
+| w8 | 500 | 20 | 665,816 multiply-adds | 71,576 weights | 0.076, 0.081 | 87.7 % | 30, 30 | 476.5, 468.4 |
+| w4 | 500 | 20 | 300,396 multiply-adds | 37,836 weights | 0.092, 0.093 | 86.4 % | 27, 26 | 475.3, 462.1 |
+| w8-dense-r4 | 500 | 20 | 603,864 multiply-adds, 4,128 sign additions and 1,036 scalings | 9,624 weights, 4,128 sign bits and 1,036 scales | 0.106, 0.102 | 84.8 % | 16, 19 | 463.1, 457.6 |
+| w8-all-r8 | 500 | 20 | 576 multiply-adds, 631,704 sign additions and 81,883 scalings | 576 weights, 14,424 sign bits and 1,843 scales | 0.126, 0.114 | 83.5 % | 3, 2 | 530.9, 535.4 |
+| w8-all-r4 | 500 | 20 | 576 multiply-adds, 315,852 sign additions and 80,423 scalings | 576 weights, 7,212 sign bits and 1,823 scales | 0.139, 0.127 | 82.2 % | 11, 10 | 483.8, 478.8 |
+
+The teacher's returns on the two sets of seeds are 485.5 and 480.0. w8-dense-r4 is w8 with
+LittleBit on the dense layer alone, which holds 61,952 of w8's 71,576 weights.
+
+What it showed:
+
+- **More of the teacher's games made a faithful student.**
+  - Trained 100 epochs on the same 100 games, t32-fresh matches all 30 measures on the
+    evaluation seeds. On the second set it matches 28: there it removes more dirt than the
+    teacher (+7.7, against a tolerance of 6.6) and leaves less in the river. It learned those 100
+    games better than the games it never saw: a KL of 0.042 on its training observations, against
+    0.101 held out.
+  - Trained 20 epochs on 500 games, it matches all 30 on both sets of seeds. Its KL is 0.052 on its
+    training observations and 0.057 held out.
+- **It still hedges, a little.** On the last 35,000 observations of the teacher's first 100 games,
+  which all three held out, the teacher's entropy is 0.80 nats. The 500-game student's is 0.87,
+  the 100-epoch one's 0.90, and the first t32-fresh's 0.94. So the bar's 1,000 games can't see a
+  difference that size.
+- **8 wide is faithful, and 4 wide nearly.** Trained on the 500 games, w8 matches all 30 measures
+  on both sets of seeds, with 6.5 times less arithmetic than the teacher's shape. w4, with 14
+  times less, matches 27 and 26. On both sets its player 1 fires fewer cleaning beams than the
+  teacher's, 11.8 and 10.4 fewer, and it moves right less often.
+- **No LittleBit student plays as the teacher does yet, and each misses differently.**
+  - w8-dense-r4 matches 16 and 19. Its player 1 eats 14.6 fewer apples and fires 12 to 14 fewer
+    cleaning beams. Everyone zaps less, 6.0 and 5.6 fewer zaps a game.
+  - w8-all-r4 matches 11 and 10. Its player 1 fires 15 and 13 fewer cleaning beams, and players 3
+    to 7 fire 16 to 33 more. It zaps 7.5 and 7.9 more, and has 4.34 and 4.40 cleaners, against
+    the teacher's 4.02.
+  - w8-all-r8 matches 3 and 2, the same drift as w8-all-r4's but further. Players 2 to 7 fire 21 to
+    53 more cleaning beams and eat more apples, and the river holds 6.1 and 8.3 less dirt a step.
+    It scores 530.9 and 535.4, against the teacher's 485.5 and 480.0. As with w8's DAgger
+    students ("Whether a student plays as the teacher does"), the higher score comes from playing
+    another game.
+- **The LittleBit students aren't memorizing.** Each one's KL on its training observations is no
+  lower than held out: 0.139 and 0.127 for w8-all-r4. The 100-epoch t32-fresh's, on 100 games,
+  were 0.042 and 0.101. In their last epochs, the LittleBit students' training KLs still fell, by
+  up to 0.001 an epoch, as the rate went to 0. Their held-out KLs moved by up to 0.012 from one
+  epoch to the next. Whether longer training, DAgger or another start would close the gap is
+  `unknown`.
+- **KL ranks the float students, not the LittleBit ones.** All the 500-game students trained on
+  the same files in the same order, so they are measured on the same held-out observations. The
+  float students' KLs, 0.057, 0.081 and 0.093, rank them as their matches do: 60, 60 and 53 of 60.
+  The LittleBit students' don't. w8-dense-r4, at 0.102, matches 35, w8-all-r8, at 0.114, matches
+  5, and w8-all-r4, at 0.127, matches 21.
+
+How these are known: `distill.py`'s, `rollouts.py`'s and `behaviour.py`'s figures, one training run
+each, and no test re-checks them. The entropies and the table are throwaway scripts'. They are in
+`D:\tentzhen-data\cleanup\scripts\`, where `recipe_table.py` reads each student's `summary.json`
+and its behaviour records.
+
+What it means for the plan:
+
+- **The cheapest faithful student is w8, in float.** It is the shape to make LittleBit from.
+- **Next: longer training, then DAgger, on the 500 games.** The LittleBit students' training KLs
+  were still falling when the rate reached 0. One round of DAgger lifted the fully LittleBit
+  students' scores from 81–86 % to 98 % ("How small the policy can get"), though not their play to
+  the teacher's.
+- **Not first: starting from w8's own weights.** Dual-SVID of a trained network is how the
+  teacher's own shape starts. But with every layer factorized, the network it gave began near
+  random, at a KL of 1.77, and never recovered ("How small the policy can get"). Whether w8's
+  weights would do better is `unknown`.
+
+## Longer training, and one step of DAgger
+
+The recipe's next step was to train the LittleBit students longer, then to run DAgger on the 500
+games. Each run below is the recipe above with one change:
+
+- **Longer:** 100 or 300 epochs, with the rate falling to 0 on a cosine over all of them.
+- **DAgger:** the student trained 100 epochs plays 100 games of its own, seeded 200 to 299, and
+  the teacher labels every observation in them. A fresh student then trains 100 epochs on the
+  teacher's 500 games and those 100.
+
+| student | games trained on | epochs | KL, training, then held out | same top action, held out | measures that match, seeds 1,000 on, then 3,000 on | return, both |
+|---|---|---|---|---|---|---|
+| w8-dense-r4 | 500 | 20 | 0.106, 0.102 | 84.8 % | 16, 19 | 463.1, 457.6 |
+| w8-dense-r4 | 500 | 100 | 0.088, 0.086 | 86.7 % | 30, 28 | 491.3, 473.6 |
+| w8-dense-r4 | 500 | 300 | 0.081, 0.082 | 87.2 % | 22, 23 | 482.1, 472.9 |
+| w8-all-r4 | 500 | 20 | 0.139, 0.127 | 82.2 % | 11, 10 | 483.8, 478.8 |
+| w8-all-r4 | 500 | 100 | 0.134, 0.118 | 83.6 % | 25, 22 | 471.9, 472.5 |
+| w8-all-r4 | 500 | 300 | 0.120, 0.114 | 83.8 % | 25, 24 | 486.2, 477.7 |
+| w8-all-r4, DAgger | 500, and 100 of its own | 100 | 0.139, 0.201 | 75.4 % | 16, 16 | 433.4, 424.4 |
+
+The 20-epoch rows are the recipe's, from the table above. The DAgger student's held-out
+observations are the last 30 of its own 100 games, states the student reached rather than the
+teacher. So its held-out KL can't be compared with the others'.
+
+What it showed:
+
+- **100 epochs helped both.**
+  - w8-dense-r4 went from 16 and 19 matches to 30 and 28. On the second set it misses two by a
+    hair: player 6's apples, +2.70 against a tolerance of 2.69, and how often it moves left,
+    +0.0033 against 0.0030.
+  - w8-all-r4 went from 11 and 10 to 25 and 22.
+- **300 epochs did not help more.** w8-all-r4 matched 25 and 24. w8-dense-r4 fell to 22 and 23,
+  though its KLs are the lowest of any LittleBit student here.
+  - **The shift is systematic.** The same seven measures fail on both sets of seeds:
+    - it fires 5.1 and 5.3 fewer zaps a game, of the teacher's 116, and is zapped less;
+    - it turns right, moves right, moves down, stays and zaps less often.
+
+    On the first set it also moves up more: 0.022 more of its moves.
+  - **Only in its own games.** It was checked on the last 35,000 observations of the teacher's
+    games seeded 10,300 to 10,399, which every 500-game student trained on. There, each of its
+    mean action probabilities is within 0.0015 of the teacher's, about as close as w8's. So the
+    drift shows only in the states it reaches by itself. Why it grew with longer training is
+    `unknown`.
+- **One step of DAgger made w8-all-r4 worse.** It matches 16 and 16, and scores 433.4 and 424.4,
+  89 % and 88 % of the teacher's.
+  - It drifts the way w8-dense-r4 did at 300 epochs, but further: 9.0 and 8.1 fewer zaps a game,
+    more moves up, and fewer turns.
+  - Its player 1 eats about 30 fewer apples.
+
+  The first round of DAgger, from students trained on 100 games, had lifted their scores ("How
+  small the policy can get"). Why this one didn't is `unknown`.
+- **A lower KL again did not mean closer play.**
+- **Each row is one training run, from seed 0.** How much the matches vary from one seed to the
+  next hasn't been measured. So it is `unknown` whether 300 epochs is worse than 100, or whether 30
+  and 28 was a lucky run. A second seed of w8-dense-r4 at 100 epochs was started, then stopped
+  (next section).
+
+How these are known: `distill.py`'s, `rollouts.py`'s and `behaviour.py`'s figures, one training run
+each, and no test re-checks them. The action probabilities on the teacher's states come from a
+throwaway script, `shares_on_teacher.py`. It is in `D:\tentzhen-data\cleanup\scripts\`, with
+`recipe_table.py`, which makes the table, and the runs' `recipe.sh` and `dagger.sh`.
+
+## The training needs more compute
+
+Jon stopped the training here (2026-11-24). Doing it seriously takes a lot more compute than this
+one GPU, so the next step is getting that compute.
+
+What a run costs on this computer, by `distill.py`'s own clock: one RTX 4070 Ti (12 GB), and 32 GB
+of memory.
+
+| run | time |
+|---|---|
+| one student, 100 epochs on 500 games | 1,083 and 1,158 seconds, about 19 minutes |
+| w8-dense-r4, 300 epochs | 2,349 seconds |
+| w8-all-r4, 300 epochs | 7,677 seconds |
+| DAgger's 600 games, 100 epochs | 2,581 seconds |
+| scoring one student on 2,000 games, the same GPU through WSL | 1 to 6 minutes |
+
+At 300 epochs, w8-all-r4's epochs took 2.2 times as long as at 100. Other work ran on the computer
+at the same time, and why it slowed is `unknown`.
+
+What limits it:
+
+- **One run at a time.** Every answer above is one seed. Telling a recipe's effect from the spread
+  between seeds takes several seeds of each recipe. For scale, five seeds of four recipes for three
+  student shapes is 60 runs. That is about 19 to 43 hours here, one after another, before DAgger
+  rounds add data.
+- **Memory.** `distill.py` holds every observation in the computer's memory: 100 games' are 1.6
+  GB, so 500 games' are 8.2 GB. On 32 GB, shared with everything else, that sets the most it can
+  train on at about 1,500 games, unless it reads them from disk as it goes.
+- **The GPU is shared.** Other work on this computer uses it too.
+
+Both limits are arithmetic on the times and sizes above.
+
+Where more compute could come from: GPUs rented by the hour, research-compute programs, or a
+bigger GPU here. None has been looked into yet, and spending on any of them is Jon's decision.
+Once there is more compute, `distill.py` would run several students side by side, and read the
+games from disk so the data can grow.
+
+The gateware does not wait for the training. conv2's and conv3's kernels take w8-all-r4's shape,
+and new weights change only their values.
+
+## What w8-all-r4 costs on the i9, as the engine stands
+
+Each of w8-all-r4's five LittleBit layers was built as the MNIST layers' engine
+(`gateware/cores/littlebit.py`, "Hardware architecture"), with its own real signs and int8 scales,
+then sized by Yosys and nextpnr. It is the shape's cost, not a chosen student's: none plays as the
+teacher does yet. The student is w8-all-r4's integer form, trained 20 epochs.
+
+- **How its integers were made.** A throwaway script follows the MNIST exporter's rules where
+  they apply (`crates/littlebit/src/export.rs`): g, l and h int8, each on its finest grid; the
+  signs, the latents' signs; the latent shift, the smallest that saturates no latent on 2,000
+  recorded observations; the output shift, from the activation exponents the student trained
+  with. It is for sizing only. Nothing checks that these integers compute what the student does.
+  The script and its output are in `D:\tentzhen-data\cleanup\scripts\` and
+  `D:\tentzhen-build\synth-cleanup\`, outside the repo.
+- **How each was built.** Each engine alone, as r16's were sized ("What the engines cost"):
+  `python -m gateware.cores.littlebit`, then Yosys's `synth_ecp5` and nextpnr-ecp5 for the
+  LFE5U-45 in its CABGA381 package, speed 6, at 50 MHz, seed 1. The tools are OSS CAD Suite
+  2026-11-21, and the gateware is main's at 7356992.
+
+| layer | in → out | r | Variant A: logic cells, flip-flops, multipliers | Fmax | Variant B: logic cells, block RAMs | Fmax | clocks a move |
+|---|---|---|---|---|---|---|---|
+| conv1 | 5 × 5 × 19 = 475 → 8 | 4 | 1,488, 332, 4 | 61.45 MHz | 866, 5 | 62.69 MHz | 59,048 |
+| conv2 | 3 × 3 × 8 = 72 → 8 | 4 | 938, 326, 4 | 59.13 MHz | 823, 5 | 58.46 MHz | 10,285 |
+| conv3 | 72 → 8 | 4 | 934, 325, 4 | 60.63 MHz | 828, 5 | 55.41 MHz | 10,285 |
+| dense | 11 × 11 × 8 = 968 → 64 | 4 | 2,260, 351, 4 | 57.48 MHz | 888, 5 | 56.04 MHz | 1,037 |
+| actor | 64 → 64 | 4 | 1,047, 330, 4 | 64.16 MHz | 811, 5 | 61.10 MHz | 133 |
+| all five | | | 6,667, 1,664, 20 | | 4,216, 25 | | 80,788 |
+
+The cells, flip-flops, multipliers, block RAMs and clock are nextpnr's figures, `trusted` with the
+toolchain (`trusted-base.toml`, `fpga-toolchain`). The clocks are the engine's: a vector takes
+inputs + rank + outputs + 1 clocks, given an input every clock. That is `tested` for MNIST's layers
+(`gateware/cores/tests/test_littlebit.py`), and here each conv layer runs it once at each of the
+grid's 121 positions. The 9 logits' layer, the windows fed to the convolutions, the sampler and
+the game are not counted.
+
+What it means:
+
+- **Small, but slow.** The whole policy's engines take 15 % of the i9's logic, so it fits many
+  times over. But conv1 alone takes 59,048 clocks a move. With one engine a layer, each working on
+  a later move than the one before, a move comes every 59,048 clocks. At 57.48 MHz, the slowest
+  engine's clock, that is 973 moves a second, 139 game steps.
+- **The multipliers run out first.** Every engine uses 4 of the i9's 72 multipliers, so at most 18
+  fit. Shared out by each layer's clocks, so that no engine waits, 72 multipliers make 12,807
+  moves a second, 1,830 game steps. That is arithmetic on the figures above, not a design that was
+  built, and it is the most this engine can give. It is about 97 times short of the GPU's 177,885
+  ("The goal").
+- **A hardwired kernel is what would change it.** The engine multiplies by a general multiplier
+  because it reads each scale from a table. With each scale a constant of the circuit, a multiply
+  by it becomes a few additions in logic, and a window's inputs could all be taken in one clock.
+  What that costs in cells, and how fast it closes, is `unknown` until one is built. That is the
+  next gateware step: conv1 as such a kernel, sized the same way ("A hardwired kernel for conv1",
+  below).
+
+## A hardwired kernel for conv1
+
+The engine reads each scale from a table and multiplies by it, one input a clock. The hardwired
+kernel, `WindowKernel` (`gateware/cores/littlebit_kernel.py`), makes every integer of the layer a
+constant of the circuit and takes a whole window each clock. It computes what the golden model
+computes, as the engine does.
+
+- **Each input bit is a constant to add.** Input i's bit b stands for g_i × 2^b. Every 4 bits
+  index a table of the 16 sums their constants make, so each bit of a sum is one of the ECP5's
+  4-input LUTs.
+- **Each bit is added once, not once a latent.** An input's row of V is a pattern of 4 signs.
+  Negating the row and g_i together where its first sign is −, the 475 rows fall into at most 8
+  patterns. Each pattern's inputs are summed once, and each latent adds or subtracts the 8 sums.
+- **Most of an observation is bits.** Of a cell's 19 values, 17 are 0 or 1 by how SocialJax
+  builds them, from one-hots and booleans. The other 2, the inventory counts, are int8s, taken
+  here as bytes (`clean_up.py` at 18e2171, `_get_obs` and `combine_channels`). So conv1's window is
+  425 bits and 50 bytes, 825 bits in all. In the first 50,000 recorded observations of the
+  teacher's games, the 17 held only 0 and 1, and the inventory counts 0 to 34. That count is a
+  throwaway script's, `obs_values.py` in `D:	entzhen-data\cleanup\scripts\`.
+- **No multipliers.** The multiplies by ℓ and h are shifts and adds, by each constant's canonical
+  signed digits.
+- **A new window every clock.** Its 8 outputs come out together, 21 clocks later with a register
+  after every level of adds, or 12 with one after every 2.
+
+That it matches the golden model is `tested`
+(`littlebit_kernel_computes_each_window_of_clean_up_conv1_as_the_golden_model_does`). The test
+uses a new case of the test vectors, `clean-up-conv1` (`crates/littlebit/src/vectors.rs`): a
+made-up layer of conv1's shape on an 11 × 11 grid of an observation's values. Its 121 windows go in
+back to back, then with gaps. Every y and z must be the golden model's, at the kernel's latency,
+with registers after every level and after every 2. Another test checks that the kernel makes no
+multiply and no memory (`test_littlebit_kernel_multiplies_nothing`).
+
+Each build is the kernel in `Alone`, which loads a window a bit a clock through 825 flip-flops and
+shifts the outputs out through 64 more. Then Yosys's `synth_ecp5` and nextpnr-ecp5 size it, as the
+engines were, for the LFE5U-45 in its CABGA381 package, speed 6, at 50 MHz, seed 1, with OSS CAD
+Suite 2026-11-21. w8-all-r4's integers are the section above's, for sizing only. The made-up layer
+is `clean-up-conv1`, so its builds can be made again from the repo alone:
+`python -m gateware.cores.littlebit_kernel gateware/cores/tests/littlebit_vectors.json 3 <out.v>
+rows alone <every>`.
+
+| conv1 as | adds between registers | latency | logic cells | flip-flops | multipliers | block RAMs | Fmax | clocks a move |
+|---|---|---|---|---|---|---|---|---|
+| the engine, Variant A, w8-all-r4's integers | | | 1,488 | 332 | 4 | 0 | 61.45 MHz | 59,048 |
+| the kernel, w8-all-r4's integers | 1 | 21 | 5,785 | 5,990 | 0 | 0 | 153.92 MHz | 121 |
+| the kernel, w8-all-r4's integers | 2 | 12 | 6,011 | 3,814 | 0 | 0 | 117.73 MHz | 121 |
+| the kernel, the made-up layer | 1 | 21 | 7,274 | 7,389 | 0 | 0 | 160.72 MHz | 121 |
+| the kernel, the made-up layer | 2 | 12 | 7,748 | 4,684 | 0 | 0 | 105.22 MHz | 121 |
+
+The cells, flip-flops, multipliers, block RAMs and clock are nextpnr's figures, `trusted` with the
+toolchain (`trusted-base.toml`, `fpga-toolchain`). The kernel's include `Alone`'s 889 flip-flops.
+Its clocks a move are its 121 windows, one a clock. The script that built them is
+`synth_kernel.sh`, in `D:	entzhen-data\cleanup\scripts\`.
+
+What it means:
+
+- **conv1 takes 488 times fewer clocks.** It goes from 59,048 clocks a move to 121, for 3.9 times
+  the engine's logic cells and none of the multipliers, which ran out first. It closes at 153.92
+  MHz, not 61.45. At that clock, conv1 alone could take 1.27 million moves a second, 181,700 game
+  steps, against the GPU's 177,885 for the whole policy ("The goal"). That is arithmetic on
+  nextpnr's figures, not a policy built. The windows fed to the kernel, the four other layers,
+  the logits, the sampler and the game are not counted.
+- **A register after every level of adds is the better build.** It is the faster, and the
+  smaller in logic, for more flip-flops. The i9 has as many flip-flops as LUTs, 43,848.
+- **The weights' values move the cost.** w8-all-r4's conv1 takes 5,785 logic cells, and the
+  made-up layer, its scales drawn across the whole of int8, 7,274.
+- **Next: conv2 and conv3 as kernels.** In the engine they now take the most clocks, 10,285 a move
+  each. Their 72 inputs a window are uint8 activations, bytes, not bits. Then the gateware that
+  makes each window from an observation, and the whole policy, checked against the golden model
+  end to end before anything goes on the board.
+
 ## Open questions
 
+- Where the training's compute comes from: GPUs rented by the hour, research compute, or a bigger
+  GPU here. That is Jon's decision, and any of them that costs money needs his OK ("The training
+  needs more compute").
 - 8-bit or 16-bit scales? Start with 8, and switch only if check 1 fails (Jon's spec). It passed
   with 8 at every rank run, r = 4 to 64 (Model, "The rest of the rank sweep").
 - A simple MLP first, or straight to a small convolutional network? This step assumes the MLP.
@@ -1295,3 +2045,8 @@ found puts LittleBit-style low-rank binary factors on an FPGA, and none compares
 weights hardwired and in block RAM. On the i9 itself, ecp5-inference runs a small int8 language
 model from stored weights. In silicon, a logic-gate network on Tiny Tapeout classifies MNIST in
 "10K logic gates".
+
+For the goal of running simulations more cheaply than a GPU, searched 2026-11-23 (`prior-art.md`,
+"Simulations in hardware"): environments in HDL and whole single-agent games on FPGAs exist, and so
+does a JAX environment matched exactly outside JAX, in C++. A multi-agent social dilemma on one chip
+with its policy, matched bit for bit with JAX, was not found ("The goal", above).

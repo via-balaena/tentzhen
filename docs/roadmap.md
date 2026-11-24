@@ -106,3 +106,6 @@ Ultrasonic sonar: transmit a chirp, capture the echo, compute range.
   six phases of its own, the last laying out a chip without making one. It needs no parts beyond
   the digitizer's i9 and an extension board, and its first board run waits until its simulation is
   bit-exact.
+- The open fab and its town, project #4 (`fab.md`): three tracks of steps, silicon, printed and
+  materials. No step that handles chemicals, heat, high voltage, vacuum or pressure starts until
+  Jon has approved the safety rules and that step's own safety plan. Nothing is bought.

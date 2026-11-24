@@ -6,12 +6,14 @@ help people survive, and eventually thrive, in the AI economic transition happen
 its instrument #1 is a Red Pitaya-class two-channel digitizer and signal generator. Project #2 is
 a LoRa mesh (`docs/mesh.md`). Project #3 is LittleBit × Taalas, a small neural network with its
 weights hardwired into the i9, a first step toward a chip that runs SocialJax and Concordia
-(`docs/littlebit.md`). Pronounced "TENT-zhen" (like "tension").
+(`docs/littlebit.md`). Project #4 is an open-source fab, and the town around it, to make those
+chips; the town's safety comes first (`docs/fab.md`). Pronounced "TENT-zhen" (like "tension").
 
 Read before planning anything: `docs/vision.md` (why and for whom), `docs/roadmap.md` (phases and
 acceptance criteria), `docs/verification.md` (how every claim is graded), `docs/sourcing.md` (LCSC,
 JLCPCB, incoming QA), `docs/scope.md` (instrument #1), `docs/mesh.md` (project #2, the mesh),
-`docs/littlebit.md` (project #3, LittleBit × Taalas), `docs/architecture.md` (how records, code
+`docs/littlebit.md` (project #3, LittleBit × Taalas), `docs/fab.md` (project #4, the open fab and
+its town), `docs/architecture.md` (how records, code
 and checks fit, and the rules each test holds), `docs/prior-art.md` (what already exists, and who
 built it). The warehouse is described in `docs/data-catalogue.md`, which is generated.
 
@@ -45,6 +47,9 @@ Never do the following without explicit approval from the user in the current se
   `lab/limits.toml`, `[pico_3v3]`).
 - **Flash firmware to a device** that is not listed as a lab target (`lab/targets.toml`).
 - **Expose any service** outside the isolated lab network, or add internet access for instruments.
+- **Start a fab or materials step** (`docs/fab.md`) that handles chemicals, heat over a
+  hotplate's, high voltage, vacuum or pressure. Even with approval, only under that step's
+  written safety plan, and never with the gases and chemicals `docs/fab.md` rules out.
 
 Always:
 
