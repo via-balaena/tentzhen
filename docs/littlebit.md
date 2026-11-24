@@ -1782,6 +1782,108 @@ What it means for the plan:
   random, at a KL of 1.77, and never recovered ("How small the policy can get"). Whether w8's
   weights would do better is `unknown`.
 
+## Longer training, and one step of DAgger
+
+The recipe's next step was to train the LittleBit students longer, then to run DAgger on the 500
+games. Each run below is the recipe above with one change:
+
+- **Longer:** 100 or 300 epochs, with the rate falling to 0 on a cosine over all of them.
+- **DAgger:** the student trained 100 epochs plays 100 games of its own, seeded 200 to 299, and
+  the teacher labels every observation in them. A fresh student then trains 100 epochs on the
+  teacher's 500 games and those 100.
+
+| student | games trained on | epochs | KL, training, then held out | same top action, held out | measures that match, seeds 1,000 on, then 3,000 on | return, both |
+|---|---|---|---|---|---|---|
+| w8-dense-r4 | 500 | 20 | 0.106, 0.102 | 84.8 % | 16, 19 | 463.1, 457.6 |
+| w8-dense-r4 | 500 | 100 | 0.088, 0.086 | 86.7 % | 30, 28 | 491.3, 473.6 |
+| w8-dense-r4 | 500 | 300 | 0.081, 0.082 | 87.2 % | 22, 23 | 482.1, 472.9 |
+| w8-all-r4 | 500 | 20 | 0.139, 0.127 | 82.2 % | 11, 10 | 483.8, 478.8 |
+| w8-all-r4 | 500 | 100 | 0.134, 0.118 | 83.6 % | 25, 22 | 471.9, 472.5 |
+| w8-all-r4 | 500 | 300 | 0.120, 0.114 | 83.8 % | 25, 24 | 486.2, 477.7 |
+| w8-all-r4, DAgger | 500, and 100 of its own | 100 | 0.139, 0.201 | 75.4 % | 16, 16 | 433.4, 424.4 |
+
+The 20-epoch rows are the recipe's, from the table above. The DAgger student's held-out
+observations are the last 30 of its own 100 games, states the student reached rather than the
+teacher. So its held-out KL can't be compared with the others'.
+
+What it showed:
+
+- **100 epochs helped both.**
+  - w8-dense-r4 went from 16 and 19 matches to 30 and 28. On the second set it misses two by a
+    hair: player 6's apples, +2.70 against a tolerance of 2.69, and how often it moves left,
+    +0.0033 against 0.0030.
+  - w8-all-r4 went from 11 and 10 to 25 and 22.
+- **300 epochs did not help more.** w8-all-r4 matched 25 and 24. w8-dense-r4 fell to 22 and 23,
+  though its KLs are the lowest of any LittleBit student here.
+  - **The shift is systematic.** The same seven measures fail on both sets of seeds:
+    - it fires 5.1 and 5.3 fewer zaps a game, of the teacher's 116, and is zapped less;
+    - it turns right, moves right, moves down, stays and zaps less often.
+
+    On the first set it also moves up more: 0.022 more of its moves.
+  - **Only in its own games.** It was checked on the last 35,000 observations of the teacher's
+    games seeded 10,300 to 10,399, which every 500-game student trained on. There, each of its
+    mean action probabilities is within 0.0015 of the teacher's, about as close as w8's. So the
+    drift shows only in the states it reaches by itself. Why it grew with longer training is
+    `unknown`.
+- **One step of DAgger made w8-all-r4 worse.** It matches 16 and 16, and scores 433.4 and 424.4,
+  89 % and 88 % of the teacher's.
+  - It drifts the way w8-dense-r4 did at 300 epochs, but further: 9.0 and 8.1 fewer zaps a game,
+    more moves up, and fewer turns.
+  - Its player 1 eats about 30 fewer apples.
+
+  The first round of DAgger, from students trained on 100 games, had lifted their scores ("How
+  small the policy can get"). Why this one didn't is `unknown`.
+- **A lower KL again did not mean closer play.**
+- **Each row is one training run, from seed 0.** How much the matches vary from one seed to the
+  next hasn't been measured. So it is `unknown` whether 300 epochs is worse than 100, or whether 30
+  and 28 was a lucky run. A second seed of w8-dense-r4 at 100 epochs was started, then stopped
+  (next section).
+
+How these are known: `distill.py`'s, `rollouts.py`'s and `behaviour.py`'s figures, one training run
+each, and no test re-checks them. The action probabilities on the teacher's states come from a
+throwaway script, `shares_on_teacher.py`. It is in `D:\tentzhen-data\cleanup\scripts\`, with
+`recipe_table.py`, which makes the table, and the runs' `recipe.sh` and `dagger.sh`.
+
+## The training needs more compute
+
+Jon stopped the training here (2026-11-24). Doing it seriously takes a lot more compute than this
+one GPU, so the next step is getting that compute.
+
+What a run costs on this computer, by `distill.py`'s own clock: one RTX 4070 Ti (12 GB), and 32 GB
+of memory.
+
+| run | time |
+|---|---|
+| one student, 100 epochs on 500 games | 1,083 and 1,158 seconds, about 19 minutes |
+| w8-dense-r4, 300 epochs | 2,349 seconds |
+| w8-all-r4, 300 epochs | 7,677 seconds |
+| DAgger's 600 games, 100 epochs | 2,581 seconds |
+| scoring one student on 2,000 games, the same GPU through WSL | 1 to 6 minutes |
+
+At 300 epochs, w8-all-r4's epochs took 2.2 times as long as at 100. Other work ran on the computer
+at the same time, and why it slowed is `unknown`.
+
+What limits it:
+
+- **One run at a time.** Every answer above is one seed. Telling a recipe's effect from the spread
+  between seeds takes several seeds of each recipe. For scale, five seeds of four recipes for three
+  student shapes is 60 runs. That is about 19 to 43 hours here, one after another, before DAgger
+  rounds add data.
+- **Memory.** `distill.py` holds every observation in the computer's memory: 100 games' are 1.6
+  GB, so 500 games' are 8.2 GB. On 32 GB, shared with everything else, that sets the most it can
+  train on at about 1,500 games, unless it reads them from disk as it goes.
+- **The GPU is shared.** Other work on this computer uses it too.
+
+Both limits are arithmetic on the times and sizes above.
+
+Where more compute could come from: GPUs rented by the hour, research-compute programs, or a
+bigger GPU here. None has been looked into yet, and spending on any of them is Jon's decision.
+Once there is more compute, `distill.py` would run several students side by side, and read the
+games from disk so the data can grow.
+
+The gateware does not wait for the training. conv2's and conv3's kernels take w8-all-r4's shape,
+and new weights change only their values.
+
 ## What w8-all-r4 costs on the i9, as the engine stands
 
 Each of w8-all-r4's five LittleBit layers was built as the MNIST layers' engine
@@ -1907,6 +2009,9 @@ What it means:
 
 ## Open questions
 
+- Where the training's compute comes from: GPUs rented by the hour, research compute, or a bigger
+  GPU here. That is Jon's decision, and any of them that costs money needs his OK ("The training
+  needs more compute").
 - 8-bit or 16-bit scales? Start with 8, and switch only if check 1 fails (Jon's spec). It passed
   with 8 at every rank run, r = 4 to 64 (Model, "The rest of the rank sweep").
 - A simple MLP first, or straight to a small convolutional network? This step assumes the MLP.
