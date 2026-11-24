@@ -6,8 +6,9 @@
 //!
 //! No MNIST image is in them, since MNIST's terms are unread and its files are never committed:
 //! the inputs are drawn from a fixed seed. The LittleBit layers' cases are r16's two hidden
-//! layers, as `models/littlebit/runs/r16/integer.json` has them, and a small convolution whose
-//! layer is made up here, applied to each window of its grid ([`integer::windows`]). The output
+//! layers, as `models/littlebit/runs/r16/integer.json` has them, a small convolution whose layer
+//! is made up here, applied to each window of its grid ([`integer::windows`]), and a layer of
+//! Clean Up's conv1's shape, made up too, on a grid of the values an observation holds. The output
 //! layer's are r16's, and one made up here whose scores reach both ends of an int32 and tie. The
 //! whole network's are r16's and those of [`SWEEP`], the rank sweep's others and E10's, each given
 //! the same images.
@@ -256,6 +257,107 @@ fn convolution(draw: &mut Draw) -> Result<Case, String> {
     })
 }
 
+/// The channels of a Clean Up observation that hold a byte, its two inventory counts; the other 17
+/// hold 0 or 1. SocialJax's `clean_up.py` (at 18e2171) builds each cell's 19 values from one-hots
+/// and booleans, but for those two, `state.agent_invs`, int8s (`_get_obs` and `combine_channels`).
+pub const CLEAN_UP_BYTE_CHANNELS: [usize; 2] = [16, 17];
+
+/// A layer of Clean Up's conv1's shape, 5 x 5 over 19 channels to 8 at rank 4, applied to the 121
+/// windows of an 11 x 11 grid, for the hardwired kernel (`gateware/cores/littlebit_kernel.py`).
+/// Each grid value is 0 or 1 but in [`CLEAN_UP_BYTE_CHANNELS`], 0 to 255, as an observation's are.
+/// The grid's top-left 5 x 5 cells are at their largest and its bottom-right 5 x 5 all 0, so one
+/// window is all at its largest and one all 0. The layer's scales and biases are drawn across
+/// their whole range, and its shifts are the smallest at which at most an eighth of the latents
+/// saturate and an eighth of the outputs clamp at 255. It draws from a seed of its own, so the
+/// other cases are as they were before it.
+fn clean_up_conv1() -> Result<Case, String> {
+    let mut draw = Draw(0xC1EA_4C01);
+    let (height, width, channels, kernel, rank, outputs) = (11, 11, 19, 5, 4, 8);
+    let inputs = kernel * kernel * channels;
+    let mut layer = LittleBitLayer {
+        inputs,
+        outputs,
+        rank,
+        input_exponent: 0,
+        g: draw.int8s(inputs),
+        g_exponent: 0,
+        v: draw.signs(inputs, rank),
+        l: draw.int8s(rank),
+        l_exponent: 0,
+        latent_shift: 0,
+        u: draw.signs(outputs, rank),
+        h: draw.int8s(outputs),
+        h_exponent: 0,
+        bias: (0..outputs)
+            .map(|_| draw.between(-(1 << 20), 1 << 20) as i32)
+            .collect(),
+        output_shift: 0,
+        output_exponent: 0,
+    };
+    let mut grid = Vec::with_capacity(height * width * channels);
+    for row in 0..height {
+        for col in 0..width {
+            for ch in 0..channels {
+                let high = if CLEAN_UP_BYTE_CHANNELS.contains(&ch) {
+                    255
+                } else {
+                    1
+                };
+                grid.push(if row < 5 && col < 5 {
+                    high
+                } else if row >= height - 5 && col >= width - 5 {
+                    0
+                } else {
+                    draw.between(0, high.into()) as u8
+                });
+            }
+        }
+    }
+    let windows = integer::windows(&grid, height, width, channels, kernel)?;
+    let eighth = |count: usize, of: usize| count * 8 <= of;
+    layer.latent_shift = (0..=40)
+        .find(|&shift| {
+            layer.latent_shift = shift;
+            let saturated: usize = windows
+                .iter()
+                .map(|x| layer.trace(x).map(|t| t.saturated).unwrap_or(rank))
+                .sum();
+            eighth(saturated, windows.len() * rank)
+        })
+        .ok_or("no latent shift up to 40 saturates few enough latents")?;
+    layer.output_shift = (0..=31)
+        .find(|&shift| {
+            layer.output_shift = shift;
+            let clamped: usize = windows
+                .iter()
+                .map(|x| {
+                    layer
+                        .trace(x)
+                        .map(|t| t.y.iter().filter(|&&y| y == 255).count())
+                        .unwrap_or(outputs)
+                })
+                .sum();
+            eighth(clamped, windows.len() * outputs)
+        })
+        .ok_or("no output shift up to 31 clamps few enough outputs")?;
+    layer.output_exponent = (layer.latent_shift + layer.output_shift) as i32;
+    Ok(Case {
+        name: "clean-up-conv1".into(),
+        network: None,
+        layer_index: None,
+        steps: steps(&layer, &windows)?,
+        layer: Some(layer),
+        convolution: Some(Convolution {
+            height,
+            width,
+            channels,
+            kernel,
+            grid,
+        }),
+        inputs: windows,
+    })
+}
+
 /// Each input's scores from `layer`, and the digit picked from them.
 fn scored(layer: &DenseLayer, inputs: &[Vec<u8>]) -> Result<(Vec<Vec<i32>>, Vec<usize>), String> {
     let scores = inputs
@@ -364,6 +466,7 @@ pub fn vectors(r16: &Network, sweep: &[Network]) -> Result<Vectors, String> {
         hidden(r16, 0, high, &mut draw)?,
         hidden(r16, 1, 255, &mut draw)?,
         convolution(&mut draw)?,
+        clean_up_conv1()?,
     ];
     let dense_cases = vec![output(r16, &mut draw)?, extremes(&mut draw)?];
     let mut images = vec![vec![0; 784], vec![255; 784]];

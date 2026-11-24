@@ -653,7 +653,15 @@ mod tests {
         let loaded: vectors::Vectors = serde_json::from_str(&committed).unwrap();
         assert_eq!(loaded, v);
         let names: Vec<&str> = v.cases.iter().map(|c| c.name.as_str()).collect();
-        assert_eq!(names, ["r16-layer-1", "r16-layer-2", "convolution-3x3"]);
+        assert_eq!(
+            names,
+            [
+                "r16-layer-1",
+                "r16-layer-2",
+                "convolution-3x3",
+                "clean-up-conv1"
+            ]
+        );
         for case in &v.cases {
             assert_eq!(case.inputs.len(), case.steps.len(), "{}", case.name);
             let saturated: usize = case.steps.iter().map(|s| s.saturated).sum();
@@ -671,6 +679,26 @@ mod tests {
         let windows = integer::windows(&c.grid, c.height, c.width, c.channels, c.kernel).unwrap();
         assert_eq!(conv.inputs, windows);
         assert_eq!(conv.inputs.len(), 25);
+        // Clean Up's conv1: 121 windows of 475, each value 0 or 1 but in the inventory channels,
+        // one window all at its largest and one all 0.
+        let conv1 = &v.cases[3];
+        let c = conv1.convolution.as_ref().unwrap();
+        let windows = integer::windows(&c.grid, c.height, c.width, c.channels, c.kernel).unwrap();
+        assert_eq!(conv1.inputs, windows);
+        assert_eq!((conv1.inputs.len(), conv1.inputs[0].len()), (121, 475));
+        let high = |i: usize| {
+            if vectors::CLEAN_UP_BYTE_CHANNELS.contains(&(i % c.channels)) {
+                255
+            } else {
+                1
+            }
+        };
+        for window in &conv1.inputs {
+            assert!(window.iter().enumerate().all(|(i, &x)| x <= high(i)));
+        }
+        let largest: Vec<u8> = (0..475).map(high).collect();
+        assert!(conv1.inputs.contains(&largest));
+        assert!(conv1.inputs.contains(&vec![0; 475]));
     }
 
     /// The argmax picks the highest score, and the first of the highest when two or more tie, as

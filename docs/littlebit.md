@@ -215,6 +215,7 @@ person's approval in the session, and every load is logged as a `firmware.flash`
 | the weight export and the integer golden model | Rust | `crates/littlebit` |
 | Clean Up's golden model, so far JAX's random numbers | Rust | `crates/cleanup` |
 | the layer engine, the output layer, the weight-ROM generator, the whole network | Amaranth | `gateware/cores/littlebit.py` |
+| a layer as a hardwired kernel, a window a clock | Amaranth | `gateware/cores/littlebit_kernel.py` |
 | the UART | Amaranth | `gateware/cores/uart.py` |
 | the top level: the network behind the UART | Amaranth | `gateware/littlebit/network.py` |
 | tests of the gateware | cocotb on Verilator, run by pytest | `gateware/cores/tests/` and `gateware/littlebit/tests/` |
@@ -939,6 +940,9 @@ inside the bitstream.
   saturates some latents and clamps some outputs at each end. The engine takes the windows as the
   golden model builds them; gateware that builds them from a grid is not written yet. Each layer
   test runs in both variants, the tables in logic and in block RAM.
+- A kernel test: the hardwired kernel, a made-up layer of Clean Up's conv1's shape, against the
+  golden model on the 121 windows of an observation's grid
+  (`gateware/cores/tests/test_littlebit_kernel.py`, "A hardwired kernel for conv1").
 - An output-layer test: r16's output layer alone against the golden model, given all zeros, all
   255 and 4 random inputs. A made-up layer from 4 inputs to 5 is tested too: its scores reach both
   ends of an int32, and some tie, so the argmax must pick the first of the highest
@@ -1828,7 +1832,78 @@ What it means:
   because it reads each scale from a table. With each scale a constant of the circuit, a multiply
   by it becomes a few additions in logic, and a window's inputs could all be taken in one clock.
   What that costs in cells, and how fast it closes, is `unknown` until one is built. That is the
-  next gateware step: conv1 as such a kernel, sized the same way.
+  next gateware step: conv1 as such a kernel, sized the same way ("A hardwired kernel for conv1",
+  below).
+
+## A hardwired kernel for conv1
+
+The engine reads each scale from a table and multiplies by it, one input a clock. The hardwired
+kernel, `WindowKernel` (`gateware/cores/littlebit_kernel.py`), makes every integer of the layer a
+constant of the circuit and takes a whole window each clock. It computes what the golden model
+computes, as the engine does.
+
+- **Each input bit is a constant to add.** Input i's bit b stands for g_i × 2^b. Every 4 bits
+  index a table of the 16 sums their constants make, so each bit of a sum is one of the ECP5's
+  4-input LUTs.
+- **Each bit is added once, not once a latent.** An input's row of V is a pattern of 4 signs.
+  Negating the row and g_i together where its first sign is −, the 475 rows fall into at most 8
+  patterns. Each pattern's inputs are summed once, and each latent adds or subtracts the 8 sums.
+- **Most of an observation is bits.** Of a cell's 19 values, 17 are 0 or 1 by how SocialJax
+  builds them, from one-hots and booleans. The other 2, the inventory counts, are int8s, taken
+  here as bytes (`clean_up.py` at 18e2171, `_get_obs` and `combine_channels`). So conv1's window is
+  425 bits and 50 bytes, 825 bits in all. In the first 50,000 recorded observations of the
+  teacher's games, the 17 held only 0 and 1, and the inventory counts 0 to 34. That count is a
+  throwaway script's, `obs_values.py` in `D:	entzhen-data\cleanup\scripts\`.
+- **No multipliers.** The multiplies by ℓ and h are shifts and adds, by each constant's canonical
+  signed digits.
+- **A new window every clock.** Its 8 outputs come out together, 21 clocks later with a register
+  after every level of adds, or 12 with one after every 2.
+
+That it matches the golden model is `tested`
+(`littlebit_kernel_computes_each_window_of_clean_up_conv1_as_the_golden_model_does`). The test
+uses a new case of the test vectors, `clean-up-conv1` (`crates/littlebit/src/vectors.rs`): a
+made-up layer of conv1's shape on an 11 × 11 grid of an observation's values. Its 121 windows go in
+back to back, then with gaps. Every y and z must be the golden model's, at the kernel's latency,
+with registers after every level and after every 2. Another test checks that the kernel makes no
+multiply and no memory (`test_littlebit_kernel_multiplies_nothing`).
+
+Each build is the kernel in `Alone`, which loads a window a bit a clock through 825 flip-flops and
+shifts the outputs out through 64 more. Then Yosys's `synth_ecp5` and nextpnr-ecp5 size it, as the
+engines were, for the LFE5U-45 in its CABGA381 package, speed 6, at 50 MHz, seed 1, with OSS CAD
+Suite 2026-11-21. w8-all-r4's integers are the section above's, for sizing only. The made-up layer
+is `clean-up-conv1`, so its builds can be made again from the repo alone:
+`python -m gateware.cores.littlebit_kernel gateware/cores/tests/littlebit_vectors.json 3 <out.v>
+rows alone <every>`.
+
+| conv1 as | adds between registers | latency | logic cells | flip-flops | multipliers | block RAMs | Fmax | clocks a move |
+|---|---|---|---|---|---|---|---|---|
+| the engine, Variant A, w8-all-r4's integers | | | 1,488 | 332 | 4 | 0 | 61.45 MHz | 59,048 |
+| the kernel, w8-all-r4's integers | 1 | 21 | 5,785 | 5,990 | 0 | 0 | 153.92 MHz | 121 |
+| the kernel, w8-all-r4's integers | 2 | 12 | 6,011 | 3,814 | 0 | 0 | 117.73 MHz | 121 |
+| the kernel, the made-up layer | 1 | 21 | 7,274 | 7,389 | 0 | 0 | 160.72 MHz | 121 |
+| the kernel, the made-up layer | 2 | 12 | 7,748 | 4,684 | 0 | 0 | 105.22 MHz | 121 |
+
+The cells, flip-flops, multipliers, block RAMs and clock are nextpnr's figures, `trusted` with the
+toolchain (`trusted-base.toml`, `fpga-toolchain`). The kernel's include `Alone`'s 889 flip-flops.
+Its clocks a move are its 121 windows, one a clock. The script that built them is
+`synth_kernel.sh`, in `D:	entzhen-data\cleanup\scripts\`.
+
+What it means:
+
+- **conv1 takes 488 times fewer clocks.** It goes from 59,048 clocks a move to 121, for 3.9 times
+  the engine's logic cells and none of the multipliers, which ran out first. It closes at 153.92
+  MHz, not 61.45. At that clock, conv1 alone could take 1.27 million moves a second, 181,700 game
+  steps, against the GPU's 177,885 for the whole policy ("The goal"). That is arithmetic on
+  nextpnr's figures, not a policy built. The windows fed to the kernel, the four other layers,
+  the logits, the sampler and the game are not counted.
+- **A register after every level of adds is the better build.** It is the faster, and the
+  smaller in logic, for more flip-flops. The i9 has as many flip-flops as LUTs, 43,848.
+- **The weights' values move the cost.** w8-all-r4's conv1 takes 5,785 logic cells, and the
+  made-up layer, its scales drawn across the whole of int8, 7,274.
+- **Next: conv2 and conv3 as kernels.** In the engine they now take the most clocks, 10,285 a move
+  each. Their 72 inputs a window are uint8 activations, bytes, not bits. Then the gateware that
+  makes each window from an observation, and the whole policy, checked against the golden model
+  end to end before anything goes on the board.
 
 ## Open questions
 
