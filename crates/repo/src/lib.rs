@@ -688,7 +688,10 @@ mod tests {
 
     /// tentzhen.com is published from main only, after main's Quality Gate passed on that commit:
     /// the Pages workflow's guard names each condition. `branches: [main]` matches a branch's name
-    /// alone, which a pull request from a fork can share.
+    /// alone, which a pull request from a fork can share. The guard is on the job that uploads
+    /// `site/`, and the deploy is a job of its own that needs that one and has no `if:` that could
+    /// run it when the guard skipped the upload. (In the upload's own job, deploy-pages found no
+    /// artifact: actions/deploy-pages#451, and the comment in pages.yml.)
     #[test]
     fn the_pages_workflow_publishes_only_a_commit_main_s_gate_passed() {
         let (_, gate) = workflows()
@@ -712,6 +715,64 @@ mod tests {
         ] {
             assert!(pages.contains(needed), "pages.yml lacks {needed:?}");
         }
+        let jobs = jobs(&pages);
+        let using = |action: &str| -> Vec<&(String, String)> {
+            let step = format!("uses: actions/{action}@");
+            jobs.iter()
+                .filter(|(_, text)| text.contains(&step))
+                .collect()
+        };
+        let (upload, deploy) = (using("upload-pages-artifact"), using("deploy-pages"));
+        assert_eq!(upload.len(), 1, "one job uploads site/");
+        assert_eq!(deploy.len(), 1, "one job deploys it");
+        let ((upload, guarded), (_, deploy)) = (upload[0], deploy[0]);
+        assert!(
+            !deploy.contains("uses: actions/upload-pages-artifact@"),
+            "the deploy is a job of its own, not the upload's"
+        );
+        for condition in [
+            "github.event.workflow_run.conclusion == 'success'",
+            "github.event.workflow_run.event == 'push'",
+            "github.event.workflow_run.head_branch == 'main'",
+            "github.event.workflow_run.head_repository.full_name == github.repository",
+            "(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')",
+            "ref: ${{ github.event.workflow_run.head_sha || github.sha }}",
+        ] {
+            assert!(
+                guarded.contains(condition),
+                "the upload's job, {upload}, lacks {condition:?}"
+            );
+        }
+        assert!(
+            deploy.lines().any(|l| l == format!("    needs: {upload}")),
+            "the deploy needs {upload}, so the guard that skips {upload} skips it too"
+        );
+        assert!(
+            !deploy.lines().any(|l| l.trim_start().starts_with("if:")),
+            "the deploy has no if: of its own, which could run it when the guard skipped {upload}"
+        );
+    }
+
+    /// A workflow's jobs, each as its name and the lines under it: from one `  <name>:` line under
+    /// `jobs:` to the next.
+    fn jobs(workflow: &str) -> Vec<(String, String)> {
+        let (_, body) = workflow.split_once("\njobs:\n").expect("a jobs: block");
+        let mut out: Vec<(String, String)> = Vec::new();
+        for line in body.lines() {
+            let name = line
+                .strip_prefix("  ")
+                .filter(|rest| !rest.starts_with([' ', '#']))
+                .and_then(|rest| rest.strip_suffix(':'));
+            match (name, out.last_mut()) {
+                (Some(name), _) => out.push((name.to_string(), String::new())),
+                (None, Some((_, text))) => {
+                    text.push_str(line);
+                    text.push('\n');
+                }
+                (None, None) => {}
+            }
+        }
+        out
     }
 
     /// Every text file is LF in the index and in the checkout the test runs in, so the bytes the
