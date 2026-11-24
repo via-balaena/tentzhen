@@ -125,6 +125,77 @@ A "slicer" turns each layer of a chip's layout into the stepper's exposures, the
 turns a model into a 3D printer's paths. It would be written in Rust. Hacker Fab's stepper software
 (hacker-fab/stepper, MIT) comes first, read before anything is written.
 
+## Improving Hacker Fab's stepper
+
+Jon asked (2026-11-24) whether CortenForge could make an improved version of Hacker Fab's
+stepper. What follows is a proposal: nothing is modelled or built yet. Its sources are in
+`prior-art.md`, "Open fabs, and chips made outside one".
+
+**What limits it, by Hacker Fab's own pages:**
+- **Vibration.**
+  - V2.1 lists a "Vibration susceptibility" of "1.2 µm (when built onto optical table)".
+  - The closed-loop nanopositioner it now recommends reached "~1um resolution but highly
+    affected by vibration", against a goal of 100 nm.
+  - Tennis balls helped "but it was not enough". They have "many theories" but "not enough
+    scientifically rigorous testing", and they measure the vibration from camera video, so they
+    are "limited by the fps of the recording camera".
+- **The projector.**
+  - It is a colour projector modified for UV, so it emits "a small but noticeable amount of UV
+    even when not actively imaging".
+  - Pop-ups from the computer's operating system get imaged onto the chip.
+  - Its TI evaluation module, $1,328.63 of the $3,012.13 build, was out of stock everywhere in
+    May 2025.
+- **A small field.** An exposure is 1.04 × 0.58 mm, and chips up to 1 cm are stitched from many
+  exposures. V2's figure for that stitching is 5 µm, and they mark it unverified.
+- **Firmware.** An axis sometimes stops responding, and homing sometimes fails.
+
+**Where CortenForge fits:**
+1. **Vibration first.** The model is V2.1, built from its open CAD (hacker-fab/stepper_cad, in
+   FreeCAD):
+   - **The physics:** rigid bodies in sim-core, and the parts that flex as finite elements in
+     sim-soft. The model is shaken by the floor and by the motors' steps.
+   - **What it gives:** the one figure that blurs a pattern, the objective's motion relative to
+     the chip.
+   - **The tuning:** sim-opt's optimizers adjust where the posts go, how thick the plates are,
+     and the mass and damping. cf-design and the mesh crates then make the parts.
+
+   CortenForge calls its sim crate a "differentiable co-design toolkit". FleXstage, a levitated
+   stage built for chip manufacturing, designs structure and control together because bandwidth
+   "is limited by the first structural resonance frequency of the stage".
+
+   Its likely gaps come from brownfield-compute's findings: no beam elements, and isotropic
+   materials only. No modal solver shows in the crates' descriptions, so resonances would come
+   from stepping the model and taking its spectrum. Each gap would go in `docs/CORTENFORGE.md`,
+   as brownfield-compute logs its own.
+2. **The stage's control loop,** tuned in sim-core before a part is made. The firmware's failures
+   are not CortenForge's to fix. They would be a Rust state machine checked with Kani, as the
+   bench's limit enforcer is.
+3. **Later, a magnetically levitated stage,** which has no backlash and no stick-slip.
+   - cortenforge-cfsem's planar conveyor already levitates movers on a coil grid. cfsem computes
+     the fields and forces, and CortenForge the dynamics and control.
+   - Exposure-tool patents describe wafer stages driven by "a moving-magnet-type planar motor of
+     the magnetic levitation method".
+   - The hard part is sensing the stage's position to well under a micron.
+
+**Measured, so the model can earn a grade.** The bench's digitizer could read an accelerometer
+far faster than a camera takes frames. A real stepper's vibration, measured that way, would check
+the model. Until then the model's figures are `unknown`. Measuring needs a stepper, either built
+here (about $3,000, Jon's decision) or measured with a Hacker Fab.
+
+**Where it doesn't fit: the projector.** CortenForge has no optics. The projector's problems point
+at the i9 instead. The i9 would:
+- switch the UV LED on only for an exposure;
+- keep any operating system out of the image path;
+- take the slicer's frames directly.
+
+Whether TI's micromirror chips can be driven without TI's own controller chips is `unknown`. It is
+the first thing to search.
+
+**The order proposed:**
+1. The vibration model, from the open CAD, since it needs nothing bought.
+2. A measurement of a real stepper.
+3. The FPGA projector, after that search.
+
 ## The town
 
 - **The centre is the fab, together with what made Shenzhen:** a parts market, PCB fabrication
