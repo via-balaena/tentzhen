@@ -57,6 +57,10 @@ of record. Each part exists on its own, and several were built in 2026.
   Low-rank binary factors laid out in silicon are in nothing we found. Tiny Tapeout's GitHub
   Action runs LibreLane in Docker on GitHub's computers, so a layout needs no LibreLane on the lab
   computer.
+- **An open fab** (project #4) exists: by August 2026 there were ten Hacker Fabs, which make NMOS
+  chips of 952 transistors with 5 µm gates on open tools, in universities. The scarcest input,
+  crucible-grade quartz, has a known substitute, synthetic silica, already used on crucibles'
+  inner faces. No purity was found for making it from sand by the water-glass route.
 - **In Chinese,** there are many more open instruments, supplies and loads, several with one unit's
   accuracy measured and published, and agents on instruments from RIGOL and others. The pattern is
   the same: at most one unit's measurements behind some of the numbers, and every limit read in
@@ -391,6 +395,34 @@ of data with SHA-256. The Cyberspace Administration's opinion on AI agents (May 
 "规则内嵌、行为围栏", rules built in and fences around behaviour. Neither was found to ask for
 limits held below the agent in verified firmware (read through summaries).
 
+## Open fabs, and chips made outside one
+
+Searched 2026-11-24, for project #4 (`fab.md`): what already makes chips in the open, and what
+frees a fab from its scarcest inputs. Ten web searches in English, on a US search engine: open
+fabs, Sam Zeloof, open process kits, upgraded silicon, high-purity quartz, float-zone growth,
+quartz purification, synthetic silica for crucibles, printed classifiers and PlasticARM. Then
+GitHub's API for Hacker Fab's repositories and GitBook, and arXiv's API for two abstracts. Rows
+marked **re-read** were read in their own text; the rest are as a search summarised them.
+
+Not seen:
+- Hacker Fab's Discord;
+- the papers' full texts;
+- Chinese-language sources;
+- any source on purifying sodium silicate by ion exchange, the water-glass route `fab.md` names.
+
+| work | closest part | different | source |
+|---|---|---|---|
+| Hacker Fab | "the first open-source semiconductor fab", whose goals are to "Make a DIY version of every nanofabrication tool" and to "Get there with collaborative open source hardware". "As of August 2026, **ten** Hacker Fabs have been established". Its contribution guidelines' goals include "Minimal danger" and "No cleanroom needed". The GitBook holds 35 pages of operating procedures. The March 2026 update reports eight students making over 1,500 NMOS transistors: "952 Transistors per Chip", "94% Yield", "1.26V Threshold Voltage", "5 um gate length" | it builds its own tools, the mains ones among them by its first goal. All ten fabs in its list are at universities, CMU, Case Western, Georgia Tech, IIT Bombay, Ohio State, UBC, UC Irvine, Illinois, Waterloo and Wrocław; CMU's waste procedure for buffered oxide etch names the "HackerFab Wet Chemistry Lab - ESC 232" | hacker-fab/gitbook at bd1eef57 (CERN-OHL-S-2.0): `README.md`, `guides/required-reading-todo.md`, `nmos-capabilities/current-fab-capabilities/march-2026-update/README.md`, `archive/chemicalwastedisposalforboesop.md` and the folder names under `individual-fab-information/`, **re-read**; the organization's repository list through GitHub's API |
+| Hacker Fab's stepper (Gonzalez, Bourcart, Wirant and others, with Moneck) | a "$3000 maskless photolithography stepper" built on a DLP projector, with "an optical resolution of under 2 microns" and alignment "with sub-micron precision". It finds fiducials on the chip with RF-DETR, and makes "micron-scale devices such as NMOS transistors". Its software is hacker-fab/stepper (MIT), "Source code for photolithography stepper software" | the nearest thing to `fab.md`'s slicer. Whether it takes a chip layout's layers is `unknown` here | arXiv 2510.15082v2, abstract **re-read**; hacker-fab/stepper at 1640b32d, its description only |
+| Sam Zeloof | the Z1 (2018), a PMOS dual differential amplifier, "the first homemade lithographically synthesised microchip"; then Atomic Semi, with Jim Keller, now renamed Fab2 and in Texas, building tools for small fabs | a company; nothing seen says its tools are open | Wikipedia and Tom's Hardware, as summarised |
+| PlasticARM (Arm and PragmatIC, Nature 2021) | a 32-bit Arm processor of "18,334 NAND2 equivalent gates" in metal-oxide thin-film transistors on polyimide, at 20 to 29 kHz (the reports differ). Its simpler successor, FlexiCore, used 2,104 devices for a better yield | made in PragmatIC's fab, not printed at home; a processor, not a hardwired network | doi 10.1038/s41586-021-03625-w, The Register, AnandTech and IEEE Spectrum, as summarised |
+| Printed Machine Learning Classifiers (Mubarik, Weller, Bleier, Tomei, Aghassi-Hagmann, Tahoori and Kumar, MICRO 2020) | classifiers made bespoke to one trained model in printed electronics. Its bespoke decision trees took about 48.9 times less area and 75.6 times less power on average | decision trees and SVMs, not low-rank networks. The printed MLP papers are in "A chip's layout" | the paper's abstract, as summarised |
+| High-purity quartz | two US producers, near Spruce Pine, North Carolina (USGS). CRU says only Sibelco and The Quartz Corp, both there, make the premium grades "in an economically viable and scalable manner". USGS says no economic substitutes exist for most uses, and that cultured quartz is one but costs too much | the deposit sets the limit, not the process (next row) | USGS Mineral Commodity Summaries 2025 and 2026, CRU (2025), as summarised |
+| Quartz purification | crushing, flotation, calcining and water quenching, hot acid leaching and chlorination roasting. On Pakistani vein quartz they left only the lattice's aluminium, titanium and lithium, which the authors found hard to remove by current methods. Hot HCl gas exchanges the lattice's alkali ions for hydrogen. One review's targets are under 50 ppm in all, with aluminium under 30 ppm and titanium under 10 | cleans the grains, not the lattice | Minerals (2024); US5037625A; Minerals 14(12) 1225, as summarised |
+| Synthetic silica in crucibles | crucible makers' patents put synthetic powder, from silicon tetrachloride, from alkoxides by sol-gel or from sodium silicate, on the inner face and natural quartz outside. The synthetic powder has each metal at 0.1 ppm or less, against 1 ppm or more of aluminium and titanium in natural powder. Sol-gel powder keeps 50 to 100 ppm of silanol, 5 to 30 ppm after vacuum fusing | patents, so the applicants' claims. No purity is given for sodium silicate purified by ion exchange | US 9534318 and US 8844321, as summarised |
+| Upgraded metallurgical silicon (Míguez Novoa and others, Ferrosolar) | silicon refined without the Siemens process. It is "a competitive alternative to polysilicon" for multicrystalline solar cells, its purification leaving "a moderately compensated material due to the presence of phosphorous and boron" | made for solar cells, not chips. Its impurity levels in ppm came from a search summary, not the abstract | arXiv 2604.04095v1, abstract **re-read**; the ppm figures as summarised |
+| Float-zone growth | crucible-free: a molten zone, heated by RF at about 3 MHz through a one-turn coil in argon, is moved along a rod; repeated passes purify it | industrial; no open or home-built one was found | arXiv 1102.3800 and patents, as summarised |
+
 ## What we take from it
 
 Each is a candidate, to be proposed where it lands:
@@ -431,6 +463,11 @@ Each is a candidate, to be proposed where it lands:
     weight as the nearest figure research question 5 has.
 15. **Read the printed-MLP papers in full** before research question 5 settles how area per
     weight bit is counted.
+16. **Build project #4's stepper and NMOS process on Hacker Fab's open designs and procedures,**
+    and send back what we add: safety plans, and measurements with their grades.
+17. **Read hacker-fab/stepper before writing the slicer** (`fab.md`, "Software").
+18. **Ask a Hacker Fab how it shares safety with its university** before the town fab's safety
+    plans are written (`fab.md`, "Safety first").
 
 ## Building blocks we use
 
@@ -461,5 +498,6 @@ of instrumentControl and WaveBench, rIC3's authors, the 一生一芯 course, and
 For project #3: kenchangh and Petros Emmanouilidis, whose hardwired networks are on Tiny Tapeout
 tiles; FPGA-Gym's authors, whose environments run in Verilog; and the authors of EnvPool's Craftax
 port, who matched a JAX environment exactly outside JAX.
+For project #4: Hacker Fab's contributors, and the authors of its stepper paper.
 Kazumoto Kojima, whose i5ether carries no license, so we could build on it only once it has one. And
 the projects we build on, upstream first when we find a bug.
