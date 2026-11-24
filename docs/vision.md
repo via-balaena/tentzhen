@@ -102,8 +102,9 @@ Project #4 is an open-source fab, built up to scrappily and in public. It makes 
 project #3 points to: chips that simulate conflict so it can be resolved before it happens (Jon,
 2026-11-24) (`fab.md`).
 
-- **The town:** a town grows around the fab, as brownfield-compute's grows around its data
-  center, and a city like Shenzhen grows from there.
+- **The town:** a town grows around the fab, as brownfield-compute's
+  (YoungMoolahBaby/brownfield-compute) grows around its data center, and a city like Shenzhen
+  grows from there.
 - **Safety first:** the town's safety comes before everything else in it. No fab step that
   handles chemicals, heat, high voltage, vacuum or pressure starts without a safety plan Jon has
   approved.

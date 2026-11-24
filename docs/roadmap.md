@@ -108,4 +108,5 @@ Ultrasonic sonar: transmit a chirp, capture the echo, compute range.
   bit-exact.
 - The open fab and its town, project #4 (`fab.md`): three tracks of steps, silicon, printed and
   materials. No step that handles chemicals, heat, high voltage, vacuum or pressure starts until
-  Jon has approved the safety rules and that step's own safety plan. Nothing is bought.
+  Jon has approved that step's own safety plan, under the safety rules Jon approved on 2026-11-24.
+  Nothing is bought.

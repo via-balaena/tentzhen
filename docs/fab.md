@@ -6,8 +6,9 @@ up to scrappily and in public, to show what is possible.
 - **What the fab is for:** it builds computers that resolve conflict before it happens. They are
   the chips of project #3, which run simulations of trained agents more cheaply per game step
   than a GPU (`littlebit.md`, "What it is for" and "The goal").
-- **The town:** a town grows around the fab, the way brownfield-compute's town grows around its
-  data center, and a city like Shenzhen grows from there.
+- **The town:** a town grows around the fab, the way brownfield-compute's town
+  (YoungMoolahBaby/brownfield-compute) grows around its data center, and a city like Shenzhen
+  grows from there.
 - **Safety comes first:** "the towns safety is 100% the most important thing" (Jon, 2026-11-24).
 
 Nothing here is built. Every step below is a proposal, and its claims are `unknown` until they
@@ -15,27 +16,31 @@ earn a grade. What already exists is in `prior-art.md`, "Open fabs, and chips ma
 
 ## Safety first
 
-These rules are proposed, and they take effect when Jon approves them. Until then no step that
-handles chemicals, heat over a hotplate's, high voltage, vacuum or pressure starts.
+Jon approved these rules on 2026-11-24, rule 3 as it is worded here. No step that handles
+chemicals, heat, high voltage, vacuum or pressure starts outside them.
 
 1. **No step starts without its safety plan.** The plan is written before anything is bought. It
    lists:
    - each hazard: chemical, heat, electrical, pressure, vacuum, light and waste;
    - the controls and the protective equipment for each;
    - what to do in a spill, a fire or an exposure;
-   - who may do the step.
+   - who may do the step;
+   - the codes it was checked against, fire, waste, zoning and exhaust, each with the date it
+     was read, so that whether the step is legal where it runs can be checked (rule 3).
 
    Jon approves each plan in the session it is used (CLAUDE.md).
 2. **Limits below the agent, as on the bench.** An AI may plan a run and log it. Heaters, pumps,
    high voltage and chemical dispensing sit behind interlocks it can't reconfigure: an
    over-temperature cutoff in hardware, an emergency stop, and fume detection that cuts power
    (`vision.md`, principle 5).
-3. **Anything on mains is bought and certified.** That covers hotplates, furnaces, pumps, and RF and
-   sputter supplies. Each is plugged in as sold, or installed by an electrician. The project
-   designs, builds and wires no mains equipment. Hacker Fab's first goal is to "Make a DIY version
-   of every nanofabrication tool". Here the tools on mains would be bought instead.
-
-   Whether this fits CLAUDE.md's "mains voltage out of scope entirely" is Jon's to say (below).
+3. **Anything on mains is bought, listed and legal.** That covers hotplates, furnaces, pumps, and
+   RF and sputter supplies. Each is listed by a recognised testing lab and used as sold, where it
+   is legal to use there, and anything wired in is installed by a licensed electrician. The
+   project designs, builds and wires no mains equipment, and writes no instructions for mains
+   wiring. No agent switches mains power except through an interlock it can't override (rule 2).
+   Hacker Fab's first goal is to "Make a DIY version of every nanofabrication tool". Here the
+   tools on mains are bought instead (Jon, 2026-11-24: "id say its ok as long as its legal";
+   CLAUDE.md).
 4. **Never here:**
    - toxic and pyrophoric gases: silane, phosphine, arsine, diborane and chlorine;
    - chlorosilanes;
@@ -51,9 +56,10 @@ handles chemicals, heat over a hotplate's, high voltage, vacuum or pressure star
 6. **The neighbours' safety too.** Chemical storage, wastewater and exhaust are written up the way
    brownfield-compute writes up water and air: against public limits, with the uncertainty stated.
 7. **A town fab brings its own safety office.** All ten Hacker Fabs in its GitBook's list are at
-   universities, and CMU's waste procedure names a wet chemistry lab, ESC 232. A fab in a town has no university's safety
-   office behind it, so it needs its own. How the Hacker Fabs share that work with their
-   universities is `unknown` here.
+   universities. Its waste procedure for buffered oxide etch names the "HackerFab Wet Chemistry
+   Lab - ESC 232", and no university. A fab in a town has no university's safety office behind
+   it, so it needs its own. How the Hacker Fabs share that work with their universities is
+   `unknown` here.
 
 ## What it builds, and why fidelity matters
 
@@ -62,7 +68,7 @@ project #3 judges a compressed policy by the behaviour bar, not by score (`littl
 "Whether a student plays as the teacher does").
 
 In Clean Up, zapping is the conflict, and the compressed students already get it wrong both
-ways. These are `behaviour.py`'s figures, one training run each:
+ways. These are `behaviour.py`'s figures, one training run each, and `unknown` (`littlebit.md`):
 
 - **Fewer zaps:** w8-dense-r4 at 300 epochs and w8-all-r4 after one step of DAgger zap 5 to 9
   fewer times a game than the teacher (`littlebit.md`, "Longer training, and one step of
@@ -135,15 +141,12 @@ turns a model into a 3D printer's paths. It would be written in Rust. Hacker Fab
   - Where a tool belongs in CortenForge, it goes there as a suggestion. Brownfield-compute's own
     `docs/CORTENFORGE.md` already lists several, from routing to IFC export.
   - Here CortenForge is used through its published crates, as an end user, with what's missing
-    logged in `docs/CORTENFORGE.md` once code meets it.
+    logged in a `docs/CORTENFORGE.md` of this repo's own, not written yet, once code meets it.
 - **Sites with a big grid connection suit the heaviest steps.** Brownfield-compute's retired
   coal plants are an example, and smelting is the step that would need one.
 
 ## Open decisions, Jon's
 
-- The safety rules above, and their wording in CLAUDE.md.
-- Mains: whether bought, certified equipment fits CLAUDE.md's rule, or the fab stops before its
-  first furnace, at step 5.
 - Brownfield-compute's building work: shared or moved, and in which language here, since
   CLAUDE.md keeps long-lived code in Rust.
 - Upstream: whether via-balaena/tentzhen takes the wider scope.
