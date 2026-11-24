@@ -1408,8 +1408,8 @@ What it means for the plan:
 
 1. **Match JAX.** First JAX's random numbers in Rust (`crates/cleanup`). Then:
    - Clean Up's game in Rust, step for step against trajectories SocialJax plays.
-   - The integer policy: LittleBit on the convolutions and the dense layer, scored in the game
-     against the float baseline's 524.2. Its draw is defined so that the chip and the golden model
+   - The integer policy: LittleBit on the convolutions and the dense layer, playing as the float
+     policy does ("Whether a student plays as the teacher does"). Its draw is defined so that the chip and the golden model
      both make it exactly, with a JAX copy that matches them.
    - The game and the policy in gateware, checked in cocotb against the golden model, then on the
      i9.
@@ -1418,8 +1418,9 @@ What it means for the plan:
    clock, to replace the guess of a LUT a weight with a figure.
 2. **Measure the cost a game step on both.** The i9's power on the bench, the GPU's as above, and
    what each cost.
-3. **Build for the FPGA or an ASIC.** Shape the game and the policy for the hardware, judged by score
-   against the float baseline rather than bit for bit against JAX.
+3. **Build for the FPGA or an ASIC.** Shape the game and the policy for the hardware, judged by
+   whether it plays as the trained agents do ("Whether a student plays as the teacher does")
+   rather than bit for bit against JAX.
 
 **What exists already** (searched 2026-11-23; `prior-art.md`, "Simulations in hardware"):
 
@@ -1446,7 +1447,9 @@ is the biggest lever on cost: what a move computes sets the hardware for everyth
 2026-11-24, agreeing the order).
 
 **How it was run.** The bar, set before the first run: a student keeps the policy's score if its
-mean return is at least 90 % of the teacher's on the same games.
+mean return is at least 90 % of the teacher's on the same games. That bar has since been replaced:
+a student must play as the teacher does, not only score as it does, and under the new bar none of
+these students does ("Whether a student plays as the teacher does", below).
 
 - **The evaluation games.** All 1,000 seeded 1,000 to 1,999. The bar was first set over 100 games.
   It became 1,000 after the teacher's own 100-game means came out at 521.0 and 481.0 on two sets of
@@ -1531,9 +1534,156 @@ What it means for the plan:
   seeds 0 to 99 exactly, 524.2 as `play.py` first gave. On the GPU the same seeds score 481.0. The
   two round floats differently, so the drawn moves differ, and from then on so do the games. The
   CPU is the one to match bit for bit.
-- **Next.**
-  - The integer form: uint8 activations, as MNIST's layers have, scored the same way.
-  - Then synthesize the chosen student's layers for the i9, for nextpnr's LUTs and clock.
+- **Next.** The integer form, and a bar on behaviour, not score: the next section.
+
+## Whether a student plays as the teacher does
+
+The integer form of w8-all-r4 changed the bar. Started from w8-all-r4's DAgger student and
+calibrated, untrained, it scored 737 a game, 152 % of the teacher. It got there by playing another
+game. 5.8 of its 7 players do a tenth of the cleaning or more, against the teacher's 4.0; they zap
+1.7 times as often; and the river holds 18 % less dirt. The chip
+is to simulate the agents it was given, so a student that scores higher by acting differently is a
+different agent. So the bar from here: a student must play as the teacher does, measure by measure,
+and its score is one measure of 30 (Jon, 2026-11-24, agreeing to the recommendation).
+
+**How it is measured.**
+
+- **What a game records.** Besides each game's return, `models/cleanup/rollouts.py` records each
+  agent's apples, how often it took each of the 9 actions, and how often it was zapped. For the
+  town, it records the river's dirt and the apples on the map each step, and the dirt the beams
+  removed. Clean Up starts the next game inside its own 1,000th step, so what is read from the
+  game's state counts 999 steps a game.
+- **The 30 measures.** `models/cleanup/behaviour.py` adapts new-melting-pot's report and
+  comparison (its `sims/jaxtown/coop_report.py` and `compare.py` at 480062a, Apache-2.0):
+  - the return;
+  - each player's apples and clean beams, ranked within the game, most first;
+  - zaps fired, and times zapped;
+  - how many players fired at least a tenth of the clean beams;
+  - the dirt removed;
+  - the dirt, and the apples on the map, each step on average;
+  - the share of each of the 9 actions.
+- **The rule, set before any student was compared.** A student matches a measure if its mean over
+  the 1,000 evaluation games is within 3 standard errors of the difference between two independent
+  1,000-game means of the teacher's: 3 × √2 × the teacher's standard deviation / √1,000. It plays as
+  the teacher does if it matches all 30. With 30 measures, the teacher itself would fail one by
+  chance about 8 % of the time.
+- **The rule on the teacher itself.** On 1,000 other games, seeded 3,000 to 3,999, the teacher
+  matches all 30. The closest call is the dirt removed: 4.6 less, against a tolerance of 6.5.
+- **Every policy was played again.** GPU runs don't repeat. The teacher on the evaluation games,
+  by the same program twice, scored 485.5 and 484.9, and only 579 of the 1,000 games came out the
+  same. The earlier program, before these records were added, gave 479.4, with 537 games the same.
+  Why is `unknown`. So each policy here was played again by the same program, and each run counts
+  as an independent sample, as the √2 assumes.
+
+The held-out KL and the same top action are `distill.py`'s, on the last 5 % of a student's
+training observations. For a DAgger student those are the end of its own games, not the teacher's,
+so its figures are on other observations than the rest's. "Where it misses" counts the measures
+missed of each kind:
+
+- apples and beams, of the 7 ranked players each;
+- zaps, fired and received;
+- the town: the cleaners, the dirt removed, and the dirt and apples a step;
+- actions, the 9 shares.
+
+w8-all-r4's DAgger student at seed 0 was trained twice, the second time with the same held-out KL
+to 4 digits. Its two rows differ by 2 measures, which shows how much the count moves on its own.
+
+| student | started from | measures that match, of 30 | return | held-out KL, nats | same top action | where it misses |
+|---|---|---|---|---|---|---|
+| teacher, seeds 1,000 to 1,999 | — | the reference | 485.5 | — | — | — |
+| teacher, seeds 3,000 to 3,999 | — | 30 | 480.0 | — | — | — |
+| t32 | the teacher | 30 | 484.5 | 0.001 | 99.5 % | — |
+| t32-fresh | fresh | 27 | 471.3 | 0.125 | 83.7 % | apples 1; beams 1; actions 1 |
+| w16 | fresh | 6 | 442.4 | 0.131 | 82.0 % | return; apples 5; beams 5; zaps 2; the town 3; actions 8 |
+| w8 | fresh | 18 | 453.7 | 0.137 | 80.9 % | return; apples 3; beams 3; the town 1; actions 4 |
+| w4 | fresh | 19 | 429.5 | 0.149 | 80.2 % | return; apples 6; beams 2; actions 2 |
+| dense-r16 | the teacher | 23 | 464.0 | 0.127 | 84.9 % | beams 1; zaps 1; the town 1; actions 4 |
+| dense-r4 | the teacher | 24 | 457.6 | 0.149 | 81.6 % | return; apples 1; beams 1; zaps 1; actions 2 |
+| all-r16-fresh | fresh | 3 | 410.2 | 0.160 | 79.3 % | return; apples 5; beams 6; zaps 2; the town 4; actions 9 |
+| all-r4-fresh | fresh | 11 | 392.9 | 0.182 | 78.8 % | return; apples 6; beams 6; zaps 1; the town 1; actions 4 |
+| w8-all-r8 | fresh | 14 | 388.8 | 0.174 | 77.1 % | return; apples 5; beams 1; zaps 1; the town 1; actions 7 |
+| w8-all-r4 | fresh | 3 | 385.7 | 0.200 | 77.3 % | return; apples 6; beams 7; zaps 1; the town 3; actions 9 |
+| w8, DAgger, seed 0 | fresh | 16 | 523.9 | 0.138 | 82.5 % | return; apples 6; beams 2; the town 1; actions 4 |
+| w8, DAgger, seed 1 | fresh | 14 | 520.9 | 0.163 | 81.7 % | return; apples 6; beams 3; the town 3; actions 3 |
+| w8, DAgger, seed 2 | fresh | 16 | 516.7 | 0.146 | 82.2 % | return; apples 6; beams 3; actions 4 |
+| w8-all-r4, DAgger, seed 0 | fresh | 13 | 473.6 | 0.244 | 74.3 % | apples 3; beams 3; zaps 1; the town 2; actions 8 |
+| w8-all-r4, DAgger, seed 0 again | fresh | 11 | 471.7 | 0.244 | 74.3 % | apples 3; beams 4; zaps 1; the town 3; actions 8 |
+| w8-all-r4, DAgger, seed 1 | fresh | 15 | 454.3 | 0.255 | 73.5 % | return; apples 3; beams 3; the town 1; actions 7 |
+| w8-all-r4, DAgger, seed 2 | fresh | 7 | 490.1 | 0.248 | 75.1 % | apples 5; beams 6; zaps 2; the town 2; actions 8 |
+| all-r16-fresh, DAgger | fresh | 8 | 467.3 | 0.102 | 85.8 % | apples 3; beams 7; zaps 2; the town 2; actions 8 |
+| w8-all-r4, integer, calibrated only | w8-all-r4, DAgger, seed 0 again | 1 | 737.1 | 0.386 | 69.7 % | return; apples 7; beams 7; zaps 2; the town 3; actions 9 |
+| w8-all-r4, integer, trained 20 epochs | w8-all-r4, DAgger, seed 0 again | 14 | 440.8 | 0.231 | 76.2 % | return; apples 4; beams 4; zaps 1; the town 1; actions 5 |
+
+**What it showed.**
+
+- **No student trained to a new shape plays as the teacher does.** t32 does, but t32 started from
+  the teacher's own weights and still picks the teacher's likeliest action 99.5 % of the time: it
+  is the teacher. Closest of the rest:
+  - t32-fresh, the teacher's own shape trained from scratch, at 27 of 30;
+  - dense-r4 and dense-r16, which keep the teacher's convolutions, at 24 and 23.
+- **The recipe limits faithfulness before size does.** Every float student started fresh and
+  trained on the teacher's games alone, from 4 to 32 wide, ends at a held-out KL of 0.12 to 0.15
+  nats a move, and picks the teacher's likeliest
+  action 80 to 84 % of the time. Even at the teacher's size, this recipe doesn't make a faithful
+  student.
+- **The students' cleaners clean less.** Of the 20 students besides t32, 19 fire fewer clean beams
+  than the teacher from the player who fires the most, 17 of them by more than the tolerance. 18 do
+  from the second, 16 by more than the tolerance.
+- **The students hedge.** On the teacher's held-out observations, the teacher's choice of action
+  has an entropy of 0.80 nats. Nine students were measured besides t32:
+  - those with float convolutions, 0.93 to 0.96;
+  - w8-all-r4's DAgger student, 1.05;
+  - its integer forms, 1.03 trained and 1.29 calibrated only.
+
+  Where the clean beam is the teacher's likeliest action, a third of the observations, the teacher
+  gives it 0.58 and the students 0.44 to 0.53. Whether this is why they clean less is `unknown`.
+- **Sharpening doesn't fix it.** Each of four students had its logits scaled by the k that gives
+  it the teacher's entropy on the teacher's held-out observations, which is the same as scaling its
+  logits layer. All four play further from the teacher, and score less. Their cleaners fire more
+  beams but clear less dirt, and they zap less. The scaling also raises each one's KL, on the
+  teacher's last 35,000 observations, for all four:
+
+  | student, its logits × k | k | measures that match, of 30 | return | KL before, then after | dirt cleared a beam |
+  |---|---|---|---|---|---|
+  | t32-fresh | 1.240 | 6 | 373.3 | 0.125, 0.137 | 0.208 |
+  | w8, DAgger, seed 0 | 1.224 | 4 | 429.9 | 0.107, 0.117 | 0.212 |
+  | w8-all-r4, DAgger, seed 0 | 1.422 | 3 | 304.9 | 0.187, 0.211 | 0.194 |
+  | w8-all-r4, integer, trained | 1.372 | 5 | 299.0 | 0.177, 0.200 | 0.203 |
+
+  The DAgger students trained on those observations, so their KLs are compared only before and
+  after the scaling. new-melting-pot suggested checking the KL alongside the measures.
+- **Beams fired stand for cleaning within one policy, not across policies.** In the teacher's
+  games, a game's beams and the dirt they cleared correlate at 0.79 and 0.77 on the two sets of
+  seeds, with 0.244 dirt cleared a beam in both. The sharpened students clear 0.21 a beam. So the
+  dirt removed is measured, not inferred from the beams.
+- **The extra score came from playing another game.** w8's DAgger students outscore the teacher,
+  517 to 524 a game. At seed 0, players 2 to 7 eat more apples, and players 1 and 2 fire 18 and 19
+  fewer beams. The calibrated integer student's 737 goes further. Every player eats more, and the
+  cleaning moves from players 1 and 2 to players 3 to 7.
+- **The integer form, trained, is no further from the teacher than its float start.** Trained 20
+  epochs, it matches 14 of 30. Its float start, the second training of w8-all-r4's DAgger student
+  at seed 0, matches 11, and the first training 13. But that start wasn't faithful either.
+- **KL on recorded games doesn't rank the students.** On the same held-out observations, w16, at
+  0.131, matches 6 measures, and dense-r4, at 0.149, matches 24.
+
+How these are known: these are `rollouts.py`'s, `behaviour.py`'s and `distill.py`'s figures, one run
+each, and no test re-checks them. The entropies, the counts across students, the sharpened students
+and their KLs come from throwaway scripts. They are kept with the students' files in
+`D:\tentzhen-data\cleanup\scripts\`, outside the repo.
+
+What it means for the plan:
+
+- **No student is chosen for the hardware yet.** A hardwired layer's cost on the i9 follows from
+  its shape and from its weights' values. How much from each is `unknown` until one is
+  synthesized. So synthesizing w8-all-r4's shape, for nextpnr's LUTs and clock, can go ahead
+  meanwhile: it measures exactly that.
+- **Next, the recipe, on the teacher's own shape.** Make a fresh t32 play as the teacher does, then
+  shrink it. To try:
+  - more of the teacher's games than 100;
+  - more rounds of DAgger;
+  - longer training;
+  - and, for new-melting-pot's question, whether the cleaners spend less time at the river or fire
+    less while there.
 
 ## Open questions
 

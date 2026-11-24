@@ -11,6 +11,10 @@ Flax's layouts: a convolution's kernel as (kernel, kernel, in, out), a dense lay
 and each bias. A LittleBit layer is written as the dense weights its factors make, so the game
 plays it as trained. `models/littlebit/distill.py` writes them, and `teacher` writes the teacher's
 own weights in the same form, as a student with the teacher's shape.
+
+A student in its integer form names `activation_exponents` in its spec: each layer's output but
+the logits is then floor(y / 2^e) clamped to 0..255, times 2^e, in place of ReLU, as
+`distill.py` trained it (`littlebit.Uint8`).
 """
 
 import json
@@ -34,13 +38,22 @@ def layer_names(spec):
 class Student(nn.Module):
     spec: dict
 
+    def act(self, name, y):
+        """ReLU, or the uint8 grid in the integer form."""
+        exponents = self.spec.get("activation_exponents")
+        if exponents is None:
+            return nn.relu(y)
+        step = 2.0 ** exponents[name]
+        return jnp.clip(jnp.floor(y / step), 0, 255) * step
+
     @nn.compact
     def __call__(self, x):
         for i, (width, kernel) in enumerate(self.spec["convs"]):
-            x = nn.relu(nn.Conv(width, (kernel, kernel), name=f"conv{i + 1}")(x))
+            name = f"conv{i + 1}"
+            x = self.act(name, nn.Conv(width, (kernel, kernel), name=name)(x))
         x = x.reshape((x.shape[0], -1))
-        x = nn.relu(nn.Dense(self.spec["dense"], name="dense")(x))
-        x = nn.relu(nn.Dense(self.spec["actor"], name="actor")(x))
+        x = self.act("dense", nn.Dense(self.spec["dense"], name="dense")(x))
+        x = self.act("actor", nn.Dense(self.spec["actor"], name="actor")(x))
         return nn.Dense(policy.ACTIONS, name="logits")(x)
 
 

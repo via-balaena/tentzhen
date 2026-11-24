@@ -149,3 +149,10 @@ policy does, from the games `models/cleanup/rollouts.py` records. It writes `stu
 `models/cleanup` plays, and `summary.json`: the recipe, the training curve, and what a move
 computes. LittleBit's convolution, `LittleBitConv2d`, is in `littlebit.py`. The results are in
 `docs/littlebit.md`, "How small the policy can get".
+
+A spec with `"activations": "uint8"` is a student's integer form: every layer's outputs but the
+logits on a uint8 grid, as MNIST's layers have. `DISTILL_START` names a `student.pt` to start it
+from, and `DISTILL_EPOCHS=0` writes it calibrated but untrained:
+
+    $env:DISTILL_START = "students\w8-all-r4-dagger1b\student.pt"
+    uv run --locked python distill.py w8-all-r4-uint8 teacher.npz students\w8-all-r4-uint8 teacher-0.npz w8-all-r4-200.npz

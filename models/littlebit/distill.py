@@ -25,6 +25,14 @@ A student keeps the policy's score if its mean return over the 1,000 games seede
 is at least 90 % of the teacher's on the same games. The 90 % was set before the first run, with
 100 games. It became 1,000 after the teacher's own 100-game means came out at 521.0 and 481.0 on
 two sets of seeds, and before any student was scored.
+
+**The integer form** ("activations": "uint8" in a spec) follows the MNIST runs' recipe
+(`train_rank.py`). Each layer's outputs but the logits are uint8 times 2^e, floor(y / 2^e) clamped
+to 0..255, as the hardware's right shift, ReLU and clamp give (`littlebit.Uint8`). Each exponent is
+set before training, to the smallest that clamps nothing on the training observations, layer by
+layer on the quantized outputs of the layers before (`calibrate`). Then it trains by the recipe
+above. The environment variable DISTILL_START names a student.pt to start from, and DISTILL_EPOCHS
+sets how many epochs, so that 0 gives the calibrated student untrained.
 """
 
 import json
@@ -39,7 +47,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from littlebit import LittleBitConv2d, LittleBitLinear
+from littlebit import Activations, LittleBitConv2d, LittleBitLinear, exponent_for
 
 ACTIONS = 9
 GRID = 11
@@ -77,6 +85,12 @@ SPECS = {
     "all-r16-fresh": TEACHER | {"littlebit": littlebit_all(16), "start": "fresh"},
     "all-r4-fresh": TEACHER | {"littlebit": littlebit_all(4), "start": "fresh"},
     "w8-all-r8": TEACHER | {"convs": [[8, 5], [8, 3], [8, 3]], "littlebit": littlebit_all(8)},
+    # Added after the behaviour bar: only t32 played as the teacher does, and it started from the
+    # teacher's own weights. The teacher's shape started fresh, to tell the size from the recipe.
+    "t32-fresh": TEACHER | {"littlebit": {}, "start": "fresh"},
+    # The integer form of w8-all-r4, started from its DAgger student (DISTILL_START).
+    "w8-all-r4-uint8": TEACHER | {"convs": [[8, 5], [8, 3], [8, 3]], "littlebit": littlebit_all(4),
+                                  "activations": "uint8"},
 }
 
 
@@ -139,14 +153,28 @@ class Student(nn.Module):
             else:
                 self.layers[name] = LittleBitLinear.from_dense(dense.weight, dense.bias, rank)
         self.convs = [n for n in self.layers if n.startswith("conv")]
+        self.uint8 = spec.get("activations") == "uint8"
+        if self.uint8:
+            self.acts = nn.ModuleDict({n: Activations() for n in self.layers if n != "logits"})
 
-    def forward(self, x):
+    def act(self, name, y):
+        """ReLU, or in the integer form the uint8 grid, which clamps at 0 too."""
+        return self.acts[name](y) if self.uint8 else torch.relu(y)
+
+    def forward(self, x, stop=None):
+        """The 9 logits; or, with `stop`, that layer's output before its activation."""
         x = x.permute(0, 3, 1, 2)
         for name in self.convs:
-            x = torch.relu(self.layers[name](x))
+            y = self.layers[name](x)
+            if name == stop:
+                return y
+            x = self.act(name, y)
         x = x.permute(0, 2, 3, 1).flatten(1)
-        x = torch.relu(self.layers["dense"](x))
-        x = torch.relu(self.layers["actor"](x))
+        for name in LINEARS:
+            y = self.layers[name](x)
+            if name == stop:
+                return y
+            x = self.act(name, y)
         return self.layers["logits"](x)
 
     def dense_weights(self):
@@ -173,6 +201,19 @@ def read_teacher(path):
             weight = kernel.permute(3, 2, 0, 1) if kind == "conv" else kernel.T
             out[name] = (weight.contiguous(), torch.from_numpy(f[f"{name}/bias"]))
     return out
+
+
+@torch.no_grad()
+def calibrate(net, obs):
+    """Sets each activation's exponent to the smallest that clamps nothing on `obs`, layer by
+    layer, each on the quantized outputs of the layers before, as the MNIST runs' `calibrate`
+    does. Gives the exponents."""
+    for name, activations in net.acts.items():
+        largest = 0.0
+        for i in range(0, len(obs), BATCH):
+            largest = max(largest, float(net(obs[i:i + BATCH].float(), stop=name).max()))
+        activations.exponent = exponent_for(largest)
+    return {name: a.exponent for name, a in net.acts.items()}
 
 
 def kl(student_logits, teacher_logits):
@@ -213,15 +254,26 @@ def main(name, teacher_path, out_folder, rollouts):
     train_obs, train_logits = obs[:-held], logits[:-held]
     test_obs, test_logits = obs[-held:], logits[-held:]
 
+    epochs = int(os.environ.get("DISTILL_EPOCHS", str(EPOCHS)))
+    start_path = os.environ.get("DISTILL_START")
     same_shape = spec["convs"] == TEACHER["convs"] and spec.get("start") != "fresh"
-    net = Student(spec, read_teacher(teacher_path) if same_shape else None).to(device)
-    steps = EPOCHS * math.ceil(len(train_obs) / BATCH)
+    if start_path:
+        net = Student(spec).to(device)
+        net.load_state_dict(torch.load(start_path, map_location=device, weights_only=True))
+        started = str(Path(start_path).resolve())
+    else:
+        net = Student(spec, read_teacher(teacher_path) if same_shape else None).to(device)
+        started = "the teacher" if same_shape else "PyTorch's default initialization"
+    if net.uint8:
+        spec = spec | {"activation_exponents": calibrate(net, train_obs)}
+        print(f"{name}: activation exponents {spec['activation_exponents']}", flush=True)
+    steps = max(1, epochs * math.ceil(len(train_obs) / BATCH))
     optimizer = torch.optim.Adam(net.parameters(), lr=RATE)
     schedule = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, steps)
     start = time.perf_counter()
     curve = [{"epoch": 0, "train_kl": None, "held_out_kl": None, "held_out_same_top": None}]
     curve[0]["held_out_kl"], curve[0]["held_out_same_top"] = measure(net, test_obs, test_logits)
-    for epoch in range(1, EPOCHS + 1):
+    for epoch in range(1, epochs + 1):
         order = torch.randperm(len(train_obs), device=device)
         total = 0.0
         for i in range(0, len(order), BATCH):
@@ -251,8 +303,8 @@ def main(name, teacher_path, out_folder, rollouts):
         "student": spec,
         "costs": costs(spec),
         "teacher_costs": costs(TEACHER | {"littlebit": {}}),
-        "started_from": "the teacher" if same_shape else "PyTorch's default initialization",
-        "recipe": {"epochs": EPOCHS, "batch": BATCH, "rate": RATE, "schedule": "cosine to 0",
+        "started_from": started,
+        "recipe": {"epochs": epochs, "batch": BATCH, "rate": RATE, "schedule": "cosine to 0",
                    "held_out": HELD_OUT, "seed": seed, "loss": "KL(teacher || student)"},
         "rollouts": [str(Path(p).resolve()) for p in rollouts],
         "observations": {"train": len(train_obs), "held_out": held},

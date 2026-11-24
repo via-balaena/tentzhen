@@ -71,3 +71,15 @@ logits for it, what `models/littlebit/distill.py` trains a smaller student on. A
 place of `teacher` plays instead, and the teacher still labels what it sees: that is DAgger's step.
 The third scores a student on the 1,000 evaluation games. 100 recorded games take 1.6 GB, so
 keep them on a large drive. The results are in `docs/littlebit.md`, "How small the policy can get".
+
+## Whether it plays as the teacher does
+
+    uv run --locked python behaviour.py teacher.json teacher-3000.json student.json [more.json ...]
+
+Each file is one `rollouts.py` run of 1,000 games. Besides each game's return, every run records
+how the game was played: each agent's apples and actions, the zaps, the dirt and the dirt the beams
+removed, and the apples on the map. `behaviour.py` compares each later file with the first on 30
+measures of that, and says which play as the first does. Give it the teacher on the evaluation
+games first, then the teacher on 1,000 other games (seeded 3,000 on) to check the rule on the
+teacher itself, then the students. The results are in `docs/littlebit.md`, "Whether a student
+plays as the teacher does".
