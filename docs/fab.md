@@ -182,19 +182,47 @@ far faster than a camera takes frames. A real stepper's vibration, measured that
 the model. Until then the model's figures are `unknown`. Measuring needs a stepper, either built
 here (about $3,000, Jon's decision) or measured with a Hacker Fab.
 
-**Where it doesn't fit: the projector.** CortenForge has no optics. The projector's problems point
-at the i9 instead. The i9 would:
-- switch the UV LED on only for an exposure;
-- keep any operating system out of the image path;
-- take the slicer's frames directly.
+**Where it doesn't fit: the projector.** CortenForge has no optics. The projector's problems, and
+the stage's timing, point at the i9 instead.
 
-Whether TI's micromirror chips can be driven without TI's own controller chips is `unknown`. It is
-the first thing to search.
+**Where the i9 comes in.** It would be the stepper's real-time controller, doing three jobs that
+a PC, an Arduino and the projector's own board each do today:
+
+1. **The light.**
+   - The i9 switches the UV LED on only for an exposure, timed to its clock, so nothing leaks
+     between exposures.
+   - It can only ask for light. The interlock that cuts the LED's power, when the enclosure opens
+     for one, stays in hardware the i9 can't override (rule 2).
+2. **The image, with no operating system in its path.**
+   - The slicer's frames go from the PC into the i9's memory, and the i9 shows the projector one
+     frame for each exposure. No pop-up can reach the chip.
+   - Hacker Fab lists a $250 projector for this: the DMD projector of an Elegoo Mars 4 resin
+     printer, with only a 405 nm LED. Its own board takes only resin-printer files.
+   - OpenMLA's controller, a hat for a Raspberry Pi Zero 2, sends images over SPI to the TI
+     controller on the projector's own board, the DLPC1438.
+   - So the micromirror chip needn't be driven without TI's controller: the projector has one, and
+     it can be fed directly. The i9 would do the hat's job.
+   - This would also replace the TI evaluation module that is out of stock.
+3. **Motion, and exposures timed to it.**
+   - The i9 runs the stage's loop and sequences each exposure: step, settle, expose.
+   - With an accelerometer on the digitizer's ADC, it waits to expose until the measured
+     vibration has died down. That is a cheap fix for the stepper's largest problem, and it needs
+     no mechanical redesign first. OpenMLA's board breaks out pins for exposing "based on some
+     sensor readout".
+   - It would replace GRBL on the Arduino, whose settings Hacker Fab ties to its backlash. The
+     gateware would be checked as the bench's cores are, with SymbiYosys and cocotb.
+
+**What stays on the PC:** the camera and its fiducial detection (RF-DETR), which does the
+alignment, and the slicer.
+
+It is the same board as the digitizer's and LittleBit's, with the same tools. Every bitstream
+load still needs Jon's OK (CLAUDE.md). Nothing here is built or tested on an i9.
 
 **The order proposed:**
 1. The vibration model, from the open CAD, since it needs nothing bought.
 2. A measurement of a real stepper.
-3. The FPGA projector, after that search.
+3. The i9 as the stepper's controller: the light, then the resin-printer projector fed from the
+   i9, then exposures timed to the measured vibration.
 
 ## The town
 
