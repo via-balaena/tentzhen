@@ -209,6 +209,7 @@ person's approval in the session, and every load is logged as a `firmware.flash`
 | training and the rank sweep | Python, PyTorch: the exception CLAUDE.md names for it | `models/littlebit/` |
 | SocialJax's Clean Up and its trained policy, played on the computer | Python, JAX, as SocialJax is written: the same exception | `models/cleanup/` |
 | the weight export and the integer golden model | Rust | `crates/littlebit` |
+| Clean Up's golden model, so far JAX's random numbers | Rust | `crates/cleanup` |
 | the layer engine, the output layer, the weight-ROM generator, the whole network | Amaranth | `gateware/cores/littlebit.py` |
 | the UART | Amaranth | `gateware/cores/uart.py` |
 | the top level: the network behind the UART | Amaranth | `gateware/littlebit/network.py` |
@@ -1296,6 +1297,41 @@ What it means for the plan:
   19 uint8s a cell.
 - **The scores, not the action, are what to match.** The golden model and the gateware compare the
   9 scores exactly, as MNIST's 10 are. The game score then tests how much the compression costs.
+
+**JAX's random numbers, in Rust** (`crates/cleanup`, 2026-11-23). For a hardwired game to be checked
+against SocialJax's step for step, its golden model has to draw the random numbers JAX draws, and
+then the gateware the golden model's. So that comes first. JAX 0.6.2 draws with Threefry-2x32, 20
+rounds of 32-bit adds, rotations and exclusive-ors (`jax/_src/prng.py`), which is cheap in LUTs and
+needs no multiplier. Its layout is the one JAX calls "partitionable", the default since 0.5.0
+(`jax/_src/config.py`), and SocialJax doesn't change it: nothing at 18e2171 sets JAX's PRNG
+options. In this layout the i-th number drawn from a key is the hash of the counter i.
+
+- **What the game draws.** Clean Up's randomness all goes through four calls: `split`; `uniform`, for
+  apple regrowth and dirt spawning (`clean_up.py`, lines 1051 to 1068); `randint`, as int8 for
+  the agents' first facings (line 1363) and in the type of the agents' positions for a respawn's
+  facing (`movement.py`, line 147); and `permutation`, of spawn points at a reset and a respawn
+  (`clean_up.py`, lines 1323 and 1325; `movement.py`, line 140), and of the agents, as a random
+  order that settles who wins a contested cell (`movement.py`, line 61). Zapping draws nothing.
+- **A quirk to copy.** Each step draws three times from one key, for apple regrowth, the dirt's noise
+  and the dirt's chance, and a draw from a key begins with every smaller draw from the same key. So
+  the three repeat each other's first numbers. A match has to repeat them too.
+- **What is matched.** `crates/cleanup/src/random.rs` gives the same bits as JAX for the hash, a
+  seed's key, `split`, `bits`, `uniform`, `randint` as int8, int16 and int32, at the ends of each
+  type and on empty and reversed ranges, and `permutation`, both of 0 to n − 1 and of rows. It
+  matches on 9 keys, at sizes from 1 to 1,700, a shuffle sorting once and twice: `tested`,
+  `jax_s_random_numbers_are_these_bit_for_bit`, against the vectors `models/cleanup/
+  random_vectors.py` writes from JAX itself. The hash also gives Random123's three known answers
+  (`threefry_gives_random123_s_known_answers`). Breaking the split's order or `randint`'s multiplier
+  on purpose failed the test (by hand, once each). That the vectors are JAX's is
+  `random_vectors.py --check`, run by
+  hand: the Quality Gate has no JAX.
+- **What is left for the game.** Two places in it compute in floats: the chance an apple regrows, one
+  float32 division and multiplication a step, compared with uniform draws; and the dirt's noise,
+  a uniform draw times 10⁻⁴ added to each cell's label, which is then sorted. Both are small, and
+  IEEE float32 rounds them one way. Whether XLA's GPU build divides with the same rounding as
+  its CPU build is `unknown`, so the CPU is the reference. The policy's own draw, a categorical one
+  through Gumbel noise and a float logarithm, is not one to copy: the integer policy will be drawn
+  from in a way the chip and its golden model can both do exactly, with a JAX copy of it.
 
 The biggest risk is accuracy at very low rank. If r ≤ 8 collapses, the project still answers its
 questions, with r = 16–64 as the low end.

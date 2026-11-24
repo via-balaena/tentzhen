@@ -35,3 +35,15 @@ plays 100 games of Clean Up as the checkpoint was trained on it: 7 agents sharin
 plays it), by its most likely action (`greedy`), or uniformly (`random`). It writes each game's
 return and what the observations held. The results are in `docs/littlebit.md`, "The float
 baseline".
+
+## JAX's random numbers, for the golden model
+
+    uv run --locked python random_vectors.py
+    uv run --locked python random_vectors.py --check
+
+The first has JAX draw from 9 keys every way Clean Up draws (`split`, `uniform`, `randint` and
+`permutation`, and the Threefry hash beneath them) and writes what it drew to
+`random_vectors.json`. The golden model's copy of JAX's random numbers, `crates/cleanup`, has to
+draw the same, bit for bit (`jax_s_random_numbers_are_these_bit_for_bit`). The second fails unless
+the committed file is what this JAX writes. It needs no SocialJax. The Quality Gate has no JAX, so
+it checks the Rust against the file, and the file against JAX is checked by hand.
