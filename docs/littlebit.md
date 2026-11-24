@@ -1409,8 +1409,8 @@ What it means for the plan:
 1. **Match JAX.** First JAX's random numbers in Rust (`crates/cleanup`). Then:
    - Clean Up's game in Rust, step for step against trajectories SocialJax plays.
    - The integer policy: LittleBit on the convolutions and the dense layer, playing as the float
-     policy does ("Whether a student plays as the teacher does"). Its draw is defined so that the chip and the golden model
-     both make it exactly, with a JAX copy that matches them.
+     policy does ("Whether a student plays as the teacher does"). Its draw is defined so that the
+     chip and the golden model both make it exactly, with a JAX copy that matches them.
    - The game and the policy in gateware, checked in cocotb against the golden model, then on the
      i9.
 
@@ -1678,12 +1678,157 @@ What it means for the plan:
   synthesized. So synthesizing w8-all-r4's shape, for nextpnr's LUTs and clock, can go ahead
   meanwhile: it measures exactly that.
 - **Next, the recipe, on the teacher's own shape.** Make a fresh t32 play as the teacher does, then
-  shrink it. To try:
+  shrink it ("A recipe that makes a faithful student", below). To try:
   - more of the teacher's games than 100;
   - more rounds of DAgger;
   - longer training;
   - and, for new-melting-pot's question, whether the cleaners spend less time at the river or fire
     less while there.
+
+## A recipe that makes a faithful student
+
+The next step was to fix the recipe on the teacher's own shape before shrinking it (Jon,
+2026-11-24). Each student below starts fresh and is scored on the behaviour bar on both sets of
+seeds. The scoring seeds stay apart from every training seed:
+
+- the teacher's first 100 games, seeded 0 to 99;
+- 400 more, seeded 10,000 to 10,399, recorded for this;
+- the DAgger games, seeded 200 to 299.
+
+`distill.py` now keeps the recorded observations in the computer's memory and moves each batch to
+the GPU as it is used, since 500 games' are 8.2 GB. The change is meant to move only where the
+observations wait, not which batches are drawn or the arithmetic on them. Nothing checks that a
+run matches one from before it.
+
+The held-out KL is on the last 5 % of the training observations. With 500 games, that is the last
+25 of the teacher's first 100; with 100, the last 5.
+
+Every student trained at the same rate, 0.001, falling to 0 on a cosine, in batches of 4,096, from
+seed 0. The KLs are those of the last epoch.
+
+| student | games trained on | epochs | a move computes | it holds | KL, training, then held out | same top action, held out | measures that match, seeds 1,000 on, then 3,000 on | return, both |
+|---|---|---|---|---|---|---|---|---|
+| t32-fresh | 100 | 20 | 4,321,952 multiply-adds | 286,112 weights | 0.079, 0.125 | 83.7 % | 27, not played | 471.3 |
+| t32-fresh | 100 | 100 | 4,321,952 multiply-adds | 286,112 weights | 0.042, 0.101 | 86.6 % | 30, 28 | 499.9, 494.0 |
+| t32-fresh | 500 | 20 | 4,321,952 multiply-adds | 286,112 weights | 0.052, 0.057 | 89.7 % | 30, 30 | 492.8, 487.7 |
+| w8 | 500 | 20 | 665,816 multiply-adds | 71,576 weights | 0.076, 0.081 | 87.7 % | 30, 30 | 476.5, 468.4 |
+| w4 | 500 | 20 | 300,396 multiply-adds | 37,836 weights | 0.092, 0.093 | 86.4 % | 27, 26 | 475.3, 462.1 |
+| w8-dense-r4 | 500 | 20 | 603,864 multiply-adds, 4,128 sign additions and 1,036 scalings | 9,624 weights, 4,128 sign bits and 1,036 scales | 0.106, 0.102 | 84.8 % | 16, 19 | 463.1, 457.6 |
+| w8-all-r8 | 500 | 20 | 576 multiply-adds, 631,704 sign additions and 81,883 scalings | 576 weights, 14,424 sign bits and 1,843 scales | 0.126, 0.114 | 83.5 % | 3, 2 | 530.9, 535.4 |
+| w8-all-r4 | 500 | 20 | 576 multiply-adds, 315,852 sign additions and 80,423 scalings | 576 weights, 7,212 sign bits and 1,823 scales | 0.139, 0.127 | 82.2 % | 11, 10 | 483.8, 478.8 |
+
+The teacher's returns on the two sets of seeds are 485.5 and 480.0. w8-dense-r4 is w8 with
+LittleBit on the dense layer alone, which holds 61,952 of w8's 71,576 weights.
+
+What it showed:
+
+- **More of the teacher's games made a faithful student.**
+  - Trained 100 epochs on the same 100 games, t32-fresh matches all 30 measures on the
+    evaluation seeds. On the second set it matches 28: there it removes more dirt than the
+    teacher (+7.7, against a tolerance of 6.6) and leaves less in the river. It learned those 100
+    games better than the games it never saw: a KL of 0.042 on its training observations, against
+    0.101 held out.
+  - Trained 20 epochs on 500 games, it matches all 30 on both sets of seeds. Its KL is 0.052 on its
+    training observations and 0.057 held out.
+- **It still hedges, a little.** On the last 35,000 observations of the teacher's first 100 games,
+  which all three held out, the teacher's entropy is 0.80 nats. The 500-game student's is 0.87,
+  the 100-epoch one's 0.90, and the first t32-fresh's 0.94. So the bar's 1,000 games can't see a
+  difference that size.
+- **8 wide is faithful, and 4 wide nearly.** Trained on the 500 games, w8 matches all 30 measures
+  on both sets of seeds, with 6.5 times less arithmetic than the teacher's shape. w4, with 14
+  times less, matches 27 and 26. On both sets its player 1 fires fewer cleaning beams than the
+  teacher's, 11.8 and 10.4 fewer, and it moves right less often.
+- **No LittleBit student plays as the teacher does yet, and each misses differently.**
+  - w8-dense-r4 matches 16 and 19. Its player 1 eats 14.6 fewer apples and fires 12 to 14 fewer
+    cleaning beams. Everyone zaps less, 6.0 and 5.6 fewer zaps a game.
+  - w8-all-r4 matches 11 and 10. Its player 1 fires 15 and 13 fewer cleaning beams, and players 3
+    to 7 fire 16 to 33 more. It zaps 7.5 and 7.9 more, and has 4.34 and 4.40 cleaners, against
+    the teacher's 4.02.
+  - w8-all-r8 matches 3 and 2, the same drift as w8-all-r4's but further. Players 2 to 7 fire 21 to
+    53 more cleaning beams and eat more apples, and the river holds 6.1 and 8.3 less dirt a step.
+    It scores 530.9 and 535.4, against the teacher's 485.5 and 480.0. As with w8's DAgger
+    students ("Whether a student plays as the teacher does"), the higher score comes from playing
+    another game.
+- **The LittleBit students aren't memorizing.** Each one's KL on its training observations is no
+  lower than held out: 0.139 and 0.127 for w8-all-r4. The 100-epoch t32-fresh's, on 100 games,
+  were 0.042 and 0.101. In their last epochs, the LittleBit students' training KLs still fell, by
+  up to 0.001 an epoch, as the rate went to 0. Their held-out KLs moved by up to 0.012 from one
+  epoch to the next. Whether longer training, DAgger or another start would close the gap is
+  `unknown`.
+- **KL ranks the float students, not the LittleBit ones.** All the 500-game students trained on
+  the same files in the same order, so they are measured on the same held-out observations. The
+  float students' KLs, 0.057, 0.081 and 0.093, rank them as their matches do: 60, 60 and 53 of 60.
+  The LittleBit students' don't. w8-dense-r4, at 0.102, matches 35, w8-all-r8, at 0.114, matches
+  5, and w8-all-r4, at 0.127, matches 21.
+
+How these are known: `distill.py`'s, `rollouts.py`'s and `behaviour.py`'s figures, one training run
+each, and no test re-checks them. The entropies and the table are throwaway scripts'. They are in
+`D:\tentzhen-data\cleanup\scripts\`, where `recipe_table.py` reads each student's `summary.json`
+and its behaviour records.
+
+What it means for the plan:
+
+- **The cheapest faithful student is w8, in float.** It is the shape to make LittleBit from.
+- **Next: longer training, then DAgger, on the 500 games.** The LittleBit students' training KLs
+  were still falling when the rate reached 0. One round of DAgger lifted the fully LittleBit
+  students' scores from 81–86 % to 98 % ("How small the policy can get"), though not their play to
+  the teacher's.
+- **Not first: starting from w8's own weights.** Dual-SVID of a trained network is how the
+  teacher's own shape starts. But with every layer factorized, the network it gave began near
+  random, at a KL of 1.77, and never recovered ("How small the policy can get"). Whether w8's
+  weights would do better is `unknown`.
+
+## What w8-all-r4 costs on the i9, as the engine stands
+
+Each of w8-all-r4's five LittleBit layers was built as the MNIST layers' engine
+(`gateware/cores/littlebit.py`, "Hardware architecture"), with its own real signs and int8 scales,
+then sized by Yosys and nextpnr. It is the shape's cost, not a chosen student's: none plays as the
+teacher does yet. The student is w8-all-r4's integer form, trained 20 epochs.
+
+- **How its integers were made.** A throwaway script follows the MNIST exporter's rules where
+  they apply (`crates/littlebit/src/export.rs`): g, l and h int8, each on its finest grid; the
+  signs, the latents' signs; the latent shift, the smallest that saturates no latent on 2,000
+  recorded observations; the output shift, from the activation exponents the student trained
+  with. It is for sizing only. Nothing checks that these integers compute what the student does.
+  The script and its output are in `D:\tentzhen-data\cleanup\scripts\` and
+  `D:\tentzhen-build\synth-cleanup\`, outside the repo.
+- **How each was built.** Each engine alone, as r16's were sized ("What the engines cost"):
+  `python -m gateware.cores.littlebit`, then Yosys's `synth_ecp5` and nextpnr-ecp5 for the
+  LFE5U-45 in its CABGA381 package, speed 6, at 50 MHz, seed 1. The tools are OSS CAD Suite
+  2026-11-21, and the gateware is main's at 7356992.
+
+| layer | in → out | r | Variant A: logic cells, flip-flops, multipliers | Fmax | Variant B: logic cells, block RAMs | Fmax | clocks a move |
+|---|---|---|---|---|---|---|---|
+| conv1 | 5 × 5 × 19 = 475 → 8 | 4 | 1,488, 332, 4 | 61.45 MHz | 866, 5 | 62.69 MHz | 59,048 |
+| conv2 | 3 × 3 × 8 = 72 → 8 | 4 | 938, 326, 4 | 59.13 MHz | 823, 5 | 58.46 MHz | 10,285 |
+| conv3 | 72 → 8 | 4 | 934, 325, 4 | 60.63 MHz | 828, 5 | 55.41 MHz | 10,285 |
+| dense | 11 × 11 × 8 = 968 → 64 | 4 | 2,260, 351, 4 | 57.48 MHz | 888, 5 | 56.04 MHz | 1,037 |
+| actor | 64 → 64 | 4 | 1,047, 330, 4 | 64.16 MHz | 811, 5 | 61.10 MHz | 133 |
+| all five | | | 6,667, 1,664, 20 | | 4,216, 25 | | 80,788 |
+
+The cells, flip-flops, multipliers, block RAMs and clock are nextpnr's figures, `trusted` with the
+toolchain (`trusted-base.toml`, `fpga-toolchain`). The clocks are the engine's: a vector takes
+inputs + rank + outputs + 1 clocks, given an input every clock. That is `tested` for MNIST's layers
+(`gateware/cores/tests/test_littlebit.py`), and here each conv layer runs it once at each of the
+grid's 121 positions. The 9 logits' layer, the windows fed to the convolutions, the sampler and
+the game are not counted.
+
+What it means:
+
+- **Small, but slow.** The whole policy's engines take 15 % of the i9's logic, so it fits many
+  times over. But conv1 alone takes 59,048 clocks a move. With one engine a layer, each working on
+  a later move than the one before, a move comes every 59,048 clocks. At 57.48 MHz, the slowest
+  engine's clock, that is 973 moves a second, 139 game steps.
+- **The multipliers run out first.** Every engine uses 4 of the i9's 72 multipliers, so at most 18
+  fit. Shared out by each layer's clocks, so that no engine waits, 72 multipliers make 12,807
+  moves a second, 1,830 game steps. That is arithmetic on the figures above, not a design that was
+  built, and it is the most this engine can give. It is about 97 times short of the GPU's 177,885
+  ("The goal").
+- **A hardwired kernel is what would change it.** The engine multiplies by a general multiplier
+  because it reads each scale from a table. With each scale a constant of the circuit, a multiply
+  by it becomes a few additions in logic, and a window's inputs could all be taken in one clock.
+  What that costs in cells, and how fast it closes, is `unknown` until one is built. That is the
+  next gateware step: conv1 as such a kernel, sized the same way.
 
 ## Open questions
 

@@ -56,6 +56,7 @@ EPOCHS = 20
 BATCH = 4096
 RATE = 1e-3
 HELD_OUT = 0.05
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 TEACHER = {"convs": [[32, 5], [32, 3], [32, 3]], "dense": 64, "actor": 64}
 CONVS = ("conv1", "conv2", "conv3")
@@ -88,6 +89,10 @@ SPECS = {
     # Added after the behaviour bar: only t32 played as the teacher does, and it started from the
     # teacher's own weights. The teacher's shape started fresh, to tell the size from the recipe.
     "t32-fresh": TEACHER | {"littlebit": {}, "start": "fresh"},
+    # Added after w8, trained on 500 games, played as the teacher does and w8-all-r4 did not: 8-wide
+    # float convolutions with LittleBit on the dense layer alone, which holds 61,952 of w8's 71,576
+    # weights.
+    "w8-dense-r4": TEACHER | {"convs": [[8, 5], [8, 3], [8, 3]], "littlebit": {"dense": 4}},
     # The integer form of w8-all-r4, started from its DAgger student (DISTILL_START).
     "w8-all-r4-uint8": TEACHER | {"convs": [[8, 5], [8, 3], [8, 3]], "littlebit": littlebit_all(4),
                                   "activations": "uint8"},
@@ -211,9 +216,15 @@ def calibrate(net, obs):
     for name, activations in net.acts.items():
         largest = 0.0
         for i in range(0, len(obs), BATCH):
-            largest = max(largest, float(net(obs[i:i + BATCH].float(), stop=name).max()))
+            largest = max(largest, float(net(on(obs[i:i + BATCH]), stop=name).max()))
         activations.exponent = exponent_for(largest)
     return {name: a.exponent for name, a in net.acts.items()}
+
+
+def on(observations):
+    """A batch of observations, kept as uint8 in the computer's memory, as floats on the device
+    the logits are on."""
+    return observations.to(DEVICE).float()
 
 
 def kl(student_logits, teacher_logits):
@@ -229,7 +240,7 @@ def measure(net, obs, logits):
     total, same = 0.0, 0
     with torch.no_grad():
         for i in range(0, len(obs), BATCH):
-            out = net(obs[i:i + BATCH].float())
+            out = net(on(obs[i:i + BATCH]))
             total += kl(out, logits[i:i + BATCH]).item() * len(out)
             same += (out.argmax(1) == logits[i:i + BATCH].argmax(1)).sum().item()
     net.train()
@@ -242,14 +253,24 @@ def main(name, teacher_path, out_folder, rollouts):
     spec = SPECS[name] | {"name": name}
     seed = int(os.environ.get("DISTILL_SEED", "0"))
     torch.manual_seed(seed)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    obs, logits = [], []
+    device = DEVICE
+    logits = []
     for path in rollouts:
         with np.load(path, allow_pickle=False) as f:
-            obs.append(f["observations"])
             logits.append(f["logits"])
-    obs = torch.from_numpy(np.concatenate(obs)).to(device)
+    sizes = [len(part) for part in logits]
     logits = torch.from_numpy(np.concatenate(logits)).to(device)
+    # The observations stay in the computer's memory, in one tensor filled a file at a time, and
+    # each batch goes to the device as it is used: 500 recorded games are 8.2 GB.
+    obs, start = None, 0
+    for path, size in zip(rollouts, sizes):
+        with np.load(path, allow_pickle=False) as f:
+            part = torch.from_numpy(f["observations"])
+        if obs is None:
+            obs = torch.empty((sum(sizes), *part.shape[1:]), dtype=part.dtype)
+        obs[start:start + size] = part
+        start += size
+        del part
     held = int(len(obs) * HELD_OUT)
     train_obs, train_logits = obs[:-held], logits[:-held]
     test_obs, test_logits = obs[-held:], logits[-held:]
@@ -278,7 +299,7 @@ def main(name, teacher_path, out_folder, rollouts):
         total = 0.0
         for i in range(0, len(order), BATCH):
             batch = order[i:i + BATCH]
-            loss = kl(net(train_obs[batch].float()), train_logits[batch])
+            loss = kl(net(on(train_obs[batch.cpu()])), train_logits[batch])
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
