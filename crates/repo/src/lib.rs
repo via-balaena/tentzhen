@@ -420,6 +420,54 @@ mod tests {
             self.git(&["clean", "-q", "-f", "-d"]);
             ok
         }
+
+        /// What the step "Which steps this run needs" says, on a run of `event` against `base`, of
+        /// a pull request that makes `edits` (a file's new text, or None to remove it), committed
+        /// on a branch off main as GitHub's checkout has it: whether the cocotb tests run, or None
+        /// when the step fails. The step's output file is named relative to the scratch repo, so
+        /// WSL's bash finds it too.
+        fn plan(&self, event: &str, base: &str, edits: &[(&str, Option<&str>)]) -> Option<bool> {
+            self.git(&["switch", "-q", "-c", "pr"]);
+            for (path, text) in edits {
+                match text {
+                    Some(text) => self.write(path, text),
+                    None => self.remove(path),
+                }
+            }
+            self.git(&["add", "-A"]);
+            self.git(&["commit", "-q", "--allow-empty", "--no-verify", "-m", "pr"]);
+            let name = format!("{}.out", self.dir.file_name().unwrap().to_str().unwrap());
+            let out = self.dir.with_file_name(&name);
+            let _ = fs::remove_file(&out);
+            let mut bash = Command::new("bash")
+                .arg("-e")
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .current_dir(&self.dir)
+                .spawn()
+                .unwrap();
+            let script = format!(
+                "BASE={base}\nEVENT={event}\nGITHUB_OUTPUT=../{name}\n{}\n",
+                self.script
+            );
+            let mut stdin = bash.stdin.take().unwrap();
+            stdin.write_all(script.as_bytes()).unwrap();
+            drop(stdin);
+            let ok = bash.wait_with_output().unwrap().status.success();
+            self.git(&["switch", "-q", "main"]);
+            self.git(&["branch", "-q", "-D", "pr"]);
+            let said = fs::read_to_string(&out).unwrap_or_default();
+            let _ = fs::remove_file(&out);
+            if !ok {
+                return None;
+            }
+            match said.as_str() {
+                "cocotb=true\n" => Some(true),
+                "cocotb=false\n" => Some(false),
+                other => panic!("the step wrote {other:?}"),
+            }
+        }
     }
 
     impl Drop for Scratch {
@@ -491,6 +539,131 @@ mod tests {
             }),
             "a record renamed"
         );
+    }
+
+    /// The Quality Gate's step "Which steps this run needs": on a pull request, the gateware's
+    /// cocotb tests run when it changes a file they read, and only then; on a push to main or a
+    /// run started by hand, always; and a base it can't compare with fails the step, not the
+    /// tests.
+    #[test]
+    fn the_gate_runs_cocotb_on_a_pull_request_only_when_it_changes_what_they_read() {
+        let repo = Scratch::new("plan", "Which steps this run needs");
+        repo.write("gateware/sim.py", "sim\n");
+        repo.write("docs/a.md", "a\n");
+        repo.commit("main with gateware and a doc");
+        let doc = ("docs/a.md", Some("b\n"));
+        for (why, edits) in [
+            ("a doc", vec![doc]),
+            ("CLAUDE.md", vec![("CLAUDE.md", Some("c\n"))]),
+            ("the site", vec![("site/index.html", Some("x\n"))]),
+            (
+                "another crate",
+                vec![("crates/repo/src/lib.rs", Some("x\n"))],
+            ),
+            (
+                "a script in a folder",
+                vec![("brand/mural.py", Some("x\n"))],
+            ),
+            (
+                "a package below the root",
+                vec![("models/cleanup/__init__.py", Some(""))],
+            ),
+            ("nothing", vec![]),
+        ] {
+            assert_eq!(
+                repo.plan("pull_request", "main", &edits),
+                Some(false),
+                "{why}"
+            );
+        }
+        for path in [
+            "gateware/sim.py",
+            "gateware/cores/new.py",
+            "crates/littlebit/src/lib.rs",
+            "models/littlebit/mnist.toml",
+            ".github/workflows/quality-gate.yml",
+            ".cargo/config.toml",
+            "Cargo.toml",
+            "Cargo.lock",
+            "rust-toolchain.toml",
+            ".gitattributes",
+            "conftest.py",
+            "pytest.ini",
+            "pyproject.toml",
+            "setup.cfg",
+            "tox.ini",
+            "json.py",
+            "cocotb/__init__.py",
+            "gateware/é b.py",
+        ] {
+            assert_eq!(
+                repo.plan("pull_request", "main", &[doc, (path, Some("x\n"))]),
+                Some(true),
+                "{path}"
+            );
+        }
+        let moved = [("gateware/sim.py", None), ("docs/sim.py", Some("sim\n"))];
+        assert_eq!(
+            repo.plan("pull_request", "main", &moved),
+            Some(true),
+            "a file moved out of gateware/"
+        );
+        assert_eq!(
+            repo.plan("pull_request", "main", &[("gateware/sim.py", None)]),
+            Some(true),
+            "a file removed from gateware/"
+        );
+        for event in ["push", "workflow_dispatch"] {
+            assert_eq!(repo.plan(event, "main", &[doc]), Some(true), "{event}");
+        }
+        assert_eq!(
+            repo.plan("pull_request", "no-such-base", &[doc]),
+            None,
+            "a base it can't compare with"
+        );
+    }
+
+    /// The cocotb tests, and the step that restores OSS CAD Suite's archive for them, follow the
+    /// step "Which steps this run needs", which comes before them; their `if:` is exactly that,
+    /// and no other step reads it, so the plan skips nothing else.
+    #[test]
+    fn only_the_cocotb_steps_follow_the_plan() {
+        let (_, gate) = workflows()
+            .into_iter()
+            .find(|(f, _)| f == "quality-gate.yml")
+            .unwrap();
+        let steps: Vec<&str> = gate.split("\n      - ").skip(1).collect();
+        let named = |prefix: &str| -> usize {
+            let found: Vec<usize> = (0..steps.len())
+                .filter(|&i| steps[i].starts_with(&format!("name: {prefix}")))
+                .collect();
+            assert_eq!(found.len(), 1, "one step named {prefix:?}");
+            found[0]
+        };
+        let plan = named("Which steps this run needs\n");
+        for needed in [
+            "\n        id: plan\n",
+            "\n          EVENT: ${{ github.event_name }}\n",
+            "\n          BASE: origin/main\n",
+        ] {
+            assert!(steps[plan].contains(needed), "the plan lacks {needed:?}");
+        }
+        let cocotb = [
+            named("OSS CAD Suite's archive, from the cache\n"),
+            named("The gateware's cocotb tests"),
+        ];
+        let following: Vec<usize> = (0..steps.len())
+            .filter(|&i| steps[i].contains("steps.plan"))
+            .collect();
+        assert_eq!(following, cocotb, "only the cocotb steps read the plan");
+        for i in cocotb {
+            assert!(plan < i, "the plan comes first");
+            let ifs: Vec<&str> = steps[i]
+                .lines()
+                .filter(|l| l.trim_start().starts_with("if:"))
+                .collect();
+            assert_eq!(ifs, ["        if: steps.plan.outputs.cocotb == 'true'"]);
+        }
     }
 
     /// Whether a dependency names exactly one version. None when its version is kept elsewhere: a
