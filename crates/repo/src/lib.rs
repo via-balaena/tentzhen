@@ -866,11 +866,16 @@ mod tests {
         "        && github.event.workflow_run.conclusion == 'success'\n",
         "        && github.event.workflow_run.event == 'push'\n",
         "        && github.event.workflow_run.head_branch == 'main'\n",
-        "        && github.event.workflow_run.head_repository.full_name == github.repository)\n",
+        "        && github.event.workflow_run.head_repository.full_name == github.repository\n",
+        "        && github.event.workflow_run.head_sha == github.sha)\n",
         "      || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')\n",
     );
 
-    /// tentzhen.com is published from main only, after main's Quality Gate passed on that commit.
+    /// tentzhen.com is published from main only, after main's Quality Gate passed on that commit,
+    /// and only while that commit is still main's head: in a workflow_run, `github.sha` is the
+    /// "Last commit on default branch" (github/docs at bd60abd2de,
+    /// content/actions/reference/workflows-and-actions/events-that-trigger-workflows.md), so an
+    /// older commit's slower gate run doesn't publish over a newer one's.
     /// `branches: [main]` matches a branch's name alone, which a pull request from a fork can
     /// share, so the job that uploads `site/` is guarded, and its `if:` is [`GUARD`] exactly: a
     /// condition dropped, `|| true` added, or the `if:` turned into a comment fails here. The
