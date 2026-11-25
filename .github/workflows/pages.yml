@@ -27,12 +27,21 @@ jobs:
     # all jobs that need it are skipped unless the jobs use a conditional expression that causes
     # the job to continue": github/docs at daeca22ac0,
     # data/reusables/actions/jobs/section-using-jobs-in-a-workflow-needs.md).
+    #
+    # And only while that commit is still main's head. Main's gate runs are never cancelled, so
+    # an older commit's slower run can finish after a newer one's: on 2026-11-25 Pages run
+    # 45527890154 published ad49415 a minute after 45527803517 had published the newer 1f283e9.
+    # In a workflow_run, `github.sha` is the "Last commit on default branch" (github/docs at
+    # bd60abd2de, content/actions/reference/workflows-and-actions/events-that-trigger-workflows.md),
+    # so a commit main has moved past is skipped, and the newer commit's own run publishes. If
+    # that run fails, the site stays as it was.
     if: >-
       (github.event_name == 'workflow_run'
         && github.event.workflow_run.conclusion == 'success'
         && github.event.workflow_run.event == 'push'
         && github.event.workflow_run.head_branch == 'main'
-        && github.event.workflow_run.head_repository.full_name == github.repository)
+        && github.event.workflow_run.head_repository.full_name == github.repository
+        && github.event.workflow_run.head_sha == github.sha)
       || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -53,7 +62,8 @@ jobs:
   # upload's own job that listing found none on every publish from 2026-11-22 on: runs 44984168041
   # and 45294564779 (twice), each after the upload had finalized the artifact.
   # actions/deploy-pages#451 reports the same, and that moving the upload to an earlier job fixed
-  # it there. Whether it fixes it here is unknown until a publish passes.
+  # it there. Every publish since the split, from 45303406831 on, has found its artifact; #451
+  # calls the failure intermittent, so that the split is why is not established.
   deploy:
     name: Publish site/
     needs: build
