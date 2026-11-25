@@ -27,15 +27,56 @@ jobs:
   gate:
     name: Quality Gate
     runs-on: ubuntu-24.04
-    # A cold cache builds DuckDB from source twice (clippy and test), and the gateware's cocotb
-    # tests take 12 to 15 minutes more. A run with no cache is cut off at 40: via-balaena's first
-    # run of this branch was, in the cocotb step, after clippy's 10 minutes and the tests' 15
-    # (run 45261560163, 2026-11-23). A run whose cache is warm takes 16 to 20.
+    # Where a run's time goes (read from the runs' step times, 2026-11-25). With the cargo cache
+    # warm, a run took 15.5 to 23.5 minutes, of which the cocotb step took 8.6 to 12.6 (runs
+    # 45301374184 and 45507023087). The two runs after #55 changed Cargo.lock took 42.6 and 53
+    # (45511173856 and 45511675177): clippy, the tests and the build pages each took 8 to 15
+    # minutes, and cocotb 12 to 17. Why they rebuilt, with main's cache restored by its prefix,
+    # is `unknown`.
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # On a pull request, the gateware's cocotb tests, the slowest step, run only when the pull
+      # request changes something they read (docs/architecture.md, "Rules"); every run on main,
+      # and every run started by hand, runs them. The gate itself runs on every pull request: a
+      # workflow skipped by a `paths:` filter leaves its required check "Pending", and the pull
+      # request blocked (github/docs at bd60abd2de,
+      # data/reusables/actions/workflows/triggering-a-workflow-paths2.md). The names are
+      # NUL-separated, so no name is quoted, and renames are listed as a removal and an addition,
+      # so a file moved out of gateware/ counts too.
+      - name: Which steps this run needs
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: origin/main
+        run: |
+          git fetch -q --depth=1 origin main
+          cocotb=true
+          if [ "$EVENT" = pull_request ]; then
+            cocotb=false
+            changed=$(mktemp)
+            git diff -z --no-renames --name-only "$BASE" HEAD > "$changed"
+            while IFS= read -r -d '' f; do
+              case "$f" in
+                gateware/* | crates/littlebit/* | models/littlebit/* | .github/* | .cargo/* | \
+                  Cargo.toml | Cargo.lock | rust-toolchain.toml | .gitattributes | \
+                  conftest.py | pytest.ini | pyproject.toml | setup.cfg | tox.ini)
+                  cocotb=true ;;
+              esac
+              # The repo root is on the tests' import path (gateware/conftest.py), so a module or
+              # a package at the root could stand in for one they import.
+              case "$f" in
+                */*/*) ;;
+                */__init__.py) cocotb=true ;;
+                */*) ;;
+                *.py) cocotb=true ;;
+              esac
+            done < "$changed"
+          fi
+          echo "cocotb=$cocotb" >> "$GITHUB_OUTPUT"
+          echo "The gateware's cocotb tests run: $cocotb"
       - name: Install the toolchain rust-toolchain.toml pins
         run: rustup toolchain install && rustup show active-toolchain
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -71,11 +112,14 @@ jobs:
       # as the lab computer's. The archive is cached, and checked against its sha256 every run.
       # The full-network test has the golden model score MNIST's 10,000 test images, by `cargo
       # run`, into its own temporary folder, so it needs MNIST too.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: OSS CAD Suite's archive, from the cache
+        if: steps.plan.outputs.cocotb == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/oss-cad-suite-linux-x64-20261121.tgz
           key: oss-cad-suite-linux-x64-20261121
       - name: The gateware's cocotb tests, on Verilator from OSS CAD Suite 2026-11-21
+        if: steps.plan.outputs.cocotb == 'true'
         env:
           MNIST_DIR: ${{ runner.temp }}/mnist
         run: |
