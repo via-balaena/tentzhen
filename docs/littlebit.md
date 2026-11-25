@@ -211,7 +211,7 @@ person's approval in the session, and every load is logged as a `firmware.flash`
 | piece | language | where |
 |---|---|---|
 | training and the rank sweep | Python, PyTorch: the exception CLAUDE.md names for it | `models/littlebit/` |
-| SocialJax's Clean Up and its trained policy, played on the computer | Python, JAX, as SocialJax is written: the same exception | `models/cleanup/` |
+| SocialJax's Clean Up and its trained policy, played on the computer | Python, JAX, as SocialJax is written: CLAUDE.md's exception for it. `behaviour.py` only reads their outputs, so it is outside the exception, and stays Python until it is written in Rust | `models/cleanup/` |
 | the weight export and the integer golden model | Rust | `crates/littlebit` |
 | Clean Up's golden model, so far JAX's random numbers | Rust | `crates/cleanup` |
 | the layer engine, the output layer, the weight-ROM generator, the whole network | Amaranth | `gateware/cores/littlebit.py` |
@@ -1187,9 +1187,9 @@ There are four regimes, by what may train:
 | Fashion-MNIST | 340 | 7,269 | 8,301 | 8,667 | 4,813 |
 
 The figures are test images right, of 10,000, in float. They are PyTorch's counts on the GPU, and
-no test re-checks them. Two runs of each gave the same weights, byte for byte, in 22 to 54 s each.
-Untrained, the script's r16 is the committed one: its weights' sha256 is r16's, and it gets r16's
-9,713.
+`unknown`: the runs are not committed, and no test re-checks them. Two runs of each gave the same
+weights, byte for byte, in 22 to 54 s each. Untrained, the script's r16 is the committed one: its
+weights' sha256 is r16's, and it gets r16's 9,713.
 
 What it shows:
 
@@ -1289,8 +1289,9 @@ playing Clean Up on the computer, the figure the hardwired policy is to stand be
 
 A game's return is its 7 agents' rewards summed over its 1,000 steps. Out of 700,000 actions in
 each mode, the policy's most likely one was `up` none of the time, and `zap_clean` 497,680 times.
-These are `play.py`'s figures, and a second run of each mode gave the same returns, game by game.
-No test re-checks them: the game runs in JAX, and nothing in Rust plays it.
+These are `play.py`'s figures, and `unknown`: its output is not committed, and no test re-checks
+it, since the game runs in JAX and nothing in Rust plays it. A second run of each mode gave the
+same returns, game by game.
 
 What it means for the plan:
 
@@ -1382,10 +1383,10 @@ SocialJax's Clean Up on the lab computer's RTX 4070 Ti: driver 621.01, WSL2's Ub
 | 1,024 | 613,662 (612,195 to 616,270) | 177,885 (177,616 to 178,549) | 255 | 1.44 |
 
 Idle, with JAX loaded, the board drew 27 W. With random moves at 1,024 games it drew 160 W, 0.26 mJ
-a game step. These are `bench.py`'s figures, and no test re-checks them. An earlier run, timed once
-a row, gave 179,348 game steps a second with the policy at 1,024 games, and 620,407 with random
-moves. new-melting-pot measured about 630,000 random game steps a second at 1,024 games on the same
-card, on JAX 0.12.
+a game step. These are `bench.py`'s figures, and `unknown`: no record or test holds them. An earlier
+run, timed once a row, gave 179,348 game steps a second with the policy at 1,024 games, and 620,407
+with random moves. new-melting-pot (YoungMoolahBaby/new-melting-pot) measured about 630,000 random
+game steps a second at 1,024 games on the same card, on JAX 0.12.
 
 What it means for the plan:
 
@@ -1509,14 +1510,13 @@ moves about twice as far between runs as w8's.
 
 How these are known:
 
-- **The scripts' figures.** They come from `rollouts.py` and `distill.py`, one training run per
-  student but for the two above, and no test re-checks them. The students' files are kept outside
-  the repo, in `D:\tentzhen-data\cleanup\`, and none is committed.
+- **The scripts' figures, `unknown`.** They come from `rollouts.py` and `distill.py`, one training
+  run per student but for the two above, and no test re-checks them. The students' files are kept
+  outside the repo, in `D:\tentzhen-data\cleanup\`, and none is committed.
 - **What the counts follow.** The arithmetic and weight counts are `distill.py`'s `costs`: a
   LittleBit layer adds r (fan-in + out) signs and scales fan-in + r + out values at each position.
-- **Pairing hardly helps.** On the same seed, a student's return and the teacher's correlate at
-  only 0.0 to 0.12, since different moves soon make different games. So the standard errors are
-  about what independent games would give.
+- **Pairing hardly helps.** On the same seed, a student's return and the teacher's correlate at only
+  0.0 to 0.12. So the standard errors are about what independent games would give.
 
 What it means for the plan:
 
@@ -1527,17 +1527,17 @@ What it means for the plan:
   scales, and after one DAgger step it keeps 93 to 102 % of the score over three training runs.
   That is 316,000 sign additions and 80,000 scalings a move, against the teacher's 4.3 million
   multiply-adds.
-- **Training on the student's own games matters more than rank.** The fully LittleBit students sat
-  at 81 to 86 % whatever their rank, until one round of DAgger lifted them to 98 %. A student
-  trained only on the teacher's games meets situations its teacher never showed it.
+- **One round of DAgger lifted two fully LittleBit students more than rank did.** The fully
+  LittleBit students sat at 81 to 86 % whatever their rank. One round of DAgger lifted the two of
+  them it was run on, w8-all-r4 and all-r16-fresh, to 98 %. Why is `unknown`, and a later DAgger
+  step, on 500 games, made w8-all-r4 worse ("Longer training, and one step of DAgger").
 - **Dual-SVID from the teacher fails when every layer is factorized.** The factorized network starts
   near random, at a KL of 1.77 nats, and never recovers. Started fresh, the same shapes train.
   Factorizing only the dense layer from the teacher also starts near random, at 1.77, but it
   trains back, to 97 %. Why the whole network doesn't is `unknown`.
 - **The same seeds make different games on the CPU and the GPU.** On the CPU the teacher replays
-  seeds 0 to 99 exactly, 524.2 as `play.py` first gave. On the GPU the same seeds score 481.0. The
-  two round floats differently, so the drawn moves differ, and from then on so do the games. The
-  CPU is the one to match bit for bit.
+  seeds 0 to 99 exactly, 524.2 as `play.py` first gave. On the GPU the same seeds score 481.0.
+  Why they differ is `unknown`. The CPU is the one to match bit for bit.
 - **Next.** The integer form, and a bar on behaviour, not score: the next section.
 
 ## Whether a student plays as the teacher does
@@ -1670,10 +1670,10 @@ to 4 digits. Its two rows differ by 2 measures, which shows how much the count m
 - **KL on recorded games doesn't rank the students.** On the same held-out observations, w16, at
   0.131, matches 6 measures, and dense-r4, at 0.149, matches 24.
 
-How these are known: these are `rollouts.py`'s, `behaviour.py`'s and `distill.py`'s figures, one run
-each, and no test re-checks them. The entropies, the counts across students, the sharpened students
-and their KLs come from throwaway scripts. They are kept with the students' files in
-`D:\tentzhen-data\cleanup\scripts\`, outside the repo.
+How these are known: `unknown`. These are `rollouts.py`'s, `behaviour.py`'s and `distill.py`'s
+figures, one run each, and no test re-checks them. The entropies, the counts across students, the
+sharpened students and their KLs come from throwaway scripts. They are kept with the students' files
+in `D:\tentzhen-data\cleanup\scripts\`, outside the repo.
 
 What it means for the plan:
 
@@ -1765,18 +1765,18 @@ What it showed:
   The LittleBit students' don't. w8-dense-r4, at 0.102, matches 35, w8-all-r8, at 0.114, matches
   5, and w8-all-r4, at 0.127, matches 21.
 
-How these are known: `distill.py`'s, `rollouts.py`'s and `behaviour.py`'s figures, one training run
-each, and no test re-checks them. The entropies and the table are throwaway scripts'. They are in
-`D:\tentzhen-data\cleanup\scripts\`, where `recipe_table.py` reads each student's `summary.json`
-and its behaviour records.
+How these are known: `unknown`. These are `distill.py`'s, `rollouts.py`'s and `behaviour.py`'s
+figures, one training run each, and no test re-checks them. The entropies and the table are
+throwaway scripts'. They are in `D:\tentzhen-data\cleanup\scripts\`, where `recipe_table.py` reads
+each student's `summary.json` and its behaviour records.
 
 What it means for the plan:
 
 - **The cheapest faithful student is w8, in float.** It is the shape to make LittleBit from.
 - **Next: longer training, then DAgger, on the 500 games.** The LittleBit students' training KLs
-  were still falling when the rate reached 0. One round of DAgger lifted the fully LittleBit
-  students' scores from 81–86 % to 98 % ("How small the policy can get"), though not their play to
-  the teacher's.
+  were still falling when the rate reached 0. One round of DAgger lifted the two fully LittleBit
+  students it was run on from 81–86 % to 98 % of the score ("How small the policy can get"),
+  though not their play to the teacher's.
 - **Not first: starting from w8's own weights.** Dual-SVID of a trained network is how the
   teacher's own shape starts. But with every layer factorized, the network it gave began near
   random, at a KL of 1.77, and never recovered ("How small the policy can get"). Whether w8's
@@ -1839,18 +1839,19 @@ What it showed:
   and 28 was a lucky run. A second seed of w8-dense-r4 at 100 epochs was started, then stopped
   (next section).
 
-How these are known: `distill.py`'s, `rollouts.py`'s and `behaviour.py`'s figures, one training run
-each, and no test re-checks them. The action probabilities on the teacher's states come from a
-throwaway script, `shares_on_teacher.py`. It is in `D:\tentzhen-data\cleanup\scripts\`, with
-`recipe_table.py`, which makes the table, and the runs' `recipe.sh` and `dagger.sh`.
+How these are known: `unknown`. These are `distill.py`'s, `rollouts.py`'s and `behaviour.py`'s
+figures, one training run each, and no test re-checks them. The action probabilities on the
+teacher's states come from a throwaway script, `shares_on_teacher.py`. It is in
+`D:\tentzhen-data\cleanup\scripts\`, with `recipe_table.py`, which makes the table, and the runs'
+`recipe.sh` and `dagger.sh`.
 
 ## The training needs more compute
 
 Jon stopped the training here (2026-11-24). Doing it seriously takes a lot more compute than this
 one GPU, so the next step is getting that compute.
 
-What a run costs on this computer, by `distill.py`'s own clock: one RTX 4070 Ti (12 GB), and 32 GB
-of memory.
+What a run costs on this computer, by `distill.py`'s own clock, and `unknown`: no run's output is
+committed. The computer has one RTX 4070 Ti (12 GB), and 32 GB of memory.
 
 | run | time |
 |---|---|
@@ -1901,7 +1902,7 @@ teacher does yet. The student is w8-all-r4's integer form, trained 20 epochs.
 - **How each was built.** Each engine alone, as r16's were sized ("What the engines cost"):
   `python -m gateware.cores.littlebit`, then Yosys's `synth_ecp5` and nextpnr-ecp5 for the
   LFE5U-45 in its CABGA381 package, speed 6, at 50 MHz, seed 1. The tools are OSS CAD Suite
-  2026-11-21, and the gateware is main's at 7356992.
+  2026-11-21, and the gateware is the fork's main at 7356992 (YoungMoolahBaby/tentzhen).
 
 | layer | in → out | r | Variant A: logic cells, flip-flops, multipliers | Fmax | Variant B: logic cells, block RAMs | Fmax | clocks a move |
 |---|---|---|---|---|---|---|---|
@@ -1954,8 +1955,8 @@ computes, as the engine does.
   builds them, from one-hots and booleans. The other 2, the inventory counts, are int8s, taken
   here as bytes (`clean_up.py` at 18e2171, `_get_obs` and `combine_channels`). So conv1's window is
   425 bits and 50 bytes, 825 bits in all. In the first 50,000 recorded observations of the
-  teacher's games, the 17 held only 0 and 1, and the inventory counts 0 to 34. That count is a
-  throwaway script's, `obs_values.py` in `D:	entzhen-data\cleanup\scripts\`.
+  teacher's games, the 17 held only 0 and 1, and the inventory counts 0 to 34. That count is
+  `unknown`, a throwaway script's, `obs_values.py` in `D:\tentzhen-data\cleanup\scripts\`.
 - **No multipliers.** The multiplies by ℓ and h are shifts and adds, by each constant's canonical
   signed digits.
 - **A new window every clock.** Its 8 outputs come out together, 21 clocks later with a register
@@ -1988,7 +1989,7 @@ rows alone <every>`.
 The cells, flip-flops, multipliers, block RAMs and clock are nextpnr's figures, `trusted` with the
 toolchain (`trusted-base.toml`, `fpga-toolchain`). The kernel's include `Alone`'s 889 flip-flops.
 Its clocks a move are its 121 windows, one a clock. The script that built them is
-`synth_kernel.sh`, in `D:	entzhen-data\cleanup\scripts\`.
+`synth_kernel.sh`, in `D:\tentzhen-data\cleanup\scripts\`.
 
 What it means:
 
@@ -2010,7 +2011,7 @@ What it means:
 ## Open questions
 
 - Where the training's compute comes from: GPUs rented by the hour, research compute, or a bigger
-  GPU here. That is Jon's decision, and any of them that costs money needs his OK ("The training
+  GPU here. That is Jon's decision, and any of them that costs money needs Jon's OK ("The training
   needs more compute").
 - 8-bit or 16-bit scales? Start with 8, and switch only if check 1 fails (Jon's spec). It passed
   with 8 at every rank run, r = 4 to 64 (Model, "The rest of the rank sweep").

@@ -47,13 +47,17 @@ Never do the following without explicit approval from the user in the current se
   `lab/limits.toml`, `[pico_3v3]`).
 - **Flash firmware to a device** that is not listed as a lab target (`lab/targets.toml`).
 - **Expose any service** outside the isolated lab network, or add internet access for instruments.
-- **Start a fab or materials step** (`docs/fab.md`) that handles chemicals, heat over a
-  hotplate's, high voltage, vacuum or pressure. Even with approval, only under that step's
-  written safety plan, and never with the gases and chemicals `docs/fab.md` rules out.
+- **Start a fab or materials step** (`docs/fab.md`) that handles chemicals, heat, high voltage,
+  vacuum or pressure. Even with approval, only under that step's written safety plan, and never
+  with the gases and chemicals `docs/fab.md` rules out.
 
 Always:
 
-- Keep mains voltage out of scope entirely. No designs or instructions involving mains wiring.
+- Mains: the project designs, builds and wires no mains equipment, and writes no instructions for
+  mains wiring. Bought mains equipment listed by a recognised testing lab may be used as sold,
+  where it is legal to use there, under its step's safety plan; anything wired in is installed
+  by a licensed electrician. No agent switches mains power except through an interlock it can't
+  override (Jon, 2026-11-24; `docs/fab.md`, rule 3).
 - Safety limits are enforced BELOW the layer an AI agent controls — in the Pico enforcer, not
   only in host software — so no agent can talk its way past them.
 - Log every hardware action (what, when, parameters, result) to the lab's append-only log,
@@ -88,13 +92,16 @@ both read 2026-10-01). So:
 | Mesh node firmware (nRF52840) | Rust on Tock OS, a port of UMSH; until it runs, UMSH's own releases |
 | Host software (ingest, SCPI, MCP, CLI, LCSC client, golden models) | Rust (tokio, duckdb) |
 | Model training (project #3) | Python, PyTorch |
+| SocialJax's game and its trained policy, run on the computer (project #3) | Python, JAX, as SocialJax is written |
 | Analog simulation / PCB | ngspice / KiCad |
 | Build reproducibility | Nix |
 
 Python only for gateware, cocotb tests, and throwaway exploration. Anything long-lived gets
-rewritten in Rust. Two exceptions: `brand/mural.py`, the source of the mural and the daybreak
-skyline, which the Quality Gate checks against the committed SVGs; and project #3's model
-training, in PyTorch (Jon, 2026-11-21; `docs/littlebit.md`).
+rewritten in Rust. Three exceptions: `brand/mural.py`, the source of the mural and the daybreak
+skyline, which the Quality Gate checks against the committed SVGs; project #3's model training,
+in PyTorch (Jon, 2026-11-21; `docs/littlebit.md`); and the code that runs SocialJax's game and
+its trained policy, in JAX as SocialJax is written (`models/cleanup/`; Jon, 2026-11-24). Code
+that only reads their outputs is not in it.
 
 ## Conventions
 
