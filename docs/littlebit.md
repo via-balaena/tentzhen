@@ -1528,9 +1528,9 @@ What it means for the plan:
   That is 316,000 sign additions and 80,000 scalings a move, against the teacher's 4.3 million
   multiply-adds.
 - **One round of DAgger lifted two fully LittleBit students more than rank did.** The fully
-  LittleBit students sat at 81 to 86 % whatever their rank. One round of DAgger lifted the two it
-  was run on, w8-all-r4 and all-r16-fresh, to 98 %. Why is `unknown`, and a later DAgger step, on
-  500 games, made w8-all-r4 worse ("Longer training, and one step of DAgger").
+  LittleBit students sat at 81 to 86 % whatever their rank. One round of DAgger lifted the two of
+  them it was run on, w8-all-r4 and all-r16-fresh, to 98 %. Why is `unknown`, and a later DAgger
+  step, on 500 games, made w8-all-r4 worse ("Longer training, and one step of DAgger").
 - **Dual-SVID from the teacher fails when every layer is factorized.** The factorized network starts
   near random, at a KL of 1.77 nats, and never recovers. Started fresh, the same shapes train.
   Factorizing only the dense layer from the teacher also starts near random, at 1.77, but it
@@ -1850,8 +1850,8 @@ teacher's states come from a throwaway script, `shares_on_teacher.py`. It is in
 Jon stopped the training here (2026-11-24). Doing it seriously takes a lot more compute than this
 one GPU, so the next step is getting that compute.
 
-What a run costs on this computer, by `distill.py`'s own clock: one RTX 4070 Ti (12 GB), and 32 GB
-of memory.
+What a run costs on this computer, by `distill.py`'s own clock, and `unknown`: no run's output is
+committed. The computer has one RTX 4070 Ti (12 GB), and 32 GB of memory.
 
 | run | time |
 |---|---|

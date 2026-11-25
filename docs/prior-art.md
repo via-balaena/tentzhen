@@ -59,7 +59,7 @@ of record. Each part exists on its own, and several were built in 2026.
   computer.
 - **An open fab** (project #4) exists: by August 2026 there were ten Hacker Fabs, all in
   universities, on open tools. One team of eight students at CMU made NMOS chips of 952
-  transistors with 5 µm gates (March 2026). The scarcest input,
+  transistors with 5 µm gates (Hacker Fab's March 2026 update). The scarcest input,
   crucible-grade quartz, has a known substitute, synthetic silica, already used on crucibles'
   inner faces. No purity was found for making it from sand by the water-glass route.
 - **In Chinese,** there are many more open instruments, supplies and loads, several with one unit's
