@@ -143,8 +143,8 @@ stepper. What follows is a proposal: nothing is modelled or built yet. Its sourc
   - It is a colour projector modified for UV, so it emits "a small but noticeable amount of UV
     even when not actively imaging".
   - Pop-ups from the computer's operating system get imaged onto the chip.
-  - Its TI evaluation module, $1,328.63 of the $3,012.13 build, was out of stock everywhere in
-    May 2025.
+  - Its TI evaluation module, the largest item in the $3,012.13 build, was out of stock everywhere
+    in May 2025.
 - **A small field.** An exposure is 1.04 × 0.58 mm, and chips up to 1 cm are stitched from many
   exposures. V2's figure for that stitching is 5 µm, and they mark it unverified.
 - **Firmware.** An axis sometimes stops responding, and homing sometimes fails.
@@ -218,11 +218,62 @@ alignment, and the slicer.
 It is the same board as the digitizer's and LittleBit's, with the same tools. Every bitstream
 load still needs Jon's OK (CLAUDE.md). Nothing here is built or tested on an i9.
 
-**The order proposed:**
-1. The vibration model, from the open CAD, since it needs nothing bought.
-2. A measurement of a real stepper.
-3. The i9 as the stepper's controller: the light, then the resin-printer projector fed from the
-   i9, then exposures timed to the measured vibration.
+### Value engineering
+
+The aim is to spend less where it doesn't buy quality, and more where it does. The figures are
+Hacker Fab's own: the total its V2.1 page states, and the prices on its page of other projectors.
+Shops' per-item prices are left out (CLAUDE.md). Nothing has been priced or bought here.
+
+**Where to save:**
+
+| item | what it does | instead | saves | what it does to quality |
+|---|---|---|---|---|
+| the TI evaluation module, the largest item | the image | the resin-printer projector, fed by the i9 | about $1,050: Hacker Fab prices the TI alternative at $1,300 and the resin-printer projector at $250 | **better:** no stray UV, no pop-ups, in stock. **Worse:** its 0.3" chip, against 0.47", gives each exposure about 40 % of the area, if the optics are the same (the ratio squared). So there would be 2.4 times as many stitched exposures. Its resolution through V2.1's optics is `unknown` |
+| the camera | alignment and inspection | a cheaper camera with a smaller sensor, behind a reduction lens of about $50, which Hacker Fab says was tested at UC Irvine | depends on the camera | **a risk:** alignment rests on it. Decided after measuring what the alignment needs |
+| the Arduino and its CNC shield | the stage, through GRBL | the i9, already here | a little | **better:** no GRBL settings to tune. The stepper-motor drivers stay |
+| the Thorlabs tubes and adapters | the optical path | generic tubes and adapters with the same SM1 thread | `unknown`: Hacker Fab's Thorlabs list gives part numbers, not prices | **neutral**, if the beamsplitter, the cube and the post stay Thorlabs. They set alignment and stiffness |
+| the 10× objective | sets the resolution | keep it, or upgrade it (below) | — | — |
+
+**Where to spend, in order:**
+1. **An enclosure with a UV interlock.** Safety comes first (rule 2), so it isn't optional. It
+   also keeps out room light, dust and air currents, and steadies the temperature.
+2. **A calibration target,** chrome on glass, with resolution and grid patterns. Without one,
+   resolution, distortion and stitching can't be measured. Hacker Fab marks its stitching and
+   overlay figures, 5 µm, unverified. The smaller projector makes stitching matter 2.4 times as
+   much.
+3. **Measuring vibration:** an accelerometer read by the bench's digitizer. It is what exposures
+   would be timed to.
+4. **Vibration fixes,** in this order:
+   - isolation feet, or a used optical breadboard;
+   - a direct mount for the projector, as Hacker Fab suggests;
+   - a stiffer frame, from the CortenForge model.
+5. **The closed-loop nanopositioner** Hacker Fab now recommends.
+   - Its magnetic encoders (MT6835) are read over SPI, which Hacker Fab says needs wires under 25
+     cm.
+   - The i9 could read them from close by.
+6. **A better objective,** with a higher numerical aperture: sharper, and less distorted at the
+   edge of each exposure, so it stitches better. Its price is `unknown`.
+7. **An inspection light that doesn't expose the resist,** red or amber. The resin-printer
+   projector has only its 405 nm LED.
+
+**What to do, in order (the recommendation):**
+1. **Now, with nothing bought:**
+   - Ask Hacker Fab whether anyone has measured resolution through the resin-printer projector.
+     That is the swap's largest unknown.
+   - The vibration model, from the open CAD.
+   - The i9's SPI link to the projector's TI controller (DLPC1438), in simulation. It would be
+     checked with cocotb against what TI's documentation and OpenMLA's MIT-licensed code say the
+     controller expects.
+2. **The first purchase, Jon's decision: the $250 projector.**
+   - It comes with its safety plan first, since 405 nm light is an eye hazard (rule 1), and with
+     an inspection light.
+   - The i9 drives it on the bench. The checks: the image arrives whole, and the LED lights only
+     during an exposure.
+3. **Then the stepper,** with the savings spent on the list above, the enclosure and the
+   calibration target first.
+
+This order puts the largest saving, and the largest unknown, in the cheapest test. Nothing more is
+bought until the free work says it is worth it.
 
 ## The town
 
