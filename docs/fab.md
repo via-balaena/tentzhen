@@ -131,6 +131,166 @@ A "slicer" turns each layer of a chip's layout into the stepper's exposures, the
 turns a model into a 3D printer's paths. It would be written in Rust. Hacker Fab's stepper software
 (hacker-fab/stepper, MIT) comes first, read before anything is written.
 
+## Improving Hacker Fab's stepper
+
+Jon asked (2026-11-24) whether CortenForge could make an improved version of Hacker Fab's
+stepper. What follows is a proposal: nothing is modelled or built yet. Its sources are in
+`prior-art.md`, "Open fabs, and chips made outside one".
+
+**What limits it, by Hacker Fab's own pages:**
+- **Vibration.**
+  - V2.1 lists a "Vibration susceptibility" of "1.2 µm (when built onto optical table)".
+  - The closed-loop nanopositioner it now recommends reached "~1um resolution but highly
+    affected by vibration", against a goal of 100 nm.
+  - Tennis balls helped "but it was not enough". They have "many theories" but "not enough
+    scientifically rigorous testing", and they measure the vibration from camera video, so they
+    are "limited by the fps of the recording camera".
+- **The projector.**
+  - It is a colour projector modified for UV, so it emits "a small but noticeable amount of UV
+    even when not actively imaging".
+  - Pop-ups from the computer's operating system get imaged onto the chip.
+  - Its TI evaluation module, the largest item in the $3,012.13 build, was out of stock everywhere
+    in May 2025.
+- **A small field.** An exposure is 1.04 × 0.58 mm, and chips up to 1 cm are stitched from many
+  exposures. V2's figure for that stitching is 5 µm, and they mark it unverified.
+- **Firmware.** An axis sometimes stops responding, and homing sometimes fails.
+
+**Where CortenForge fits:**
+1. **Vibration first.** The model is V2.1, built from its open CAD (hacker-fab/stepper_cad, in
+   FreeCAD):
+   - **The physics:** rigid bodies in sim-core, and the parts that flex as finite elements in
+     sim-soft. The model is shaken by the floor and by the motors' steps.
+   - **What it gives:** the one figure that blurs a pattern, the objective's motion relative to
+     the chip.
+   - **The tuning:** sim-opt's optimizers adjust where the posts go, how thick the plates are,
+     and the mass and damping. cf-design and the mesh crates then make the parts.
+
+   CortenForge calls its sim crate a "differentiable co-design toolkit". FleXstage, a levitated
+   stage built for chip manufacturing, designs structure and control together because bandwidth
+   "is limited by the first structural resonance frequency of the stage".
+
+   Its likely gaps come from brownfield-compute's findings: no beam elements, and isotropic
+   materials only. No modal solver shows in the crates' descriptions, so resonances would come
+   from stepping the model and taking its spectrum. Each gap would go in `docs/CORTENFORGE.md`,
+   as brownfield-compute logs its own.
+2. **The stage's control loop,** tuned in sim-core before a part is made. The firmware's failures
+   are not CortenForge's to fix. They would be a Rust state machine checked with Kani, as the
+   bench's limit enforcer is.
+3. **Later, a magnetically levitated stage,** which has no backlash and no stick-slip.
+   - cortenforge-cfsem's planar conveyor already levitates movers on a coil grid. cfsem computes
+     the fields and forces, and CortenForge the dynamics and control.
+   - Exposure-tool patents describe wafer stages driven by "a moving-magnet-type planar motor of
+     the magnetic levitation method".
+   - The hard part is sensing the stage's position to well under a micron.
+
+**Measured, so the model can earn a grade.** The bench's digitizer could read an accelerometer
+far faster than a camera takes frames. A real stepper's vibration, measured that way, would check
+the model. Until then the model's figures are `unknown`. Measuring needs a stepper, either built
+here (about $3,000, Jon's decision) or measured with a Hacker Fab.
+
+**Where it doesn't fit: the projector.** CortenForge has no optics. The projector's problems, and
+the stage's timing, point at the i9 instead.
+
+**Where the i9 comes in.** It would be the stepper's real-time controller, doing three jobs that
+a PC, an Arduino and the projector's own board each do today:
+
+1. **The light.**
+   - The i9 switches the UV LED on only for an exposure, timed to its clock, so nothing leaks
+     between exposures.
+   - It can only ask for light. The interlock that cuts the LED's power, when the enclosure opens
+     for one, stays in hardware the i9 can't override (rule 2).
+2. **The image, with no operating system in its path.**
+   - The slicer's frames go from the PC into the i9's memory, and the i9 shows the projector one
+     frame for each exposure. No pop-up can reach the chip.
+   - Hacker Fab's $250 option for this is a whole Elegoo Mars 4 DLP resin printer, taken apart
+     for its DMD projector, which has only a 405 nm LED. The printer's own board takes only
+     resin-printer files.
+   - OpenMLA calls buying the printer "The easiest and cheapest way to source the projector".
+     The projector alone can come from its maker, Anhua, at "a premium".
+   - OpenMLA's controller, a hat for a Raspberry Pi Zero 2, sends images over SPI to the TI
+     controller on the projector's own board, the DLPC1438.
+   - So the micromirror chip needn't be driven without TI's controller: the projector has one, and
+     it can be fed directly. The i9 would do the hat's job.
+   - This would also replace the TI evaluation module that is out of stock.
+3. **Motion, and exposures timed to it.**
+   - The i9 runs the stage's loop and sequences each exposure: step, settle, expose.
+   - With an accelerometer on the digitizer's ADC, it waits to expose until the measured
+     vibration has died down. That is a cheap fix for the stepper's largest problem, and it needs
+     no mechanical redesign first. OpenMLA's board breaks out pins for exposing "based on some
+     sensor readout".
+   - It would replace GRBL on the Arduino, whose settings Hacker Fab ties to its backlash. The
+     gateware would be checked as the bench's cores are, with SymbiYosys and cocotb.
+
+**What stays on the PC:** the camera and its fiducial detection (RF-DETR), which does the
+alignment, and the slicer.
+
+It is the same board as the digitizer's and LittleBit's, with the same tools. Every bitstream
+load still needs Jon's OK (CLAUDE.md). Nothing here is built or tested on an i9.
+
+### Value engineering
+
+The aim is to spend less where it doesn't buy quality, and more where it does. The figures are
+Hacker Fab's own: the total its V2.1 page states, and the prices on its page of other projectors.
+Shops' per-item prices are left out (CLAUDE.md). Nothing has been priced or bought here.
+
+**Where to save:**
+
+| item | what it does | instead | saves | what it does to quality |
+|---|---|---|---|---|
+| the TI evaluation module, the largest item | the image | a whole resin printer, taken apart for its projector, fed by the i9 | about $1,050: Hacker Fab prices the TI alternative at $1,300 and the resin printer at $250 | **better:** no stray UV, no pop-ups, in stock. **Worse:** its 0.3" chip, against 0.47", gives each exposure about 40 % of the area, if the optics are the same (the ratio squared). So there would be 2.4 times as many stitched exposures. Its resolution through V2.1's optics is `unknown` |
+| the camera | alignment and inspection | a cheaper camera with a smaller sensor, behind a reduction lens of about $50, which Hacker Fab says was tested at UC Irvine | depends on the camera | **a risk:** alignment rests on it. Decided after measuring what the alignment needs |
+| the Arduino and its CNC shield | the stage, through GRBL | the i9, already here | a little | **better:** no GRBL settings to tune. The stepper-motor drivers stay |
+| the Thorlabs tubes and adapters | the optical path | generic tubes and adapters with the same SM1 thread | `unknown`: Hacker Fab's Thorlabs list gives part numbers, not prices | **neutral**, if the beamsplitter, the cube and the post stay Thorlabs. They set alignment and stiffness |
+| the 10× objective | sets the resolution | keep it, or upgrade it (below) | — | — |
+
+**Where to spend, in order:**
+1. **An enclosure with a UV interlock.** Safety comes first (rule 2), so it isn't optional. It
+   also keeps out room light, dust and air currents, and steadies the temperature.
+2. **A calibration target,** chrome on glass, with resolution and grid patterns. Without one,
+   resolution, distortion and stitching can't be measured. Hacker Fab marks its stitching and
+   overlay figures, 5 µm, unverified. The smaller projector makes stitching matter 2.4 times as
+   much.
+3. **Measuring vibration:** an accelerometer read by the bench's digitizer. It is what exposures
+   would be timed to.
+4. **Vibration fixes,** in this order:
+   - isolation feet, or a used optical breadboard;
+   - a direct mount for the projector, as Hacker Fab suggests;
+   - a stiffer frame, from the CortenForge model.
+5. **The closed-loop nanopositioner** Hacker Fab now recommends.
+   - Its magnetic encoders (MT6835) are read over SPI, which Hacker Fab says needs wires under 25
+     cm.
+   - The i9 could read them from close by.
+6. **A better objective,** with a higher numerical aperture: sharper, and less distorted at the
+   edge of each exposure, so it stitches better. Its price is `unknown`.
+7. **An inspection light that doesn't expose the resist,** red or amber. The resin-printer
+   projector has only its 405 nm LED.
+
+**What to do, in order (the recommendation):**
+1. **Now, with nothing bought:**
+   - Ask Hacker Fab whether anyone has measured resolution through the resin-printer projector.
+     That is the swap's largest unknown.
+   - The vibration model, from the open CAD.
+   - The i9's SPI link to the projector's TI controller (DLPC1438), in simulation. It would be
+     checked with cocotb against what TI's documentation and OpenMLA's MIT-licensed code say the
+     controller expects.
+2. **The first purchase, Jon's decision: a whole Elegoo Mars 4 DLP resin printer, about $250,
+   taken apart for its projector.**
+   - The $250 buys the whole printer, not a projector alone. Hacker Fab's option and OpenMLA's
+     controller both take the projector out of the printer, and OpenMLA gives the steps.
+   - Its safety plan comes first, since 405 nm light is an eye hazard (rule 1).
+     - OpenMLA's board takes the printer's own 12 V supply at a barrel jack, so the work on the
+       projector is at 12 V. The plan checks that the supply is a separate adapter, so that taking
+       the printer apart opens nothing on mains (rule 3).
+     - No resin is used, which keeps the resin's chemical hazard out.
+   - It comes with an inspection light.
+   - The i9 drives the projector on the bench. The checks: the image arrives whole, and the LED
+     lights only during an exposure.
+3. **Then the stepper,** with the savings spent on the list above, the enclosure and the
+   calibration target first.
+
+This order puts the largest saving, and the largest unknown, in the cheapest test. Nothing more is
+bought until the free work says it is worth it.
+
 ## The town
 
 - **The centre is the fab, together with what made Shenzhen:** a parts market, PCB fabrication
