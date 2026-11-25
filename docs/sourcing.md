@@ -24,7 +24,7 @@ Anywhere they are cheap, if incoming QA can check what the build relies on (`vis
   `parts/`.
 
 A part may come out of a junked mains-powered device, but the repo carries no instructions for
-taking one apart: `CLAUDE.md` keeps mains voltage out of scope.
+taking one apart: `CLAUDE.md` allows mains equipment only bought and used as sold.
 
 **What the digitizer needs** (`builds/digitizer/v1.toml`): the Colorlight i9 and its extension
 board, AD9226 modules (buy 3, keep the best 2), a DAC module, SMA/BNC connectors and cables, wire,
