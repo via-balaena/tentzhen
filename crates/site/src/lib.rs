@@ -1428,7 +1428,9 @@ mod tests {
                   [a site](https://e.org/a) and [here](#safety-first).\n\n\
                   ![a drawing](img/a.svg)\n\n## Safety first\n\n## Safety first\n\n\
                   ### What \"rich\" means: `fab.md`\n\n[`fab.md`](fab.md)\n\n\
-                  | a | b |\n|---|---|\n| 1 | 2 |\n";
+                  | a | b |\n|---|---|\n| 1 | 2 |\n\n\
+                  [read me](../README.md#install), [again](./fab.md) and \
+                  [mail](mailto:a@example.org).\n\n# A second top heading\n";
         let page = render_doc("plan", md, &docs);
         for want in [
             "<title>The plan · Tentzhen</title>",
@@ -1445,6 +1447,9 @@ mod tests {
             "<h3 id=\"what-rich-means-fabmd\">",
             "<table>",
             "href=\"https://github.com/via-balaena/tentzhen/blob/main/docs/plan.md\">docs/plan.md</a>",
+            "<a href=\"https://github.com/via-balaena/tentzhen/blob/main/README.md#install\">read me</a>",
+            "<a href=\"../fab/index.html\">again</a>",
+            "<a href=\"mailto:a@example.org\">mail</a>",
         ] {
             assert!(page.contains(want), "the page lacks {want:?}:\n{page}");
         }
@@ -1455,6 +1460,95 @@ mod tests {
                 .count(),
             3
         );
+    }
+
+    /// The docs' list links each doc's page by its title.
+    #[test]
+    fn the_docs_list_links_each_doc_by_its_title() {
+        let list = render_docs_index(&[
+            ("fab".into(), "The open fab".into()),
+            ("vision".into(), "Vision & more".into()),
+        ]);
+        assert!(
+            list.contains("<a href=\"fab/index.html\">The open fab</a>"),
+            "{list}"
+        );
+        assert!(
+            list.contains("<a href=\"vision/index.html\">Vision &amp; more</a>"),
+            "{list}"
+        );
+        assert!(list.contains("docs/vision.md"), "{list}");
+    }
+
+    /// Every relative link and drawing on the site, as committed, points at a file that is there,
+    /// and a link to a heading at a heading that is there. The Quality Gate regenerates `site/` and
+    /// fails on any difference, so this holds for what crates/site writes.
+    #[test]
+    fn every_link_on_the_site_resolves() {
+        fn pages(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
+            for entry in std::fs::read_dir(dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    pages(&path, out);
+                } else if path.extension().is_some_and(|e| e == "html") {
+                    out.push(path);
+                }
+            }
+        }
+        fn normal(path: &Path) -> std::path::PathBuf {
+            let mut out = std::path::PathBuf::new();
+            for c in path.components() {
+                match c {
+                    std::path::Component::ParentDir => {
+                        out.pop();
+                    }
+                    std::path::Component::CurDir => {}
+                    c => out.push(c),
+                }
+            }
+            out
+        }
+        let site = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../site");
+        let mut all = Vec::new();
+        pages(&site, &mut all);
+        let attr = |html: &str, name: &str| -> Vec<String> {
+            let key = format!(" {name}=\"");
+            html.match_indices(&key)
+                .map(|(i, _)| {
+                    let rest = &html[i + key.len()..];
+                    rest[..rest.find('"').unwrap()].to_string()
+                })
+                .collect()
+        };
+        let mut checked = 0;
+        for page in &all {
+            let html = std::fs::read_to_string(page).unwrap();
+            for url in attr(&html, "href").into_iter().chain(attr(&html, "src")) {
+                if url.starts_with("http://")
+                    || url.starts_with("https://")
+                    || url.starts_with("mailto:")
+                {
+                    continue;
+                }
+                let (path, frag) = url.split_once('#').unwrap_or((&url, ""));
+                let target = if path.is_empty() {
+                    page.clone()
+                } else {
+                    normal(&page.parent().unwrap().join(path))
+                };
+                assert!(target.exists(), "{}: {url} names no file", page.display());
+                if !frag.is_empty() && target.extension().is_some_and(|e| e == "html") {
+                    let there = std::fs::read_to_string(&target).unwrap();
+                    assert!(
+                        there.contains(&format!(" id=\"{frag}\"")),
+                        "{}: {url} names no heading there",
+                        page.display()
+                    );
+                }
+                checked += 1;
+            }
+        }
+        assert!(checked > 100, "only {checked} links were checked");
     }
 
     /// The nav sends a reader to GitHub only by its GITHUB link: every doc it names is a page here.

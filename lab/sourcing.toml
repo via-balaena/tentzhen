@@ -51,8 +51,10 @@ shop = "aliexpress"
 store = "Muse Lab"
 item = "1005007788475037"
 ordered = true
-# On the bench in the lab's records from 2026-11-22 (lab/records/2026-11-22-i9-blinky.toml); the
-# day it arrived is not recorded.
+# An i9 on an i5/i9 extension board is on the bench in the lab's records from 2026-11-22
+# (lab/records/2026-11-22-i9-blinky.toml). Jon has two i9s there, each on an extension board of its
+# own (docs/littlebit.md); this order was one i9 and three extension boards (docs/scope.md), and
+# the records do not say which order each i9 came from. The day it arrived is not recorded.
 arrived = true
 
 # Three public GitHub projects, none of them licensed, link this listing for their AD9226 module in
