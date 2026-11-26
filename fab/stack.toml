@@ -4,17 +4,18 @@
 #
 # Every quote was read in its source on the day given, in the raw page or file. A quote from a
 # table joins its cells with " | ". Hacker Fab's GitBook is read at bd1eef57, its head on
-# 2026-11-25. Rows are left out where the industry's figure could not be read in its own source
-# that day: furnaces, etch, film-thickness metrology, electrical test, and TSMC's own N2 page.
+# 2026-11-25. Rows are left out where the industry's figure was not read in its own source
+# that day: film-thickness metrology, electrical test, and TSMC's own N2 page. Furnaces and etch
+# were not searched yet. A gap written in words carries no factor: a factor is worked out.
 
 [[row]]
 layer = "Lithography"
-measure = "smallest line, against High-NA EUV"
+measure = "resolution, against High-NA EUV"
 unit = "m"
 better = "lower"
-route = "Climb the rungs below first. Shorter light and a wider lens are what move this; how far they go on this budget is unknown."
+route = "Climb the rungs below first. Shorter light and a wider lens are what move this; how far they go on this budget is unknown. A light source and optics of our own, which this rung would need, are raised with Jon (CLAUDE.md, Conventions)."
 with = ["bought"]
-why_not = "optics and light sources are bought, and CortenForge has no optics"
+why_not = "optics and light sources are bought for now, and CortenForge has no optics"
 
 [row.hacker_fab]
 value = 2e-6
@@ -34,7 +35,7 @@ read = "2026-11-25"
 
 [[row]]
 layer = "Lithography"
-measure = "smallest line, against i-line"
+measure = "resolution, against i-line"
 unit = "m"
 better = "lower"
 route = "A better objective, with a higher numerical aperture (fab.md, \"Where to spend\")."
@@ -59,7 +60,7 @@ read = "2026-11-25"
 
 [[row]]
 layer = "Lithography"
-measure = "smallest line, against a maskless writer"
+measure = "resolution, against a maskless writer"
 unit = "m"
 better = "lower"
 route = "The i9 as the stepper's controller: the projector fed directly, and each exposure timed to the stage and to measured vibration."
@@ -157,7 +158,7 @@ measure = "stage resolution"
 unit = "m"
 route = "The nanopositioner's encoders read by the i9 from close by; later, a levitated stage modelled in CortenForge."
 with = ["Rust", "Amaranth", "CortenForge"]
-gap = "over 1,000×"
+gap = "PI states no single figure"
 
 [row.hacker_fab]
 value = 1e-6
@@ -275,7 +276,7 @@ with = ["Rust"]
 gap = "a shared base begun, against one standard"
 
 [row.hacker_fab]
-is = "a controller per tool; SputterOS begun as a shared base"
+is = "SputterOS, begun as a shared base"
 tool = "SputterOS"
 quote = "Deterministic C++17 microkernel framework for safety-critical nanofab system control"
 source = "https://github.com/BlastermanR/SputterOS"

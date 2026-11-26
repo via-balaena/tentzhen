@@ -351,7 +351,7 @@ Tentzhen's route across it. Where both sides have a number, the warehouse works 
   which the mesh uses until a Tock port runs, is built on Embassy (`mesh.md`).
 
 **2. One interlock design, for every tool.**
-- **Hacker Fab's:** each tool has a controller of its own:
+- **Hacker Fab's:** its tools run on different controllers:
   - an Arduino Uno, then a Pico 2, for the sputter tool's pressure;
   - a Teensy 4.1 for the impedance matcher, and another for the quartz-crystal thickness monitor;
   - an Arduino Nano on V3's interferometer;

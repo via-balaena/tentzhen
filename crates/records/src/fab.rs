@@ -4,7 +4,7 @@
 //! ```toml
 //! [[row]]
 //! layer = "Lithography"            # the part of the stack; a layer's rows sit together
-//! measure = "smallest line"        # what the two sides are compared on
+//! measure = "resolution"           # what the two sides are compared on
 //! unit = "m"                       # the SI unit of both values; left out when neither has one
 //! better = "lower"                 # lower or higher: which way the measure improves
 //! route = "..."                    # Tentzhen's route across the gap: a proposal, `unknown`
@@ -26,7 +26,8 @@
 //! industry's.
 //!
 //! When both sides have a value the warehouse works out the gap, as a factor (`gold.page_fab`), so
-//! a row gives `better` and no `gap`. Otherwise it gives `gap` in words and no `better`. A row's
+//! a row gives `better` and no `gap`. Otherwise it gives `gap` in words and no `better`, and the
+//! words carry no factor (`×`): a factor is only ever worked out. A row's
 //! route is built in Rust or CortenForge where it can be (Jon, 2026-11-25: "I'd like to always use
 //! CortenForge/Rust where possible"), so a route with neither says why not.
 //!
@@ -247,6 +248,12 @@ pub fn parse(s: &Source) -> Result<Vec<Row>, String> {
                 ));
             }
         }
+        if r.gap.as_ref().is_some_and(|g| g.contains('×')) {
+            return Err(format!(
+                "{at}: {named}'s gap in words carries a factor: give both values and `better`, \
+                 so that it is worked out"
+            ));
+        }
         if r.with.is_empty() {
             return Err(format!(
                 "{at}: {named}'s route names what it is built `with`"
@@ -350,6 +357,12 @@ mod tests {
             "is = \"a\"",
             "is = \"b\"",
             "`better` is not used",
+        );
+        refused(
+            "with = [\"Rust\"]\ngap = \"over 1,000×\"",
+            "is = \"a\"",
+            "is = \"b\"",
+            "carries a factor",
         );
     }
 
@@ -460,11 +473,44 @@ mod tests {
             "hacker-fab@bd1eef57:a.md",
             "hacker-fab/gitbook@bd1eef57:",
             "hacker-fab/gitbook/x@bd1eef57:a.md",
+            "/gitbook@bd1eef57:a.md",
+            "hacker-fab/gitbook@bd1eef57:a b.md",
+            "https://example.org/a b",
         ] {
             assert!(
                 swap("https://example.org/a", bad).contains("no URL"),
                 "{bad}"
             );
+        }
+    }
+
+    #[test]
+    fn no_field_is_an_empty_string() {
+        let blank = |keys: &str, hf: &str| {
+            let e = parse(&file(keys, hf, "is = \"b\"")).unwrap_err();
+            assert!(e.contains("empty string"), "{keys} {hf}: {e}");
+        };
+        let words = "with = [\"Rust\"]\ngap = \"g\"";
+        parse(&file(words, "is = \"a\"", "is = \"b\"")).unwrap();
+        blank("with = [\"Rust\"]\ngap = \" \"", "is = \"a\"");
+        blank(
+            "with = [\"bought\"]\nwhy_not = \"\"\ngap = \"g\"",
+            "is = \"a\"",
+        );
+        blank(words, "is = \" \"");
+        let swap = |from: &str, to: &str| {
+            let mut f = file(words, "is = \"a\"", "is = \"b\"");
+            f.text = f.text.replacen(from, to, 1);
+            parse(&f).unwrap_err()
+        };
+        for (from, to) in [
+            ("layer = \"L\"", "layer = \"\""),
+            ("measure = \"M\"", "measure = \"\""),
+            ("route = \"r\"", "route = \"\""),
+            ("tool = \"t\"", "tool = \"\""),
+            ("is = \"a\"", "is = \"a\"\nnote = \" \""),
+        ] {
+            assert!(swap(from, to).contains("empty string"), "{to}");
         }
     }
 

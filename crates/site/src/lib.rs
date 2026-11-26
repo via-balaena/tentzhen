@@ -759,8 +759,8 @@ pub fn render_fab(conn: &Connection) -> duckdb::Result<String> {
          <p class=\"crumbs eyebrow\">HACKER FAB ADJACENT</p>\n\
          <h1 class=\"spec-title\">To TSMC and ASML, on a Hacker Fab budget</h1>\n\
          <p class=\"spec-does\">Hacker Fab's open stack beside the industry's, row by row, and the gap \
-         between them. Every tool is engineered and built here, in Rust and CortenForge where they \
-         can be.</p>\n\
+         between them. Our tools are to be engineered and built here, in Rust and CortenForge \
+         where they can be, but for those the safety rules keep bought.</p>\n\
          <p class=\"muted\">We build on Hacker Fab's open designs and send back what we add. We are \
          not part of Hacker Fab, and it has not reviewed this page. Safety comes first: tools on \
          mains are bought, listed and legal, and every step runs under its own safety plan \
