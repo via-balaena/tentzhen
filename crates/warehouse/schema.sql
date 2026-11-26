@@ -396,6 +396,60 @@ COMMENT ON COLUMN silver.sourcing.listing_checked IS 'A person checked the listi
 COMMENT ON COLUMN silver.sourcing.passed_qa IS 'The measurement record of the incoming QA it passed. crates/records holds that it lists the part and is from on or after each day the stages give; the database holds that it exists.';
 COMMENT ON COLUMN silver.sourcing.record IS 'The file in bronze.record this row came from.';
 
+-- ---------------------------------------------------------------- silver: the fab's stack
+-- From fab/stack.toml, which crates/records has checked: Hacker Fab's stack beside the industry's.
+-- crates/records holds the units and what a route is built with to their lists; the database
+-- does not.
+
+CREATE TABLE silver.fab_row (
+    row_no  INTEGER PRIMARY KEY,
+    layer   TEXT NOT NULL,
+    measure TEXT NOT NULL,
+    unit    TEXT,
+    better  TEXT CHECK (better IN ('lower', 'higher')),
+    gap     TEXT,
+    route   TEXT NOT NULL,
+    why_not TEXT,
+    record  TEXT NOT NULL,
+    UNIQUE (layer, measure),
+    CHECK ((better IS NULL) <> (gap IS NULL))
+);
+COMMENT ON TABLE silver.fab_row IS 'One thing Hacker Fab''s stack and the industry''s are compared on, and Tentzhen''s route across the gap between them: a proposal.';
+COMMENT ON COLUMN silver.fab_row.row_no IS 'Its place in the file, from 1. A layer''s rows are consecutive.';
+COMMENT ON COLUMN silver.fab_row.unit IS 'The SI unit of both sides'' values: 1 for a count or ratio. NULL when neither side has a value.';
+COMMENT ON COLUMN silver.fab_row.better IS 'Which way the measure improves, given when both sides have a value, so that gold.page_fab can work out the gap.';
+COMMENT ON COLUMN silver.fab_row.gap IS 'The gap in words, given when a side has no value.';
+COMMENT ON COLUMN silver.fab_row.why_not IS 'Why the route is built with neither Rust nor CortenForge, when it is not.';
+COMMENT ON COLUMN silver.fab_row.record IS 'The file in bronze.record this row came from.';
+
+CREATE TABLE silver.fab_side (
+    row_no   INTEGER NOT NULL REFERENCES silver.fab_row (row_no),
+    side     TEXT NOT NULL CHECK (side IN ('hacker_fab', 'industry')),
+    value    DOUBLE CHECK (value > 0),
+    is_words TEXT,
+    tool     TEXT NOT NULL,
+    note     TEXT,
+    quote    TEXT NOT NULL,
+    source   TEXT NOT NULL,
+    read_on  DATE NOT NULL,
+    PRIMARY KEY (row_no, side),
+    CHECK ((value IS NULL) <> (is_words IS NULL))
+);
+COMMENT ON TABLE silver.fab_side IS 'Hacker Fab''s side of a row, or the industry''s: a value in the row''s unit or the side in words, what has it, and the source''s own words for it.';
+COMMENT ON COLUMN silver.fab_side.note IS 'The conditions the source attaches to the figure.';
+COMMENT ON COLUMN silver.fab_side.quote IS 'The source''s own words, which hold the value. Nothing checks them against the source.';
+COMMENT ON COLUMN silver.fab_side.source IS 'A URL, or owner/repo@sha:path for a file in a repository at a commit.';
+COMMENT ON COLUMN silver.fab_side.read_on IS 'The UTC day the source was read.';
+
+CREATE TABLE silver.fab_route_with (
+    row_no  INTEGER NOT NULL REFERENCES silver.fab_row (row_no),
+    with_no INTEGER NOT NULL,
+    tool    TEXT NOT NULL,
+    PRIMARY KEY (row_no, with_no),
+    UNIQUE (row_no, tool)
+);
+COMMENT ON TABLE silver.fab_route_with IS 'What a row''s route is built with, in the file''s order: Rust, CortenForge, Amaranth, KiCad, or bought.';
+
 -- ---------------------------------------------------------------- silver: what shows a claim
 -- After the measurement records, which a record referent names.
 
@@ -610,6 +664,21 @@ COMMENT ON VIEW gold.page_parts IS 'The parts page: each thing the bench needs o
 CREATE VIEW gold.page_parts_used_in AS
 SELECT parts_no, build, version, sum(qty) AS qty FROM gold.bench_line GROUP BY ALL;
 COMMENT ON VIEW gold.page_parts_used_in IS 'The build versions that write each row of the parts page, and how many each needs.';
+
+CREATE VIEW gold.page_fab AS
+SELECT r.row_no, r.layer, r.measure, r.unit, r.better, r.gap, r.route, r.why_not,
+       (SELECT string_agg(w.tool, ' · ' ORDER BY w.with_no)
+        FROM silver.fab_route_with w WHERE w.row_no = r.row_no) AS built_with,
+       h.value AS hf_value, h.is_words AS hf_is, h.tool AS hf_tool, h.note AS hf_note,
+       h.quote AS hf_quote, h.source AS hf_source, h.read_on AS hf_read,
+       i.value AS ind_value, i.is_words AS ind_is, i.tool AS ind_tool, i.note AS ind_note,
+       i.quote AS ind_quote, i.source AS ind_source, i.read_on AS ind_read,
+       CASE r.better WHEN 'lower' THEN h.value / i.value
+                     WHEN 'higher' THEN i.value / h.value END AS factor
+FROM silver.fab_row r
+JOIN silver.fab_side h ON h.row_no = r.row_no AND h.side = 'hacker_fab'
+JOIN silver.fab_side i ON i.row_no = r.row_no AND i.side = 'industry';
+COMMENT ON VIEW gold.page_fab IS 'The fab page: each row with both sides, and, when both have a value, the gap as a factor: how many times better the industry''s figure is than Hacker Fab''s, below 1 where Hacker Fab''s is better.';
 
 CREATE VIEW gold.legal AS
 SELECT body FROM bronze.record WHERE path = 'DISCLAIMER.md';

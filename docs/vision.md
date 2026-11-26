@@ -6,6 +6,11 @@ now (Jon, 2026-10-08). The bench below is project #1; the mesh (`mesh.md`) is pr
 LittleBit × Taalas (`littlebit.md`) is project #3; the open fab and the town around it (`fab.md`)
 is project #4.
 
+Where it is going, in Jon's words (2026-11-25): "I'd like to turn tentzhen into its own simulated
+shenzhen like city in a way, and that's what this repo would be. slowly building towards a fully
+open source planned out city of the future." The town that grows around the fab is the first
+place it is planned (`fab.md`, "The town"). None of it is built.
+
 ## Who this is for
 
 Someone with a laptop, a lot of curiosity, and not much money.

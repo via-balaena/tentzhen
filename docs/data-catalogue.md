@@ -39,6 +39,9 @@ flowchart LR
     silver_measurement_tool["silver.measurement_tool"]
     silver_measurement_value["silver.measurement_value"]
     silver_sourcing["silver.sourcing"]
+    silver_fab_row["silver.fab_row"]
+    silver_fab_side["silver.fab_side"]
+    silver_fab_route_with["silver.fab_route_with"]
     silver_referent["silver.referent"]
   end
   subgraph gold
@@ -62,6 +65,7 @@ flowchart LR
     gold_page_step["gold.page_step"]
     gold_page_parts["gold.page_parts"]
     gold_page_parts_used_in["gold.page_parts_used_in"]
+    gold_page_fab["gold.page_fab"]
     gold_legal["gold.legal"]
   end
   bronze -. crates/warehouse .-> silver
@@ -103,7 +107,12 @@ flowchart LR
   gold_sourcing_status --> gold_page_parts
   silver_part --> gold_page_parts
   gold_bench_line --> gold_page_parts_used_in
+  silver_fab_route_with --> gold_page_fab
+  silver_fab_row --> gold_page_fab
+  silver_fab_side --> gold_page_fab
   bronze_record --> gold_legal
+  crates_records(["crates/records"])
+  gold_page_fab --> crates_records
   crates_site(["crates/site"])
   gold_claim_grades --> crates_site
   gold_claim_values --> crates_site
@@ -116,6 +125,7 @@ flowchart LR
   gold_page_step --> crates_site
   gold_page_parts --> crates_site
   gold_page_parts_used_in --> crates_site
+  gold_page_fab --> crates_site
   gold_legal --> crates_site
 ```
 
@@ -658,6 +668,75 @@ Constraints:
 
 Read by: `gold.sourcing_status`.
 
+### `silver.fab_row` (table)
+
+One thing Hacker Fab's stack and the industry's are compared on, and Tentzhen's route across the gap between them: a proposal.
+
+| column | type | null | about |
+|---|---|---|---|
+| `row_no` | INTEGER | no | Its place in the file, from 1. A layer's rows are consecutive. |
+| `layer` | VARCHAR | no |  |
+| `measure` | VARCHAR | no |  |
+| `unit` | VARCHAR | yes | The SI unit of both sides' values: 1 for a count or ratio. NULL when neither side has a value. |
+| `better` | VARCHAR | yes | Which way the measure improves, given when both sides have a value, so that gold.page_fab can work out the gap. |
+| `gap` | VARCHAR | yes | The gap in words, given when a side has no value. |
+| `route` | VARCHAR | no |  |
+| `why_not` | VARCHAR | yes | Why the route is built with neither Rust nor CortenForge, when it is not. |
+| `record` | VARCHAR | no | The file in bronze.record this row came from. |
+
+Constraints:
+
+- `PRIMARY KEY(row_no)`
+- `CHECK((better IN ('lower', 'higher')))`
+- `UNIQUE(layer, measure)`
+- `CHECK(((better IS NULL) != (gap IS NULL)))`
+
+Read by: `gold.page_fab`.
+
+### `silver.fab_side` (table)
+
+Hacker Fab's side of a row, or the industry's: a value in the row's unit or the side in words, what has it, and the source's own words for it.
+
+| column | type | null | about |
+|---|---|---|---|
+| `row_no` | INTEGER | no |  |
+| `side` | VARCHAR | no |  |
+| `value` | DOUBLE | yes |  |
+| `is_words` | VARCHAR | yes |  |
+| `tool` | VARCHAR | no |  |
+| `note` | VARCHAR | yes | The conditions the source attaches to the figure. |
+| `quote` | VARCHAR | no | The source's own words, which hold the value. Nothing checks them against the source. |
+| `source` | VARCHAR | no | A URL, or owner/repo@sha:path for a file in a repository at a commit. |
+| `read_on` | DATE | no | The UTC day the source was read. |
+
+Constraints:
+
+- `FOREIGN KEY (row_no) REFERENCES silver.fab_row(row_no)`
+- `CHECK((side IN ('hacker_fab', 'industry')))`
+- `CHECK(("value" > 0))`
+- `PRIMARY KEY(row_no, side)`
+- `CHECK((("value" IS NULL) != (is_words IS NULL)))`
+
+Read by: `gold.page_fab`.
+
+### `silver.fab_route_with` (table)
+
+What a row's route is built with, in the file's order: Rust, CortenForge, Amaranth, KiCad, or bought.
+
+| column | type | null | about |
+|---|---|---|---|
+| `row_no` | INTEGER | no |  |
+| `with_no` | INTEGER | no |  |
+| `tool` | VARCHAR | no |  |
+
+Constraints:
+
+- `FOREIGN KEY (row_no) REFERENCES silver.fab_row(row_no)`
+- `PRIMARY KEY(row_no, with_no)`
+- `UNIQUE(row_no, tool)`
+
+Read by: `gold.page_fab`.
+
 ### `silver.referent` (table)
 
 What shows a claim: a proof, a bounded check or a test in simulation; a bench measurement record; or an entry in the trusted base.
@@ -1046,6 +1125,41 @@ The build versions that write each row of the parts page, and how many each need
 Reads: `gold.bench_line`.
 
 Read by: `crates/site`.
+
+### `gold.page_fab` (view)
+
+The fab page: each row with both sides, and, when both have a value, the gap as a factor: how many times better the industry's figure is than Hacker Fab's, below 1 where Hacker Fab's is better.
+
+| column | type |
+|---|---|
+| `row_no` | INTEGER |
+| `layer` | VARCHAR |
+| `measure` | VARCHAR |
+| `unit` | VARCHAR |
+| `better` | VARCHAR |
+| `gap` | VARCHAR |
+| `route` | VARCHAR |
+| `why_not` | VARCHAR |
+| `built_with` | VARCHAR |
+| `hf_value` | DOUBLE |
+| `hf_is` | VARCHAR |
+| `hf_tool` | VARCHAR |
+| `hf_note` | VARCHAR |
+| `hf_quote` | VARCHAR |
+| `hf_source` | VARCHAR |
+| `hf_read` | DATE |
+| `ind_value` | DOUBLE |
+| `ind_is` | VARCHAR |
+| `ind_tool` | VARCHAR |
+| `ind_note` | VARCHAR |
+| `ind_quote` | VARCHAR |
+| `ind_source` | VARCHAR |
+| `ind_read` | DATE |
+| `factor` | DOUBLE |
+
+Reads: `silver.fab_route_with`, `silver.fab_row`, `silver.fab_side`.
+
+Read by: `crates/records`, `crates/site`.
 
 ### `gold.legal` (view)
 

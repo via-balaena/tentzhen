@@ -1,0 +1,313 @@
+# Hacker Fab's stack beside the industry's, row by row, with Tentzhen's route across each gap.
+# What each field means, and what is checked, is in crates/records/src/fab.rs. tentzhen.com's fab
+# page (site/fab/) is generated from this file.
+#
+# Every quote was read in its source on the day given, in the raw page or file. A quote from a
+# table joins its cells with " | ". Hacker Fab's GitBook is read at bd1eef57, its head on
+# 2026-11-25. Rows are left out where the industry's figure was not read in its own source
+# that day: film-thickness metrology, electrical test, and TSMC's own N2 page. Furnaces and etch
+# were not searched yet. A gap written in words carries no factor: a factor is worked out.
+
+[[row]]
+layer = "Lithography"
+measure = "resolution, against High-NA EUV"
+unit = "m"
+better = "lower"
+route = "Climb the rungs below first. Shorter light and a wider lens are what move this; how far they go on this budget is unknown. A light source and optics of our own, which this rung would need, are raised with Jon (CLAUDE.md, Conventions)."
+with = ["bought"]
+why_not = "optics and light sources are bought for now, and CortenForge has no optics"
+
+[row.hacker_fab]
+value = 2e-6
+tool = "stepper V2.1, $3,012.13"
+note = "developed, in resist"
+quote = "Developed Resolution | 2 µm"
+source = "hacker-fab/gitbook@bd1eef57:fab-toolkit/lithography-stepper/lithography-stepper-v2.1+-build/README.md"
+read = "2026-11-25"
+
+[row.industry]
+value = 8e-9
+tool = "ASML TWINSCAN EXE:5200B"
+note = "High-NA EUV, 0.55 NA"
+quote = "Resolution | 8 nm"
+source = "https://www.asml.com/en/products/euv-lithography-systems/twinscan-exe-5200b"
+read = "2026-11-25"
+
+[[row]]
+layer = "Lithography"
+measure = "resolution, against i-line"
+unit = "m"
+better = "lower"
+route = "A better objective, with a higher numerical aperture (fab.md, \"Where to spend\")."
+with = ["bought"]
+why_not = "a lens is bought"
+
+[row.hacker_fab]
+value = 2e-6
+tool = "stepper V2.1, $3,012.13"
+note = "developed, in resist"
+quote = "Developed Resolution | 2 µm"
+source = "hacker-fab/gitbook@bd1eef57:fab-toolkit/lithography-stepper/lithography-stepper-v2.1+-build/README.md"
+read = "2026-11-25"
+
+[row.industry]
+value = 350e-9
+tool = "ASML TWINSCAN XT:400M"
+note = "i-line, 365 nm; at most"
+quote = "Resolution (nm) | ≤ 350"
+source = "https://www.asml.com/en/products/duv-lithography-systems/twinscan-xt-400m"
+read = "2026-11-25"
+
+[[row]]
+layer = "Lithography"
+measure = "resolution, against a maskless writer"
+unit = "m"
+better = "lower"
+route = "The i9 as the stepper's controller: the projector fed directly, and each exposure timed to the stage and to measured vibration."
+with = ["Rust", "Amaranth"]
+
+[row.hacker_fab]
+value = 2e-6
+tool = "stepper V2.1, $3,012.13"
+note = "developed, in resist"
+quote = "Developed Resolution | 2 µm"
+source = "hacker-fab/gitbook@bd1eef57:fab-toolkit/lithography-stepper/lithography-stepper-v2.1+-build/README.md"
+read = "2026-11-25"
+
+[row.industry]
+value = 0.6e-6
+tool = "Heidelberg Instruments MLA 150"
+note = "maskless; write mode I, 0.45 µm as an option"
+quote = "Minimum feature size [μm] | 0.6 (0.45 optional)"
+source = "https://heidelberg-instruments.com/product/mla150/"
+read = "2026-11-25"
+
+[[row]]
+layer = "Lithography"
+measure = "overlay, against i-line"
+unit = "m"
+better = "lower"
+route = "Overlay measured on a calibration target before and after each change; the stage's loop on the i9, with input shaping from a measured resonance."
+with = ["Rust", "Amaranth", "CortenForge"]
+
+[row.hacker_fab]
+value = 5e-6
+tool = "stepper V2.1, $3,012.13"
+quote = "Overlay Alignment Accuracy | 5 µm"
+source = "hacker-fab/gitbook@bd1eef57:fab-toolkit/lithography-stepper/lithography-stepper-v2.1+-build/README.md"
+read = "2026-11-25"
+
+[row.industry]
+value = 20e-9
+tool = "ASML TWINSCAN XT:400M"
+note = "at most, across the whole wafer, with ASML's optional TOP-2F software"
+quote = "prints 200 mm and 300 mm wafers with ≤ 20 nm overlay across the entire wafer"
+source = "https://www.asml.com/en/products/duv-lithography-systems/twinscan-xt-400m"
+read = "2026-11-25"
+
+[[row]]
+layer = "Lithography"
+measure = "overlay, against a maskless writer"
+unit = "m"
+better = "lower"
+route = "Hacker Fab's fiducial finder for alignment, with the stage held by the i9's loop and its vibration modelled in CortenForge."
+with = ["Rust", "Amaranth", "CortenForge"]
+
+[row.hacker_fab]
+value = 5e-6
+tool = "stepper V2.1, $3,012.13"
+quote = "Overlay Alignment Accuracy | 5 µm"
+source = "hacker-fab/gitbook@bd1eef57:fab-toolkit/lithography-stepper/lithography-stepper-v2.1+-build/README.md"
+read = "2026-11-25"
+
+[row.industry]
+value = 500e-9
+tool = "Heidelberg Instruments MLA 150"
+note = "global second-layer alignment; local is 250 nm"
+quote = "Global 2nd layer alignment [nm] | 500"
+source = "https://heidelberg-instruments.com/product/mla150/"
+read = "2026-11-25"
+
+[[row]]
+layer = "Lithography"
+measure = "largest wafer"
+unit = "m"
+better = "higher"
+route = "Pieces of bought wafers first. Longer travel is the stage's, modelled in CortenForge before it is built."
+with = ["CortenForge"]
+
+[row.hacker_fab]
+value = 0.01
+tool = "stepper V2.1, $3,012.13"
+note = "1 cm square"
+quote = "Maximum Wafer Size | 1 cm x 1 cm"
+source = "hacker-fab/gitbook@bd1eef57:fab-toolkit/lithography-stepper/lithography-stepper-v2.1+-build/README.md"
+read = "2026-11-25"
+
+[row.industry]
+value = 0.3
+tool = "ASML TWINSCAN XT:400M"
+note = "300 mm across"
+quote = "prints 200 mm and 300 mm wafers"
+source = "https://www.asml.com/en/products/duv-lithography-systems/twinscan-xt-400m"
+read = "2026-11-25"
+
+[[row]]
+layer = "Motion"
+measure = "stage resolution"
+unit = "m"
+route = "The nanopositioner's encoders read by the i9 from close by; later, a levitated stage modelled in CortenForge."
+with = ["Rust", "Amaranth", "CortenForge"]
+gap = "PI states no single figure"
+
+[row.hacker_fab]
+value = 1e-6
+tool = "closed-loop nanopositioner"
+note = "about"
+quote = "~1um resolution but highly affected by vibration"
+source = "hacker-fab/gitbook@bd1eef57:fab-toolkit/nanopositioner/README.md"
+read = "2026-11-25"
+
+[row.industry]
+is = "under 1 nm"
+tool = "PI piezo flexure stages"
+quote = "PI's piezo flexure stages combine sub-nanometer resolution and guiding precision with minimum crosstalk."
+source = "https://www.physikinstrumente.com/en/products/nanopositioning-piezo-flexure-stages"
+read = "2026-11-25"
+
+[[row]]
+layer = "Deposition"
+measure = "RF match time"
+unit = "s"
+better = "lower"
+route = "The digitizer measures the reflection's phase as well as its size, so the capacitors are set, not searched for."
+with = ["Rust", "Amaranth"]
+
+[row.hacker_fab]
+value = 5
+tool = "impedance matcher, $636.65"
+note = "about, from startup"
+quote = "Match Speed From Startup | ~5 seconds"
+source = "hacker-fab/gitbook@bd1eef57:fab-toolkit/rf-sputtering/add-ons-and-wip/automated-impedance-matching.md"
+read = "2026-11-25"
+
+[row.industry]
+value = 1
+tool = "Advanced Energy Navigator II"
+note = "under, depending on user settings"
+quote = "Tune Time < 1 sec, depending on user settings"
+source = "https://www.advancedenergy.com/getmedia/835ef9e7-d9b4-4993-8842-7ec4ffb3c530/en-ppg-navigator-digital-matching-networks-data-sheet.pdf"
+read = "2026-11-25"
+
+[[row]]
+layer = "Gas"
+measure = "flow control"
+unit = "%"
+route = "Bought, as Hacker Fab does."
+with = ["bought"]
+why_not = "an industry part already, and none of our steps uses process gas yet"
+gap = "not compared: Hacker Fab buys industry MFCs"
+
+[row.hacker_fab]
+is = "Alicat mass-flow controllers"
+tool = "sputter tool's control station"
+quote = "Alicat MFCs | Regulate process gas flow."
+source = "hacker-fab/gitbook@bd1eef57:fab-toolkit/rf-sputtering/add-ons-and-wip/sputtering-automation-control-system.md"
+read = "2026-11-25"
+
+[row.industry]
+value = 0.8
+tool = "MKS CMA10B"
+note = "of set point, from 20 to 100 % of full scale"
+quote = "±0.8% of set point for 20 to 100% Full Scale"
+source = "https://www.mks.com/mam/celum/celum_assets/mks/resources/CMA10B-MFC-DS.pdf"
+read = "2026-11-25"
+
+[[row]]
+layer = "Devices"
+measure = "gate length"
+unit = "m"
+better = "lower"
+route = "fab.md's steps 4 to 6: our stepper on Hacker Fab's NMOS process, then a small hardwired network."
+with = ["Rust", "Amaranth"]
+
+[row.hacker_fab]
+value = 5e-6
+tool = "NMOS, CMU Fab, March 2026"
+quote = "5 um gate length"
+source = "hacker-fab/gitbook@bd1eef57:nmos-capabilities/current-fab-capabilities/march-2026-update/README.md"
+read = "2026-11-25"
+
+[row.industry]
+value = 14e-9
+tool = "IRDS 2024, More Moore"
+note = "roadmap for 2025, the \"2nm\" node, high-performance logic; read from table MM-7's image"
+quote = "Lg: Gate Length - HP (nm) | 14"
+source = "https://irds.ieee.org/images/files/pdf/2024/2024IRDS_MM.pdf"
+read = "2026-11-25"
+
+[[row]]
+layer = "Cleanliness"
+measure = "air"
+route = "An enclosure for each tool, its air measured with a particle counter and logged."
+with = ["Rust", "bought"]
+gap = "open air, against classified air"
+
+[row.hacker_fab]
+is = "no cleanroom"
+tool = "Hacker Fab's goals"
+quote = "No cleanroom needed"
+source = "hacker-fab/gitbook@bd1eef57:guides/required-reading-todo.md"
+read = "2026-11-25"
+
+[row.industry]
+is = "classes of air by particle count"
+tool = "ISO 14644-1:2015"
+note = "its title, as Wikipedia cites it; the standard was not read"
+quote = "ISO 14644-1:2015 - Cleanrooms and associated controlled environments -- Part 1: Classification of air cleanliness by particle concentration"
+source = "https://en.wikipedia.org/wiki/Cleanroom"
+read = "2026-11-25"
+
+[[row]]
+layer = "Control and safety"
+measure = "tool control"
+route = "One controller and interlock design across the tools, in Rust on Tock, compared with SputterOS on a simulated chamber."
+with = ["Rust"]
+gap = "a shared base begun, against one standard"
+
+[row.hacker_fab]
+is = "SputterOS, begun as a shared base"
+tool = "SputterOS"
+quote = "Deterministic C++17 microkernel framework for safety-critical nanofab system control"
+source = "https://github.com/BlastermanR/SputterOS"
+read = "2026-11-25"
+
+[row.industry]
+is = "GEM, over SECS-II"
+tool = "SEMI E30-0526"
+note = "its abstract; the standard was not read"
+quote = "GEM defines a standard implementation of SECS-II for all semiconductor manufacturing equipment"
+source = "https://store-us.semi.org/products/e03000-semi-e30-specification-for-the-generic-model-for-communications-and-control-of-manufacturing-equipment-gem"
+read = "2026-11-25"
+
+[[row]]
+layer = "Control and safety"
+measure = "equipment safety"
+route = "A safety plan for each step before anything is bought, and interlocks below the agent, in Rust on Tock and in hardware (fab.md, rules 1 and 2)."
+with = ["Rust"]
+gap = "a goal, against a written guideline"
+
+[row.hacker_fab]
+is = "a goal: minimal danger"
+tool = "Hacker Fab's goals"
+quote = "Minimal danger"
+source = "hacker-fab/gitbook@bd1eef57:guides/required-reading-todo.md"
+read = "2026-11-25"
+
+[row.industry]
+is = "a written health and safety guideline for equipment"
+tool = "SEMI S2-0724E"
+note = "its abstract; the guideline was not read"
+quote = "intended as a set of performance-based environmental, health, and safety (EHS) considerations for semiconductor manufacturing equipment"
+source = "https://store-us.semi.org/products/s00200-semi-s2-environmental-health-and-safety-guideline-for-semiconductor-manufacturing-equipment"
+read = "2026-11-25"
