@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project #2: the mesh · Tentzhen</title>
+<link rel="icon" href="../../img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../style.css">
+</head>
+<body>
+
+<header class="column site-header">
+  <a class="brand" href="../../index.html" aria-label="Tentzhen home">
+    <img src="../../img/mark-black.svg" alt="">
+    <span class="wordmark">TENTZHEN</span>
+  </a>
+  <nav class="site-nav" aria-label="Main">
+    <a href="../../builds/index.html">BUILDS</a>
+    <a href="../../parts/index.html">PARTS</a>
+    <a href="../../docs/vision/index.html">VISION</a>
+    <div class="nav-menu">
+      <button type="button" class="nav-label">PROJECTS</button>
+      <div class="nav-items">
+        <a href="../../docs/scope/index.html">DIGITIZER AND GENERATOR</a>
+        <a href="../../docs/mesh/index.html">THE MESH</a>
+        <a href="../../docs/littlebit/index.html">HARDWIRED NEURAL NET</a>
+        <a href="../../fab/index.html">THE OPEN FAB</a>
+      </div>
+    </div>
+    <a href="../../docs/verification/index.html">VERIFICATION</a>
+    <a href="../../docs/roadmap/index.html">ROADMAP</a>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
+  </nav>
+</header>
+
+<main class="column spec">
+<p class="crumbs"><a href="../index.html">DOCS</a> / MESH</p>
+<div class="prose doc">
+<h1 id="project-2-the-mesh">Project #2: the mesh</h1>
+<p>Research date for everything below: 2026-10-08, unless a line says otherwise.</p>
+<p>A LoRa mesh of handhelds, repeaters and a phone, for what UMSH calls "decentralized, wide-area text
+chat and location/sensor reporting". It runs <a href="https://github.com/darconeous/umsh">UMSH</a>, an open
+mesh protocol, on nRF52840 boards, and the project's own work is porting it to Tock (Jon,
+2026-10-08). Nothing is ordered yet.</p>
+<h2 id="what-umsh-is">What UMSH is</h2>
+<p>Read from darconeous/umsh at 11f1fd25 (README, <code>firmware/</code>, <code>apps/</code>) and its release
+<code>fw-2026.10.01</code>:</p>
+<ul>
+<li><strong>What it is for.</strong> "decentralized, wide-area text chat and location/sensor reporting"
+(README). Nodes are addressed by their Ed25519 public keys; frames are encrypted with AES-SIV.</li>
+<li><strong>License and language.</strong> Rust, under Apache-2.0 or MIT (both license files at the root), as
+Tentzhen is. The protocol crates are <code>no_std</code>, but "<code>alloc</code> is still required" (README).</li>
+<li><strong>Firmware.</strong> The nRF52840 firmware is built on Embassy, not Tock: each board's
+<code>firmware/&lt;board&gt;/Cargo.toml</code> names <code>embassy-nrf</code>. <code>fw-2026.10.01</code> ships images named for eight
+boards: <code>xiao-nrf52</code>, <code>techo</code>, <code>t1000e</code>, <code>sensecap-solar</code>, <code>wio-tracker-l1</code>, <code>heltec-v3</code>,
+<code>tbeam-supreme</code>, <code>tlora-pager</code>. Its README says "firmware for seven boards".</li>
+<li><strong>Apps.</strong> An iOS app is in <code>apps/ios</code>. An Android app is an open pull request (#11, opened
+2026-10-03).</li>
+<li><strong>How it was written.</strong> Its README says "practically all of the content in this repository was
+written with the assistance of an LLM", so it is <code>unknown</code> here, like ours, until it earns a
+grade.</li>
+<li><strong>Its GitHub repo</strong> was created 2026-03-15.</li>
+</ul>
+<h2 id="the-boards-jons-table-2026-10-08">The boards (Jon's table, 2026-10-08)</h2>
+<p>The roles, boards, chips and reasons are Jon's. The last column is what has been checked so far; the
+hardware details in the reasons (displays, GPS, solar wattage, batteries) are not yet read from the
+makers' pages.</p>
+<table><thead><tr><th>role</th><th>board</th><th>chip / radio</th><th>reason</th><th>checked</th></tr></thead><tbody>
+<tr><td>dev, the Tock port (2–3)</td><td>Seeed XIAO nRF52840 + Wio-SX1262 kit</td><td>nRF52840 / SX1262</td><td>cheap, validated, an ideal pair for Tock; no buttons, needs an SWD probe</td><td>UMSH ships <code>xiao-nrf52</code>; not an upstream Tock board (tock/tock <code>boards/</code> at 238630bf)</td></tr>
+<tr><td>handheld</td><td>LilyGO T-Echo</td><td>nRF52840 / SX1262</td><td>e-paper display, GPS, low power</td><td>UMSH ships <code>techo</code>; not an upstream Tock board</td></tr>
+<tr><td>other handheld</td><td>SenseCAP T1000-E</td><td>nRF52840 / LR1110</td><td>the board UMSH is most tested on</td><td>UMSH ships <code>t1000e</code>; "most tested" <code>unknown</code></td></tr>
+<tr><td>repeater</td><td>SenseCAP Solar Node P1</td><td>nRF52840 / SX1262</td><td>solar, 18650 cells, weatherproof</td><td>UMSH ships <code>sensecap-solar</code>; which variant it runs on is <code>unknown</code> (below)</td></tr>
+<tr><td>phone</td><td>iPhone</td><td>—</td><td>the only UMSH app</td><td>iOS app in <code>apps/ios</code>; Android in PR #11</td></tr>
+<tr><td>debug probe</td><td>Pi Debug Probe or a J-Link clone</td><td>—</td><td>SWD for the Tock work</td><td>the lab has a Raspberry Pi Debug Probe (<code>builds/debug-probe/v2.toml</code>)</td></tr>
+<tr><td>not now</td><td>Heltec V3, T-Beam Supreme</td><td>ESP32-S3 / SX1262</td><td>only to bridge to the internet over Wi-Fi; more power, closed Wi-Fi blobs</td><td>UMSH ships both</td></tr>
+<tr><td>later</td><td>a board of our own</td><td>nRF52840 / SX1262 + SE050</td><td>keys in a secure element</td><td>not designed</td></tr>
+</tbody></table>
+<p>UMSH's records name the repeater two ways: <code>docs/hardware/boards.json</code> calls <code>sensecap-solar</code> the
+"SenseCAP Solar Node P1", and its hardware notes, <code>sensecap-solar-node-p1-pro-hardware.md</code>,
+describe the P1-Pro, as "a firmware-level reconstruction, not … a verified electrical schematic".
+Whether one image runs on both is <code>unknown</code>; it is settled before the repeater goes in a cart.</p>
+<p>The table's note that the T1000-E's LR1110 is "a weaker fit for Tock" is not kept: upstream Tock
+has a board with the same pair, <code>wm1110dev</code> (its README lists the nRF52840 and a Semtech LR1110),
+and <code>apollo3/lora_things_plus</code>, a LoRa board whose README points to RadioLib for the SX1262.
+GitHub's code search found both chips' names in tock/tock only in those boards' files and in
+meeting notes, so whether either radio has a kernel driver in Tock is <code>unknown</code>.</p>
+<h2 id="open-questions">Open questions</h2>
+<ul>
+<li><strong>How UMSH runs on Tock.</strong> Its crates as a libtock-rs app, over a radio driver in the kernel or
+the SPI bus from userspace, is one shape; whether its need for <code>alloc</code> fits a Tock app is
+<code>unknown</code>.</li>
+<li><strong>Which band and power each node may transmit at.</strong> It depends on the region; UMSH has a
+<code>regions/</code> directory, not yet read. Flashing a node is a hardware action like any other: logged,
+and only to a lab target (<code>lab/targets.toml</code>).</li>
+<li><strong>A secure element.</strong> The board of our own names an SE050; the bench's research track names a
+TROPIC01 for signing keys (<a href="../roadmap/index.html"><code>roadmap.md</code></a>, "Parallel tracks"). Whether one part serves both is not
+weighed.</li>
+</ul>
+<h2 id="what-was-searched">What was searched</h2>
+<p>Two web searches (UMSH and LoRa mesh on the nRF52840) and reads of darconeous/umsh and tock/tock
+through GitHub's API, 2026-10-08. MeshCore and Meshtastic, the meshes UMSH compares itself to,
+are named here and not examined; Chinese-language sources and forums were not searched. This
+shows what these reads found, not that nothing closer exists.</p>
+</div>
+<p class="notice">Written in <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/mesh.md">docs/mesh.md</a>, on main; this page is made from it.</p>
+</main>
+
+<footer class="site-footer">
+  <div class="column">
+    <span>腾振 TENTZHEN · A VIA BALAENA PROJECT</span>
+    <span>MIT OR APACHE-2.0 · <a href="../../legal/index.html">LEGAL</a></span>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB.COM/VIA-BALAENA/TENTZHEN</a>
+  </div>
+</footer>
+
+</body>
+</html>

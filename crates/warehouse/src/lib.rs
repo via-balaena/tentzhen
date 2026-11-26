@@ -557,10 +557,24 @@ mod tests {
         }
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let mut files = vec!["DISCLAIMER.md".to_string(), TRUSTED_BASE.to_string()];
-        for dir in ["parts", "builds", "lab", "fab"] {
+        for dir in ["parts", "builds", "lab", "fab", "docs"] {
             walk(&root.join(dir), &root, &mut files);
         }
         let conn = warehouse(&Catalogue::load(&root).unwrap());
+        // Every doc is a page: gold.doc holds each `.md` in docs/, by its name.
+        let docs = files
+            .iter()
+            .filter(|f| f.starts_with("docs/") && f.ends_with(".md") && f.matches('/').count() == 1)
+            .count();
+        assert!(docs >= 1);
+        assert_eq!(one(&conn, "SELECT count(*) FROM gold.doc"), docs as i64);
+        assert_eq!(
+            one(
+                &conn,
+                "SELECT count(*) FROM gold.doc WHERE name IS NULL OR name = ''"
+            ),
+            0
+        );
         for f in files {
             let n: i64 = conn
                 .query_row(

@@ -111,7 +111,7 @@ siblings without reading the marking: 0x41112043 (`builds/digitizer/v1.toml`, wa
 
 **The board** is the i9 on any of the three extension boards (`scope.md`, "One i9, three extension
 boards"), with nothing wired to the headers. Jon has two i9s, each in an extension board of its
-own: his #1 and #2, here i9-1 and i9-2 (2026-11-22). The serial a load logs is the extension
+own: Jon's #1 and #2, here i9-1 and i9-2 (2026-11-22). The serial a load logs is the extension
 board's probe's, not the i9's, so each i9 stays in its own extension board:
 
 | unit | its probe's serial | port on the lab computer | IDCODE |

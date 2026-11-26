@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sourcing · Tentzhen</title>
+<link rel="icon" href="../../img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../style.css">
+</head>
+<body>
+
+<header class="column site-header">
+  <a class="brand" href="../../index.html" aria-label="Tentzhen home">
+    <img src="../../img/mark-black.svg" alt="">
+    <span class="wordmark">TENTZHEN</span>
+  </a>
+  <nav class="site-nav" aria-label="Main">
+    <a href="../../builds/index.html">BUILDS</a>
+    <a href="../../parts/index.html">PARTS</a>
+    <a href="../../docs/vision/index.html">VISION</a>
+    <div class="nav-menu">
+      <button type="button" class="nav-label">PROJECTS</button>
+      <div class="nav-items">
+        <a href="../../docs/scope/index.html">DIGITIZER AND GENERATOR</a>
+        <a href="../../docs/mesh/index.html">THE MESH</a>
+        <a href="../../docs/littlebit/index.html">HARDWIRED NEURAL NET</a>
+        <a href="../../fab/index.html">THE OPEN FAB</a>
+      </div>
+    </div>
+    <a href="../../docs/verification/index.html">VERIFICATION</a>
+    <a href="../../docs/roadmap/index.html">ROADMAP</a>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
+  </nav>
+</header>
+
+<main class="column spec">
+<p class="crumbs"><a href="../index.html">DOCS</a> / SOURCING</p>
+<div class="prose doc">
+<h1 id="sourcing">Sourcing</h1>
+<p>Research date for everything below: 2026-09-28, unless a line says otherwise.</p>
+<h2 id="where-parts-come-from">Where parts come from</h2>
+<p>Anywhere they are cheap, if incoming QA can check what the build relies on (<a href="../vision/index.html"><code>vision.md</code></a>, principle
+3). In this order:</p>
+<ul>
+<li><strong>The maker's own store</strong>, when it sells the part, even at a higher price: the i9 and its
+extension board come from the listing that Muse Lab's README (wuxx/Colorlight-FPGA-Projects
+at 5042201f, read 2026-10-01) links under "our aliexpress store", and were ordered there (Jon,
+2026-10-06; the order's day is not recorded).</li>
+<li><strong>Anyone else:</strong> a reseller, a used sale, a thrift store, a junked device, a drawer at home.
+<code>lab/sourcing.toml</code> records each as a shop's listing, a <code>store</code> with no listing, <code>used</code>,
+<code>salvaged_from</code> a device, or <code>arrived = true</code> with no source. Until incoming QA measures a part,
+its claims rest on a <code>trusted-base.toml</code> entry that says where that trust comes from:
+<code>maker-datasheets</code> for a part from an authorized distributor, <code>resold-parts</code> for one from anyone
+else, and <code>aliexpress-modules</code> for the AD9226's and the AD9767's, which come soldered to modules
+bought on AliExpress. A sourcing line for a part whose claims rest on <code>maker-datasheets</code> says
+where the maker lists its seller (<code>authorized</code>), or <code>crates/records</code> refuses it.</li>
+<li><strong>An authorized seller only</strong>, for a part whose job no bench test on arrival can check, including
+one whose spec is finer than the bench can measure: the parts marked <code>authorized_only</code> in
+<code>parts/</code>.</li>
+</ul>
+<p>A part may come out of a junked mains-powered device, but the repo carries no instructions for
+taking one apart: <code>CLAUDE.md</code> allows mains equipment only bought and used as sold.</p>
+<p><strong>What the digitizer needs</strong> (<code>builds/digitizer/v1.toml</code>): the Colorlight i9 and its extension
+board, AD9226 modules (buy 3, keep the best 2), a DAC module, SMA/BNC connectors and cables, wire,
+headers and general-purpose passives. 10x probes wait for the front end (tier 3): the modules'
+inputs are about 50 Ω (github.com/wavius/Scoped, read 2026-10-01), and a 10:1 passive probe "is
+intended to be connected to the 1 megohm (MΩ) input termination of the oscilloscope" (Art Pini,
+"Selecting a Replacement Oscilloscope Probe is Easy—When You Know How", Digi-Key, 2021-12-27).</p>
+<p><strong>The front end's parts</strong> (tier 3, no build yet): the ADC (an ADS4245, <a href="../scope/index.html"><code>scope.md</code></a>), op amps,
+precision resistors and capacitors in the signal path, the LM4040 voltage reference, low-jitter
+oscillators and signal relays. Which of them a budget bench can check on arrival is decided when
+their records are written: a resistor whose tolerance is finer than the multimeter's accuracy
+cannot be checked with it.</p>
+<p><strong>JLCPCB:</strong> front-end PCB fabrication and SMD assembly with LCSC parts, so anyone can reproduce the
+board from published files.</p>
+<h2 id="the-lcsc-api">The LCSC API</h2>
+<p>Source: lcsc.com/docs/index.html, lcsc.com/docs/openapi/index.html, lcsc.com/agent.</p>
+<ul>
+<li><strong>Access is by application</strong>, at lcsc.com/agent/apply after logging in. The form asks for
+the business, its size and purchase volume, the intended use ("for your own use" vs "for your
+customers' use"), the API modules wanted, and a <strong>required IP allow-list</strong> — calls from any
+other address are refused. Whether an individual or an open-source project is approved is
+<code>unknown</code>. Via Balaena applied on 2026-09-28 for its own use, Product and Cart modules only;
+not yet approved.</li>
+<li><strong>Auth:</strong> <code>key</code>, <code>nonce</code>, <code>timestamp</code> and <code>signature = sha1(key=…&amp;nonce=…&amp;secret=…&amp;timestamp=…)</code>.
+Timestamps older than 60 s are refused. Host: <code>https://ips.lcsc.com</code>.</li>
+<li><strong>Services:</strong> category, brand, category product list, product info
+(<code>/rest/wmsc2agent/product/info/{C-number}</code>), keyword search (30 per page), submit order, order
+query, shipment options. The response schema for price breaks, stock and datasheet URL is
+<code>unknown</code> until we hold a key.</li>
+<li><strong>Limits:</strong> 1000 searches/day, 200/minute (more on approval). HTTP 429 = per-minute, 430 = daily.</li>
+<li><strong>Terms that shape the design:</strong> no bulk data capture; no hosting or providing retrieved
+material (including datasheets and images) to any third party; no selling or aggregating it
+into public APIs or data services; LCSC must be credited; the key may not be shared outside
+the holder's company.</li>
+</ul>
+<h3 id="what-that-means-for-tentzhen">What that means for Tentzhen</h3>
+<ul>
+<li>The repo ships a <strong>client</strong>, never data. Each user brings their own key; responses are cached
+locally under the user's data dir and never committed.</li>
+<li>Parts records in the repo hold only identifiers (<code>C</code> numbers, MPNs) and our own measurements.</li>
+<li>The client does not implement <code>submit order</code>. Carts and BOMs yes, orders no (<code>CLAUDE.md</code>).</li>
+<li>Output that shows LCSC data credits LCSC.</li>
+<li>Keys come from the macOS Keychain or the environment, never a file in the tree.</li>
+<li><strong>Without a key</strong> the tools must still work, and this is the path built first: jlcparts
+(below) for search, stock, prices and JLCPCB basic/extended status, and LCSC's website <strong>Upload
+a BOM</strong> page for carts — the BOM tool exports a file, a person uploads it. The API is an upgrade
+on top: live stock at checkout and product-change notifications.</li>
+<li><strong>An API rejection may mean the address changed, not the key.</strong> When the client gets one, it
+prints the machine's current public address beside the error.</li>
+</ul>
+<h2 id="jlcpcb">JLCPCB</h2>
+<ul>
+<li><strong>Parts API:</strong> by application at api.jlcpcb.com, reviewed against "previous orders at JLCPCB,
+company and business situation" — not all are approved (jlcpcb.com help, updated 2026-09-09).
+Offers PCB, stencil, 3D printing and components APIs. An assembly-ordering API is <code>unknown</code>.
+Rate limits and data-reuse terms are behind the portal login: <code>unknown</code>.</li>
+<li><strong>Basic vs extended parts drive assembly cost</strong> (jlcpcb.com/help/article/pcb-assembly-faqs,
+2026-09-09): basic parts are always loaded on the machines, so no loading fee; extended parts
+cost $3 each, charged per <strong>unique</strong> part. So the design rule is: prefer basic parts, and have
+the BOM tool report the count of unique extended parts, because that number is a cost.</li>
+</ul>
+<h2 id="aliexpress-and-amazon">AliExpress and Amazon</h2>
+<p>AliExpress's Terms of Use (the version effective 2026-09-26, read 2026-10-01), §3.2(a): a user
+will not "copy, reproduce, download, re-publish, sell, distribute or resell" its listings, and
+"Systematic retrieval of Site Content from the Sites to create or compile, directly or
+indirectly, a collection, compilation, database or directory (whether through robots, spiders,
+automatic devices or manual processes) without written permission from AliExpress.com is
+prohibited." A search on 2026-10-01 found no open catalogue like jlcparts for AliExpress, only
+scrapers and scraping services, which that clause rules out.</p>
+<p>Amazon's Conditions of Use (last updated 2026-08-14, read 2026-10-01), "License and Access": "This
+license does not include … any collection and use of any product listings, descriptions, or
+prices; … or any use of data mining, robots, or similar data gathering and extraction tools."</p>
+<h3 id="what-that-means-for-tentzhen-1">What that means for Tentzhen</h3>
+<ul>
+<li>A person reads a listing. No tool here fetches or collects listings.</li>
+<li>The repo holds a listing's item number (on Amazon, its ASIN) and store, in <code>lab/sourcing.toml</code>
+with how far each thing has got, and what we measured on the parts that arrived. Screenshots,
+photos, titles, descriptions, prices and reviews stay out, whichever the shop (<code>CLAUDE.md</code>).</li>
+<li>AliExpress's affiliate API, on an affiliate account and an approved app, is the route with its
+permission. Its agreement ties the API to promoting products, "for the purpose of driving the
+traffic for Seller(s)" (AliExpress Affiliate Program Service Agreement, read 2026-10-01); what
+it returns is <code>unknown</code> here.</li>
+</ul>
+<h2 id="tools-to-reuse-not-rebuild">Tools to reuse, not rebuild</h2>
+<ul>
+<li><strong>jlcparts</strong> (github.com/yaqwsx/jlcparts, MIT): rebuilds a searchable JLCPCB/LCSC catalogue
+three times a day and publishes JSONL and SQLite at yaqwsx.github.io/jlcparts/data/. It fetches
+with official API keys; how its publishing squares with LCSC's no-redistribution term is
+<code>unknown</code>, so we <strong>link to it and query it at runtime; we do not vendor its data.</strong></li>
+<li><strong>KiCad:</strong> Bouni/kicad-jlcpcb-tools (MIT) assigns LCSC numbers per footprint;
+bennymeg/Fabrication-Toolkit (Apache-2.0) reads a symbol field named <code>LCSC Part #</code>. We use that
+field name.</li>
+<li><strong>Rust:</strong> no crate wraps the official LCSC API (crates.io search, 2026-09-28). Ours will be
+<code>crates/lcsc</code>.</li>
+</ul>
+<h2 id="incoming-qa">Incoming QA</h2>
+<p>Every received part, whatever its source, is checked on the bench against what its build relies on.
+The check is a measurement record in <code>lab/records/</code>, and <code>passed_qa</code> in <code>lab/sourcing.toml</code> names
+it, so the parts page shows the result beside the source the part came from. The seller-quality data
+we publish is <strong>our own measurements only</strong>: never LCSC-retrieved data, and never a listing's
+content.</p>
+<h3 id="the-parts-sold-by-authorized-sellers-only">The parts sold by authorized sellers only</h3>
+<p>Reviewed 2026-10-02 against the rule above: a part's mark comes off when a bench test on arrival
+covers what its build relies on. A unit bought from anyone but an authorized distributor rests its
+claims on <code>resold-parts</code>, not <code>maker-datasheets</code>, which assumes one: <code>lab/sourcing.toml</code>'s
+<code>authorized</code> says where the maker lists a seller, and <code>crates/records</code> refuses a line that names a
+source or a stage without it, for a part sold by authorized sellers only, or for one whose claims
+rest on <code>maker-datasheets</code> unless they move to <code>resold-parts</code>. The AO3401A and the AO3400A have lost
+the mark; the INA239, the TLV3011B, the RP2350 and the RP2040 keep it, each for the reason it gives.
+The tests below are worth running on any unit, whatever its source, since they catch a wrong or
+remarked part. Passing them shows a part fit for what they check, and no more: "No amount of testing
+can confirm an item as authentic" (SAE AS6171A, scope, revised 2018-04-18). Each test is a hardware
+action, logged; an agent runs one only within <code>lab/limits.toml</code> or on a person's approval
+(<code>CLAUDE.md</code>). Code a Pico runs to read a part counts as flashing the Pico (<code>lab/targets.toml</code>), so
+it needs a person's approval until the Pico is a lab target.</p>
+<ul>
+<li><strong>INA239</strong>, the enforcer's measurement. Read MANUFACTURER_ID (3Eh), which reads 5449h, "TI" in
+ASCII, and DEVICE_ID (3Fh), which reads 2391h (TI SLYS027A, Tables 7-20 and 7-21); then compare
+its bus-voltage reading with a multimeter's near 3.3 V. <strong>Keeps the mark:</strong> the enforcer's
+<code>measuring-error</code> claim is 9.97 mV at 3.4 V, and a multimeter checks the INA239 only as finely as
+its own accuracy there, which no record in the repo gives (<code>unknown</code>). A meter or reference finer
+than that, with a record, would lift it.</li>
+<li><strong>TLV3011B</strong>, the hardware cut. With V+ at 3.3 V, measure REF (pin 5) to ground: 1.223 V to
+1.260 V (TI SBOS300C, section 6.9). Then check the output is open-drain: with IN- below REF and
+OUT pulled to ground through 100 kΩ, OUT reads near 0 V, where a push-pull part reads near V+. Its
+push-pull twin, the TLV3012, would hold EN high whenever it is not tripped, within 200 mV of V+
+while sourcing 5 mA (VOH, at VS = 5 V; no row is given at 3.3 V), more than GP20 pulls through
+1 kΩ, so GP20 could not open the switch (from the circuit in <code>builds/enforcer/v1.toml</code>). <strong>Keeps
+the mark:</strong> the <code>hardware-cut</code> claim holds across a room within 10 K of 25 °C, and no record in
+the repo gives a thermometer or a way to hold a part at a set temperature, so how a unit's
+reference moves with temperature goes unmeasured.</li>
+<li><strong>AO3401A</strong>, the enforcer's switch, and <strong>AO3400A</strong>, its driver. A diode test finds each one's
+orientation, and a resistor and the supply its gate threshold at 250 µA: 0.5 V to 1.3 V below the
+source for the AO3401A, 0.65 V to 1.45 V above it for the AO3400A. If the DPS5005 fails, SUPPLY
+can rise toward the 6.5 V that <code>[supply.upstream]</code> feeds it, and the AO3401A must then block it
+(<code>switch-blocks-upstream</code>), while the AO3400A, off, holds it on its drain through 100 kΩ (from the
+circuit). So, with its gate at its source, each passes under 1 µA at 6.5 V, the bench supply's own
+setting (IDSS, rated at 30 V and 25 °C). And the AO3401A, with its gate 2.5 V below its source,
+drops under 17 mV at 200 mA, <code>[supply]</code>'s <code>max_amps</code> through its 85 mΩ, which the datasheet rates
+at 2.5 A (Alpha and Omega datasheets, Rev 3.1). A person can run these; an agent cannot without
+approval, since <code>lab/limits.toml</code> sets no limit for a part on the bench. <strong>Mark off</strong>
+(2026-10-02): these tests cover what the enforcer relies on from the two, at the bench's
+temperature. A unit not from an authorized distributor rests their claims on <code>resold-parts</code>.</li>
+<li><strong>RP2350</strong>, the enforcer's microcontroller, and the one <code>builds/debug-probe/v1</code> runs on. In
+BOOTSEL, read its OTP with picotool, and only read it: writing OTP is irreversible and needs
+approval (<code>CLAUDE.md</code>). A blank part's OTP is "all zeroes, except for some basic device
+information pre-programmed during manufacturing test" (RP2350 datasheet, build-date 2025-07-29,
+chapter 13). Whether picotool's reads load code onto the chip has not been checked here, so treat
+them as needing approval too. <strong>Keeps the mark:</strong> no read can show a tampered chip or flash. Micro
+Center is on Raspberry Pi's list of approved resellers for the Pico 2 and the Pico 2 W in the US,
+"for home" (content-api.raspberrypi.com, read 2026-10-02).</li>
+<li><strong>RP2040</strong>, the microcontroller in the lab's debug probe (<code>builds/debug-probe/v2</code>). <strong>Keeps the
+mark,</strong> as the RP2350 does: no read can show a tampered chip or flash, and the probe is one way
+code reaches the lab's other boards. The lab's came from Raspberry Pi itself (Jon, 2026-10-02).</li>
+</ul>
+</div>
+<p class="notice">Written in <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/sourcing.md">docs/sourcing.md</a>, on main; this page is made from it.</p>
+</main>
+
+<footer class="site-footer">
+  <div class="column">
+    <span>腾振 TENTZHEN · A VIA BALAENA PROJECT</span>
+    <span>MIT OR APACHE-2.0 · <a href="../../legal/index.html">LEGAL</a></span>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB.COM/VIA-BALAENA/TENTZHEN</a>
+  </div>
+</footer>
+
+</body>
+</html>

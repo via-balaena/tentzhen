@@ -67,6 +67,8 @@ flowchart LR
     gold_page_parts_used_in["gold.page_parts_used_in"]
     gold_page_fab["gold.page_fab"]
     gold_legal["gold.legal"]
+    gold_doc["gold.doc"]
+    gold_doc_image["gold.doc_image"]
   end
   bronze -. crates/warehouse .-> silver
   bronze_record --> bronze_record_hash
@@ -111,6 +113,8 @@ flowchart LR
   silver_fab_row --> gold_page_fab
   silver_fab_side --> gold_page_fab
   bronze_record --> gold_legal
+  bronze_record --> gold_doc
+  bronze_record --> gold_doc_image
   crates_records(["crates/records"])
   gold_page_fab --> crates_records
   crates_site(["crates/site"])
@@ -127,6 +131,8 @@ flowchart LR
   gold_page_parts_used_in --> crates_site
   gold_page_fab --> crates_site
   gold_legal --> crates_site
+  gold_doc --> crates_site
+  gold_doc_image --> crates_site
 ```
 
 ## bronze
@@ -144,7 +150,7 @@ Constraints:
 
 - `PRIMARY KEY(path)`
 
-Read by: `bronze.record_hash`, `gold.page`, `gold.legal`.
+Read by: `bronze.record_hash`, `gold.page`, `gold.legal`, `gold.doc`, `gold.doc_image`.
 
 ### `bronze.record_hash` (view)
 
@@ -1167,6 +1173,33 @@ The disclaimer, as the site's legal page shows it.
 
 | column | type |
 |---|---|
+| `body` | VARCHAR |
+
+Reads: `bronze.record`.
+
+Read by: `crates/site`.
+
+### `gold.doc` (view)
+
+Each doc in docs/, in Markdown, by its name: the site makes a page of each.
+
+| column | type |
+|---|---|
+| `name` | VARCHAR |
+| `path` | VARCHAR |
+| `body` | VARCHAR |
+
+Reads: `bronze.record`.
+
+Read by: `crates/site`.
+
+### `gold.doc_image` (view)
+
+Each drawing in docs/img/, which the doc pages show.
+
+| column | type |
+|---|---|
+| `file` | VARCHAR |
 | `body` | VARCHAR |
 
 Reads: `bronze.record`.

@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roadmap · Tentzhen</title>
+<link rel="icon" href="../../img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../style.css">
+</head>
+<body>
+
+<header class="column site-header">
+  <a class="brand" href="../../index.html" aria-label="Tentzhen home">
+    <img src="../../img/mark-black.svg" alt="">
+    <span class="wordmark">TENTZHEN</span>
+  </a>
+  <nav class="site-nav" aria-label="Main">
+    <a href="../../builds/index.html">BUILDS</a>
+    <a href="../../parts/index.html">PARTS</a>
+    <a href="../../docs/vision/index.html">VISION</a>
+    <div class="nav-menu">
+      <button type="button" class="nav-label">PROJECTS</button>
+      <div class="nav-items">
+        <a href="../../docs/scope/index.html">DIGITIZER AND GENERATOR</a>
+        <a href="../../docs/mesh/index.html">THE MESH</a>
+        <a href="../../docs/littlebit/index.html">HARDWIRED NEURAL NET</a>
+        <a href="../../fab/index.html">THE OPEN FAB</a>
+      </div>
+    </div>
+    <a href="../../docs/verification/index.html">VERIFICATION</a>
+    <a href="../../docs/roadmap/index.html">ROADMAP</a>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
+  </nav>
+</header>
+
+<main class="column spec">
+<p class="crumbs"><a href="../index.html">DOCS</a> / ROADMAP</p>
+<div class="prose doc">
+<h1 id="roadmap">Roadmap</h1>
+<p>Each phase ends on acceptance criteria that can be checked, each with the grade it must reach
+(<a href="../verification/index.html"><code>verification.md</code></a>). A phase is done when its criteria are met, not when its code is written.</p>
+<h2 id="phase-0--foundations-no-hardware-0">Phase 0 — Foundations (no hardware, $0)</h2>
+<p>Everything here runs at tier 0, and all of it must exist before the first order is placed.</p>
+<ul>
+<li><strong>Layout.</strong> One repo for the whole bench:
+<pre><code>crates/      Rust: host tools, lcsc client, parts DB, lab log
+gateware/    Amaranth cores + LiteX SoC
+firmware/    soft-core (riscv32) and Pico firmware
+hardware/    KiCad projects
+sim/         ngspice
+parts/       TOML part records — identifiers and our own measurements only
+lab/         limits.toml, targets.toml (the lab-target list), log/, records/
+docs/
+</code></pre>
+Directories are created when their first real file arrives, not before.</li>
+<li><strong>Pinned toolchain.</strong> A Nix flake pinning Yosys, nextpnr-ecp5, Trellis, Verilator, SymbiYosys,
+Amaranth, LiteX, ngspice and Rust.</li>
+<li><strong>Bitstream reproducibility, <code>measured</code>.</strong> Build the LiteX Colorlight i9 target twice from the
+flake and compare hashes. No board needed.</li>
+<li><strong>First formal core, <code>proven</code> or <code>checked</code>.</strong> An Amaranth edge-trigger core with SymbiYosys
+properties and a cocotb test. This also establishes whether the Amaranth → SBY flow works,
+which is <code>unknown</code> today.</li>
+<li><strong><code>crates/lcsc</code>, <code>tested</code>.</strong> Typed client for the LCSC API: request signing, both rate limits,
+local cache, Keychain credentials, no order endpoints. Tested against recorded fixtures we
+generate ourselves, since real responses may not be committed.</li>
+<li><strong>LCSC API application.</strong> Submitted 2026-09-28 as Via Balaena; not yet approved. The tools
+work without it (jlcparts for data, LCSC's Upload a BOM page for carts).</li>
+<li><strong>Parts records + BOM tool, <code>tested</code>.</strong> TOML records → DuckDB; <code>bom</code> prices a BOM from the
+user's LCSC key or jlcparts, reports unique JLCPCB extended parts, and prints the date of every
+price. This produces the tier prices (<a href="../scope/index.html"><code>scope.md</code></a>, "Price").</li>
+<li><strong>Lab safety before hardware.</strong> <code>lab/limits.toml</code>, the lab-target list (<code>lab/targets.toml</code>),
+and a lab log that is hash-chained and only grows on <code>main</code>. Its entries are not signed. Commits
+are, but an agent that can commit signs with the person's key (<a href="../architecture/index.html"><code>architecture.md</code></a>), so where to
+keep a key an agent cannot use is decided with the Pico enforcer.</li>
+<li><strong>First cart.</strong> A BOM and cart for tiers 1–2, reviewed by the user, who places the order.
+Nothing in it is made at JLCPCB: tier 2 is modules on jumper wires, wired to extension boards
+that one i9 moves between (<a href="../scope/index.html"><code>scope.md</code></a>, "Architecture"; Jon, 2026-10-06).</li>
+</ul>
+<h2 id="phase-1--bring-up">Phase 1 — Bring-up</h2>
+<p>LiteX + VexRiscv on the Colorlight; Rust "hello" over UART, through the extension board's DAPLink
+serial port.
+Bitstream hash and toolchain versions recorded in the build artifact. All <code>measured</code>. Then, on the
+i9 alone, the loopback test that settles whether it reads the tier-3 ADC's 1.8 V outputs
+(<a href="../scope/index.html"><code>scope.md</code></a>, "Open questions").</p>
+<h2 id="phase-2--first-capture">Phase 2 — First capture</h2>
+<p>One AD9226 into on-chip RAM with an edge trigger, read out and plotted from a Rust host tool.
+The capture core's properties are <code>proven</code> or <code>checked</code>, and its cocotb tests pass, <strong>before</strong>
+it touches hardware. On arrival every AD9226 module goes through incoming QA: its logic supply,
+then the AD8138 VOCM check (<a href="../scope/index.html"><code>scope.md</code></a>), as <code>builds/digitizer/v1.toml</code>'s walkthrough has it.</p>
+<h2 id="phase-3--two-channels--streaming">Phase 3 — Two channels + streaming</h2>
+<p>First the Ethernet adapter for P1: the extension board has no Ethernet jacks (<a href="../scope/index.html"><code>scope.md</code></a>), so a
+small board of our own carries a jack with built-in transformers on P1, from KiCad files, made at
+JLCPCB. It is the project's first board order (moved here from Phase 0 by Jon, 2026-10-06). Then
+Etherbone reachable from the host, SDRAM buffering, continuous Ethernet streaming, samples landing
+in DuckDB with full metadata.
+Sustained sample rate over the headers' jumper wires is <code>measured</code>, not assumed from the ADC's
+rating.</p>
+<h2 id="phase-4--instrument-interface">Phase 4 — Instrument interface</h2>
+<p>SCPI server (pyvisa-compatible), ngscopeclient driver, and an MCP server so an AI agent can
+drive the instrument within <code>lab/limits.toml</code>.</p>
+<h2 id="phase-5--signal-generator">Phase 5 — Signal generator</h2>
+<p>DAC module + DDS / arbitrary-waveform core, with formal properties on the core.</p>
+<h2 id="phase-6--front-end-v1">Phase 6 — Front end v1</h2>
+<p>KiCad design, with the ADS4245 and the oscillator that clocks it on the board (<a href="../scope/index.html"><code>scope.md</code></a>, "The
+tier-3 ADC"), ngspice-verified (bandwidth, noise, overload), fabricated and assembled at JLCPCB.
+It weighs putting the AD9767 on a board of our own in place of the DAC module.
+Prefer JLCPCB basic parts; the BOM tool's unique-extended-part count is reported with the design.</p>
+<h2 id="phase-7--characterization">Phase 7 — Characterization</h2>
+<p>Noise floor, ENOB, bandwidth and timebase accuracy. Publish a spec sheet where every number is
+<code>measured</code> with a record id, and the trusted base is printed beside it.</p>
+<h2 id="phase-8--first-application">Phase 8 — First application</h2>
+<p>Ultrasonic sonar: transmit a chirp, capture the echo, compute range.</p>
+<h2 id="parallel-tracks-same-repo">Parallel tracks, same repo</h2>
+<ul>
+<li>Programmable supply and electronic load (<a href="../vision/index.html"><code>vision.md</code></a>, "The bench"). Their limit enforcers
+have their limit logic <code>checked</code> with Kani before they drive anything.</li>
+<li>Logic analyzer, on the second extension board (<a href="../scope/index.html"><code>scope.md</code></a>, "Architecture"): the i9's header
+pins as inputs. No build yet.</li>
+<li>Research: a proven control core in the Lightbulb style (<a href="../verification/index.html"><code>verification.md</code></a>).</li>
+<li>Research: signing keys in a TROPIC01 secure element.</li>
+<li>The mesh, project #2 (<a href="../mesh/index.html"><code>mesh.md</code></a>): UMSH on nRF52840 boards, then a port to Tock. Its cart
+goes to Jon for review like the first; nothing is ordered.</li>
+<li>LittleBit × Taalas, project #3 (<a href="../littlebit/index.html"><code>littlebit.md</code></a>): a neural network hardwired into the i9, in
+six phases of its own, the last laying out a chip without making one. It needs no parts beyond
+the digitizer's i9 and an extension board, and its first board run waits until its simulation is
+bit-exact.</li>
+<li>The open fab and its town, project #4 (<a href="../fab/index.html"><code>fab.md</code></a>): three tracks of steps, silicon, printed and
+materials. No step that handles chemicals, heat, high voltage, vacuum or pressure starts until
+Jon has approved that step's own safety plan, under the safety rules Jon approved on 2026-11-24.
+Nothing is bought.</li>
+</ul>
+</div>
+<p class="notice">Written in <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/roadmap.md">docs/roadmap.md</a>, on main; this page is made from it.</p>
+</main>
+
+<footer class="site-footer">
+  <div class="column">
+    <span>腾振 TENTZHEN · A VIA BALAENA PROJECT</span>
+    <span>MIT OR APACHE-2.0 · <a href="../../legal/index.html">LEGAL</a></span>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB.COM/VIA-BALAENA/TENTZHEN</a>
+  </div>
+</footer>
+
+</body>
+</html>

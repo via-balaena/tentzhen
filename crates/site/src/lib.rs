@@ -4,7 +4,8 @@
 //! The records in `parts/`, `builds/` and `lab/` are loaded into DuckDB (crates/warehouse); every
 //! value on a page is read back out of a `gold.page*` view. Every build version gets a permanent
 //! page at `site/builds/<name>/v<N>/`; `site/builds/<name>/` sends you to the newest. `site/parts/`
-//! lists everything the bench needs, and how far the lab has got buying it. `site/fab/` sets Hacker
+//! lists everything the bench needs, and how far the lab has got buying it. `site/docs/` holds a page
+//! for each doc in `docs/`, so the nav never sends a reader to GitHub to read one. `site/fab/` sets Hacker
 //! Fab's stack beside the industry's, with the gap between them. Pages are output, never edited: the
 //! Quality Gate reruns this and fails if `site/` differs.
 
@@ -50,18 +51,18 @@ fn page(up: &str, title: &str, body: &str) -> String {
   <nav class="site-nav" aria-label="Main">
     <a href="{up}builds/index.html">BUILDS</a>
     <a href="{up}parts/index.html">PARTS</a>
-    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/vision.md">VISION</a>
+    <a href="{up}docs/vision/index.html">VISION</a>
     <div class="nav-menu">
       <button type="button" class="nav-label">PROJECTS</button>
       <div class="nav-items">
-        <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">DIGITIZER AND GENERATOR</a>
-        <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/mesh.md">THE MESH</a>
-        <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/littlebit.md">HARDWIRED NEURAL NET</a>
+        <a href="{up}docs/scope/index.html">DIGITIZER AND GENERATOR</a>
+        <a href="{up}docs/mesh/index.html">THE MESH</a>
+        <a href="{up}docs/littlebit/index.html">HARDWIRED NEURAL NET</a>
         <a href="{up}fab/index.html">THE OPEN FAB</a>
       </div>
     </div>
-    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/verification.md">VERIFICATION</a>
-    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/roadmap.md">ROADMAP</a>
+    <a href="{up}docs/verification/index.html">VERIFICATION</a>
+    <a href="{up}docs/roadmap/index.html">ROADMAP</a>
     <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
   </nav>
 </header>
@@ -764,7 +765,7 @@ pub fn render_fab(conn: &Connection) -> duckdb::Result<String> {
          <p class=\"muted\">We build on Hacker Fab's open designs and send back what we add. We are \
          not part of Hacker Fab, and it has not reviewed this page. Safety comes first: tools on \
          mains are bought, listed and legal, and every step runs under its own safety plan \
-         (<a href=\"https://github.com/via-balaena/tentzhen/blob/main/docs/fab.md\">fab.md</a>, \
+         (<a href=\"../docs/fab/index.html#safety-first\">fab.md</a>, \
          \"Safety first\"). Where a bought tool is what stops the next stage, making our own, at \
          a fraction of the cost and meeting every safety mark, is weighed.</p>\n\
          <table class=\"spec-table fab-gap\">\n\
@@ -850,6 +851,207 @@ pub fn render_fab(conn: &Connection) -> duckdb::Result<String> {
     Ok(page("../", "The open fab · Tentzhen", &h))
 }
 
+/// The repo's files on GitHub, for a doc's links to files that are not pages.
+const REPO_BLOB: &str = "https://github.com/via-balaena/tentzhen/blob/main/";
+
+/// A heading's anchor as GitHub writes it: lower case, a space to a hyphen, other punctuation
+/// dropped. A heading met again gets `-1`, `-2` and on, as on GitHub.
+fn slug(text: &str, seen: &mut std::collections::BTreeMap<String, usize>) -> String {
+    let base: String = text
+        .to_lowercase()
+        .chars()
+        .filter_map(|c| match c {
+            ' ' => Some('-'),
+            '-' | '_' => Some(c),
+            c if c.is_alphanumeric() => Some(c),
+            _ => None,
+        })
+        .collect();
+    let n = seen.entry(base.clone()).or_insert(0);
+    let out = if *n == 0 { base } else { format!("{base}-{n}") };
+    *n += 1;
+    out
+}
+
+/// Where a link in a doc goes from the doc's page: another doc's page, a drawing in `docs/img/`,
+/// a file of the repo on GitHub, or, for a URL or an anchor, where it says.
+fn doc_link(dest: &str, docs: &[String]) -> String {
+    if dest.contains("://") || dest.starts_with('#') || dest.starts_with("mailto:") {
+        return dest.to_string();
+    }
+    let (path, frag) = match dest.split_once('#') {
+        Some((p, f)) => (p, format!("#{f}")),
+        None => (dest, String::new()),
+    };
+    let mut parts = vec!["docs"];
+    for seg in path.split('/') {
+        match seg {
+            "" | "." => {}
+            ".." => {
+                parts.pop();
+            }
+            s => parts.push(s),
+        }
+    }
+    let joined = parts.join("/");
+    if let Some(name) = joined
+        .strip_prefix("docs/")
+        .and_then(|p| p.strip_suffix(".md"))
+        .filter(|n| docs.iter().any(|d| d == n))
+    {
+        return format!("../{name}/index.html{frag}");
+    }
+    if let Some(file) = joined.strip_prefix("docs/img/") {
+        return format!("../img/{file}");
+    }
+    format!("{REPO_BLOB}{joined}{frag}")
+}
+
+/// The doc a code span names, if it names one: `fab.md` or `docs/fab.md`.
+fn doc_named<'a>(code: &'a str, docs: &[String]) -> Option<&'a str> {
+    let name = code
+        .strip_prefix("docs/")
+        .unwrap_or(code)
+        .strip_suffix(".md")?;
+    docs.iter().any(|d| d == name).then_some(name)
+}
+
+/// A doc's Markdown as HTML for its page, and its title, the text of its first top heading.
+/// Headings get GitHub's anchors, links go where `doc_link` says, and a doc named in code links to
+/// its page, outside a link.
+fn doc_html(markdown: &str, docs: &[String]) -> (String, Option<String>) {
+    use pulldown_cmark::{CowStr, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+    let opts = Options::ENABLE_TABLES
+        | Options::ENABLE_FOOTNOTES
+        | Options::ENABLE_STRIKETHROUGH
+        | Options::ENABLE_TASKLISTS;
+    let mut out: Vec<Event> = Vec::new();
+    let mut seen = std::collections::BTreeMap::new();
+    let mut title = None;
+    let mut in_link = 0;
+    // A heading's events, held until its text is known.
+    let mut heading: Option<(Tag, Vec<Event>, String)> = None;
+    for event in Parser::new_ext(markdown, opts) {
+        let event = match event {
+            Event::Start(Tag::Link {
+                link_type,
+                dest_url,
+                title,
+                id,
+            }) => {
+                in_link += 1;
+                Event::Start(Tag::Link {
+                    link_type,
+                    dest_url: CowStr::from(doc_link(&dest_url, docs)),
+                    title,
+                    id,
+                })
+            }
+            Event::End(TagEnd::Link) => {
+                in_link -= 1;
+                Event::End(TagEnd::Link)
+            }
+            Event::Start(Tag::Image {
+                link_type,
+                dest_url,
+                title,
+                id,
+            }) => Event::Start(Tag::Image {
+                link_type,
+                dest_url: CowStr::from(doc_link(&dest_url, docs)),
+                title,
+                id,
+            }),
+            Event::Code(code) => match doc_named(&code, docs) {
+                Some(name) if in_link == 0 => {
+                    if let Some((_, _, text)) = heading.as_mut() {
+                        text.push_str(&code);
+                    }
+                    Event::Html(CowStr::from(format!(
+                        "<a href=\"../{name}/index.html\"><code>{}</code></a>",
+                        esc(&code)
+                    )))
+                }
+                _ => Event::Code(code),
+            },
+            e => e,
+        };
+        match event {
+            Event::Start(tag @ Tag::Heading { .. }) => {
+                heading = Some((tag, Vec::new(), String::new()))
+            }
+            Event::End(TagEnd::Heading(level)) => {
+                let (tag, held, text) = heading.take().expect("a heading's start");
+                if level == HeadingLevel::H1 && title.is_none() {
+                    title = Some(text.clone());
+                }
+                let id = slug(&text, &mut seen);
+                let Tag::Heading {
+                    level,
+                    classes,
+                    attrs,
+                    ..
+                } = tag
+                else {
+                    unreachable!("held as a heading")
+                };
+                out.push(Event::Start(Tag::Heading {
+                    level,
+                    id: Some(CowStr::from(id)),
+                    classes,
+                    attrs,
+                }));
+                out.extend(held);
+                out.push(Event::End(TagEnd::Heading(level)));
+            }
+            e => match heading.as_mut() {
+                Some((_, held, text)) => {
+                    if let Event::Text(t) | Event::Code(t) = &e {
+                        text.push_str(t);
+                    }
+                    held.push(e);
+                }
+                None => out.push(e),
+            },
+        }
+    }
+    let mut html = String::new();
+    pulldown_cmark::html::push_html(&mut html, out.into_iter());
+    (html, title)
+}
+
+/// `site/docs/<name>/`: a doc from `gold.doc`, as a page, with where it is written.
+pub fn render_doc(name: &str, markdown: &str, docs: &[String]) -> String {
+    let (html, title) = doc_html(markdown, docs);
+    let title = title.unwrap_or_else(|| name.to_string());
+    let body = format!(
+        "<p class=\"crumbs\"><a href=\"../index.html\">DOCS</a> / {upper}</p>\n\
+         <div class=\"prose doc\">\n{html}</div>\n\
+         <p class=\"notice\">Written in <a href=\"{REPO_BLOB}docs/{name}.md\">docs/{name}.md</a>, \
+         on main; this page is made from it.</p>\n",
+        upper = esc(&name.to_uppercase()),
+    );
+    page("../../", &format!("{} · Tentzhen", esc(&title)), &body)
+}
+
+/// `site/docs/`: every doc, by its title.
+pub fn render_docs_index(docs: &[(String, String)]) -> String {
+    let mut h = String::from(
+        "<h1 class=\"spec-title\">Docs</h1>\n<table class=\"spec-table\">\n\
+         <thead><tr><th>DOC</th><th>FILE</th></tr></thead>\n<tbody>\n",
+    );
+    for (name, title) in docs {
+        let _ = writeln!(
+            h,
+            "<tr><td><a href=\"{n}/index.html\">{t}</a></td><td class=\"muted\">docs/{n}.md</td></tr>",
+            n = esc(name),
+            t = esc(title)
+        );
+    }
+    h.push_str("</tbody>\n</table>\n");
+    page("../", "Docs · Tentzhen", &h)
+}
+
 /// `site/legal/`: DISCLAIMER.md, as the warehouse holds it.
 pub fn render_legal(markdown: &str) -> String {
     let mut body = String::from("<div class=\"prose\">\n");
@@ -858,8 +1060,8 @@ pub fn render_legal(markdown: &str) -> String {
     page("../", "Legal · Tentzhen", &body)
 }
 
-/// Writes every generated file under `root/site/builds/`, `root/site/parts/`, `root/site/fab/` and
-/// `root/site/legal/`. Returns how many it wrote.
+/// Writes every generated file under `root/site/builds/`, `root/site/parts/`, `root/site/fab/`,
+/// `root/site/docs/` and `root/site/legal/`. Returns how many it wrote.
 pub fn write_site(conn: &Connection, root: &Path) -> Result<usize, String> {
     let out = root.join("site/builds");
     let write = |path: &Path, bytes: &[u8]| -> Result<(), String> {
@@ -886,6 +1088,41 @@ pub fn write_site(conn: &Connection, root: &Path) -> Result<usize, String> {
     let fab = render_fab(conn).map_err(|e| e.to_string())?;
     write(&root.join("site/fab/index.html"), fab.as_bytes())?;
     n += 1;
+    let mut stmt = conn
+        .prepare("SELECT name, body FROM gold.doc ORDER BY name")
+        .map_err(|e| e.to_string())?;
+    let docs: Vec<(String, String)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+        .and_then(|rows| rows.collect())
+        .map_err(|e| format!("gold.doc: {e}"))?;
+    let names: Vec<String> = docs.iter().map(|(n, _)| n.clone()).collect();
+    let mut titles = Vec::new();
+    for (name, body) in &docs {
+        let html = render_doc(name, body, &names);
+        write(
+            &root.join(format!("site/docs/{name}/index.html")),
+            html.as_bytes(),
+        )?;
+        n += 1;
+        let title = doc_html(body, &names).1.unwrap_or_else(|| name.clone());
+        titles.push((name.clone(), title));
+    }
+    write(
+        &root.join("site/docs/index.html"),
+        render_docs_index(&titles).as_bytes(),
+    )?;
+    n += 1;
+    let mut stmt = conn
+        .prepare("SELECT file, body FROM gold.doc_image ORDER BY file")
+        .map_err(|e| e.to_string())?;
+    let images: Vec<(String, String)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+        .and_then(|rows| rows.collect())
+        .map_err(|e| format!("gold.doc_image: {e}"))?;
+    for (file, body) in images {
+        write(&root.join(format!("site/docs/img/{file}")), body.as_bytes())?;
+        n += 1;
+    }
     for b in &pages {
         let dir = out.join(&b.build).join(format!("v{}", b.version));
         let html = render_version(conn, b).map_err(|e| e.to_string())?;
@@ -1178,6 +1415,163 @@ mod tests {
             "{page}"
         );
         assert!(page.contains("href=\"../fab/index.html\">THE OPEN FAB</a>"));
+    }
+
+    /// A doc's page links the docs it names to their pages, in a link or in code, and nothing else
+    /// named in code; sends a link to a repo file to GitHub; shows its drawings from beside the
+    /// docs; and anchors its headings as GitHub does.
+    #[test]
+    fn a_doc_page_links_docs_drawings_and_the_repo() {
+        let docs = ["fab".to_string(), "vision".to_string()];
+        let md = "# The plan\n\nSee `fab.md` and `docs/vision.md`, not `faq.md` or `fab.rs`.\n\n\
+                  [the base](../trusted-base.toml), [rule 3](fab.md#safety-first), \
+                  [a site](https://e.org/a) and [here](#safety-first).\n\n\
+                  ![a drawing](img/a.svg)\n\n## Safety first\n\n## Safety first\n\n\
+                  ### What \"rich\" means: `fab.md`\n\n[`fab.md`](fab.md)\n\n\
+                  | a | b |\n|---|---|\n| 1 | 2 |\n\n\
+                  [read me](../README.md#install), [again](./fab.md) and \
+                  [mail](mailto:a@example.org).\n\n# A second top heading\n";
+        let page = render_doc("plan", md, &docs);
+        for want in [
+            "<title>The plan · Tentzhen</title>",
+            "<a href=\"../fab/index.html\"><code>fab.md</code></a> and \
+             <a href=\"../vision/index.html\"><code>docs/vision.md</code></a>, not \
+             <code>faq.md</code> or <code>fab.rs</code>",
+            "<a href=\"https://github.com/via-balaena/tentzhen/blob/main/trusted-base.toml\">",
+            "<a href=\"../fab/index.html#safety-first\">rule 3</a>",
+            "<a href=\"https://e.org/a\">",
+            "<a href=\"#safety-first\">here</a>",
+            "<img src=\"../img/a.svg\" alt=\"a drawing\"",
+            "<h2 id=\"safety-first\">",
+            "<h2 id=\"safety-first-1\">",
+            "<h3 id=\"what-rich-means-fabmd\">",
+            "<table>",
+            "href=\"https://github.com/via-balaena/tentzhen/blob/main/docs/plan.md\">docs/plan.md</a>",
+            "<a href=\"https://github.com/via-balaena/tentzhen/blob/main/README.md#install\">read me</a>",
+            "<a href=\"../fab/index.html\">again</a>",
+            "<a href=\"mailto:a@example.org\">mail</a>",
+        ] {
+            assert!(page.contains(want), "the page lacks {want:?}:\n{page}");
+        }
+        // A doc named in code inside a link is not given a second link.
+        assert!(!page.contains("<a href=\"../fab/index.html\"><a"), "{page}");
+        assert_eq!(
+            page.matches("<a href=\"../fab/index.html\"><code>fab.md</code></a>")
+                .count(),
+            3
+        );
+    }
+
+    /// The docs' list links each doc's page by its title.
+    #[test]
+    fn the_docs_list_links_each_doc_by_its_title() {
+        let list = render_docs_index(&[
+            ("fab".into(), "The open fab".into()),
+            ("vision".into(), "Vision & more".into()),
+        ]);
+        assert!(
+            list.contains("<a href=\"fab/index.html\">The open fab</a>"),
+            "{list}"
+        );
+        assert!(
+            list.contains("<a href=\"vision/index.html\">Vision &amp; more</a>"),
+            "{list}"
+        );
+        assert!(list.contains("docs/vision.md"), "{list}");
+    }
+
+    /// Every relative link and drawing on the site, as committed, points at a file that is there,
+    /// and a link to a heading at a heading that is there. The Quality Gate regenerates `site/` and
+    /// fails on any difference, so this holds for what crates/site writes.
+    #[test]
+    fn every_link_on_the_site_resolves() {
+        fn pages(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
+            for entry in std::fs::read_dir(dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    pages(&path, out);
+                } else if path.extension().is_some_and(|e| e == "html") {
+                    out.push(path);
+                }
+            }
+        }
+        fn normal(path: &Path) -> std::path::PathBuf {
+            let mut out = std::path::PathBuf::new();
+            for c in path.components() {
+                match c {
+                    std::path::Component::ParentDir => {
+                        out.pop();
+                    }
+                    std::path::Component::CurDir => {}
+                    c => out.push(c),
+                }
+            }
+            out
+        }
+        let site = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../site");
+        let mut all = Vec::new();
+        pages(&site, &mut all);
+        let attr = |html: &str, name: &str| -> Vec<String> {
+            let key = format!(" {name}=\"");
+            html.match_indices(&key)
+                .map(|(i, _)| {
+                    let rest = &html[i + key.len()..];
+                    rest[..rest.find('"').unwrap()].to_string()
+                })
+                .collect()
+        };
+        let mut checked = 0;
+        for page in &all {
+            let html = std::fs::read_to_string(page).unwrap();
+            for url in attr(&html, "href").into_iter().chain(attr(&html, "src")) {
+                if url.starts_with("http://")
+                    || url.starts_with("https://")
+                    || url.starts_with("mailto:")
+                {
+                    continue;
+                }
+                let (path, frag) = url.split_once('#').unwrap_or((&url, ""));
+                let target = if path.is_empty() {
+                    page.clone()
+                } else {
+                    normal(&page.parent().unwrap().join(path))
+                };
+                assert!(target.exists(), "{}: {url} names no file", page.display());
+                if !frag.is_empty() && target.extension().is_some_and(|e| e == "html") {
+                    let there = std::fs::read_to_string(&target).unwrap();
+                    assert!(
+                        there.contains(&format!(" id=\"{frag}\"")),
+                        "{}: {url} names no heading there",
+                        page.display()
+                    );
+                }
+                checked += 1;
+            }
+        }
+        assert!(checked > 100, "only {checked} links were checked");
+    }
+
+    /// The nav sends a reader to GitHub only by its GITHUB link: every doc it names is a page here.
+    #[test]
+    fn the_nav_sends_no_one_to_github_for_a_doc() {
+        let html = page("../", "", "");
+        let start = html.find("<nav class=\"site-nav\"").expect("a nav");
+        let nav = &html[start..start + html[start..].find("</nav>").expect("the nav's end")];
+        assert_eq!(nav.matches("github.com").count(), 1, "{nav}");
+        assert!(!nav.contains(".md"), "{nav}");
+        for doc in [
+            "vision",
+            "scope",
+            "mesh",
+            "littlebit",
+            "verification",
+            "roadmap",
+        ] {
+            assert!(
+                nav.contains(&format!("href=\"../docs/{doc}/index.html\"")),
+                "{doc}"
+            );
+        }
     }
 
     /// The home page is written by hand, and carries the nav every generated page does.

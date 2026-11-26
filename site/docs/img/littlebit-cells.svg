@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="430" viewBox="0 0 680 430" role="img" aria-labelledby="title desc">
+<title id="title">Logic cells against sign bits, Variant A</title>
+<desc id="desc">nextpnr's logic cells for the whole board design against the sign bits its two hidden layers hardwire, 1,424 a unit of rank, with Gate 2's budget of 30,000 cells: E4 at r = 4, 5,696 sign bits, 6,889 cells, 55.27 MHz; E5 at r = 8, 11,392 sign bits, 8,939 cells, 50.06 MHz; E6 at r = 16, 22,784 sign bits, 12,640 cells, 55.63 MHz; E7 at r = 32, 45,568 sign bits, 20,172 cells, 50.43 MHz; E11 at r = 42, 59,808 sign bits, 24,934 cells, 50.29 MHz; E8 at r = 64, 91,136 sign bits, 35,139 cells, 49.55 MHz. The experiments table gives each.</desc>
+<style>
+  svg { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .surface { fill: #fcfcfb; }
+  .title { fill: #0b0b0b; font-size: 15px; font-weight: 600; }
+  .subtitle, .legend, .label, .axis-title { fill: #52514e; font-size: 12px; }
+  .label { font-size: 11px; }
+  .tick { fill: #898781; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .grid { stroke: #e1e0d9; stroke-width: 1; }
+  .axis { stroke: #c3c2b7; stroke-width: 1; }
+  .reference { stroke: #898781; stroke-width: 1; }
+  .line-1 { fill: none; stroke: #2a78d6; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .dot-1 { fill: #2a78d6; stroke: #fcfcfb; stroke-width: 2; }
+  .dot-2 { fill: #eb6834; stroke: #fcfcfb; stroke-width: 2; }
+  @media (prefers-color-scheme: dark) {
+    .surface { fill: #1a1a19; }
+    .title { fill: #f0efec; }
+    .subtitle, .legend, .label, .axis-title { fill: #c3c2b7; }
+    .grid { stroke: #2c2c2a; }
+    .axis { stroke: #383835; }
+    .line-1 { stroke: #3987e5; }
+    .dot-1 { fill: #3987e5; stroke: #1a1a19; }
+    .dot-2 { fill: #d95926; stroke: #1a1a19; }
+  }
+</style>
+<rect class="surface" width="680" height="430" rx="8"/>
+<text class="title" x="24.0" y="28.0" text-anchor="start">Logic cells against sign bits, Variant A</text>
+<text class="subtitle" x="24.0" y="47.0" text-anchor="start">The board's whole design, weights hardwired, as nextpnr counts its cells (TRELLIS_COMB)</text>
+<line class="grid" x1="72.0" y1="370.0" x2="648.0" y2="370.0"/>
+<text class="tick" x="64.0" y="374.0" text-anchor="end">0</text>
+<line class="grid" x1="72.0" y1="305.0" x2="648.0" y2="305.0"/>
+<text class="tick" x="64.0" y="309.0" text-anchor="end">10K</text>
+<line class="grid" x1="72.0" y1="240.0" x2="648.0" y2="240.0"/>
+<text class="tick" x="64.0" y="244.0" text-anchor="end">20K</text>
+<line class="grid" x1="72.0" y1="175.0" x2="648.0" y2="175.0"/>
+<text class="tick" x="64.0" y="179.0" text-anchor="end">30K</text>
+<line class="grid" x1="72.0" y1="110.0" x2="648.0" y2="110.0"/>
+<text class="tick" x="64.0" y="114.0" text-anchor="end">40K</text>
+<line class="axis" x1="72.0" y1="370.0" x2="648.0" y2="370.0"/>
+<text class="axis-title" x="72.0" y="96.0" text-anchor="start">logic cells</text>
+<line class="axis" x1="72.0" y1="370.0" x2="72.0" y2="375.0"/>
+<text class="tick" x="72.0" y="389.0" text-anchor="middle">0</text>
+<line class="axis" x1="187.2" y1="370.0" x2="187.2" y2="375.0"/>
+<text class="tick" x="187.2" y="389.0" text-anchor="middle">20,000</text>
+<line class="axis" x1="302.4" y1="370.0" x2="302.4" y2="375.0"/>
+<text class="tick" x="302.4" y="389.0" text-anchor="middle">40,000</text>
+<line class="axis" x1="417.6" y1="370.0" x2="417.6" y2="375.0"/>
+<text class="tick" x="417.6" y="389.0" text-anchor="middle">60,000</text>
+<line class="axis" x1="532.8" y1="370.0" x2="532.8" y2="375.0"/>
+<text class="tick" x="532.8" y="389.0" text-anchor="middle">80,000</text>
+<line class="axis" x1="648.0" y1="370.0" x2="648.0" y2="375.0"/>
+<text class="tick" x="648.0" y="389.0" text-anchor="middle">100,000</text>
+<text class="axis-title" x="360.0" y="414.0" text-anchor="middle">sign bits hardwired, both hidden layers: 1,424 × r</text>
+<line class="reference" x1="72.0" y1="175.0" x2="648.0" y2="175.0"/>
+<text class="label" x="78.0" y="169.0" text-anchor="start">Gate 2's budget, 30,000 cells</text>
+<polyline class="line-1" points="104.8,325.2 137.6,311.9 203.2,287.8 334.5,238.9 416.5,207.9 596.9,141.6"/>
+<circle class="dot-1" cx="104.8" cy="325.2" r="5"/>
+<text class="label" x="111.8" y="342.2" text-anchor="start">E4, r = 4</text>
+<circle class="dot-1" cx="137.6" cy="311.9" r="5"/>
+<text class="label" x="144.6" y="328.9" text-anchor="start">E5, r = 8</text>
+<circle class="dot-1" cx="203.2" cy="287.8" r="5"/>
+<text class="label" x="210.2" y="304.8" text-anchor="start">E6, r = 16</text>
+<circle class="dot-1" cx="334.5" cy="238.9" r="5"/>
+<text class="label" x="341.5" y="255.9" text-anchor="start">E7, r = 32</text>
+<circle class="dot-1" cx="416.5" cy="207.9" r="5"/>
+<text class="label" x="423.5" y="224.9" text-anchor="start">E11, r = 42</text>
+<circle class="dot-1" cx="596.9" cy="141.6" r="5"/>
+<text class="label" x="588.9" y="131.6" text-anchor="end">E8, r = 64, misses 50 MHz</text>
+</svg>

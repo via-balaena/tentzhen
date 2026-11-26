@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verification · Tentzhen</title>
+<link rel="icon" href="../../img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../style.css">
+</head>
+<body>
+
+<header class="column site-header">
+  <a class="brand" href="../../index.html" aria-label="Tentzhen home">
+    <img src="../../img/mark-black.svg" alt="">
+    <span class="wordmark">TENTZHEN</span>
+  </a>
+  <nav class="site-nav" aria-label="Main">
+    <a href="../../builds/index.html">BUILDS</a>
+    <a href="../../parts/index.html">PARTS</a>
+    <a href="../../docs/vision/index.html">VISION</a>
+    <div class="nav-menu">
+      <button type="button" class="nav-label">PROJECTS</button>
+      <div class="nav-items">
+        <a href="../../docs/scope/index.html">DIGITIZER AND GENERATOR</a>
+        <a href="../../docs/mesh/index.html">THE MESH</a>
+        <a href="../../docs/littlebit/index.html">HARDWIRED NEURAL NET</a>
+        <a href="../../fab/index.html">THE OPEN FAB</a>
+      </div>
+    </div>
+    <a href="../../docs/verification/index.html">VERIFICATION</a>
+    <a href="../../docs/roadmap/index.html">ROADMAP</a>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
+  </nav>
+</header>
+
+<main class="column spec">
+<p class="crumbs"><a href="../index.html">DOCS</a> / VERIFICATION</p>
+<div class="prose doc">
+<h1 id="verification">Verification</h1>
+<p>"Verified down to the atom" is the aim. This file says how close each layer can get <strong>today</strong>,
+with sources, and lists what must still be trusted. Research date for everything below:
+2026-09-28, unless a line says otherwise.</p>
+<h2 id="grades">Grades</h2>
+<p>Every claim about Tentzhen carries one of these, plus a referent (see <code>CLAUDE.md</code>):</p>
+<ul>
+<li><code>proven</code> — an unbounded proof was accepted (SymbiYosys <code>prove</code> mode via k-induction or PDR;
+Verus). Only as strong as the stated properties.</li>
+<li><code>checked</code> — a bounded check passed (SymbiYosys <code>bmc</code>, Kani). True up to the stated bound and
+no further.</li>
+<li><code>tested</code> — tests passed in simulation or on the host.</li>
+<li><code>measured</code> — observed on the bench, with a measurement record: <code>lab/records/&lt;id&gt;.toml</code>, which
+the claim names as its <code>record</code> (<code>crates/records/src/measurement.rs</code>).</li>
+<li><code>trusted</code> — assumed, and an entry in the trusted base below.</li>
+<li><code>unknown</code> — not established.</li>
+</ul>
+<p>The published spec sheet will carry a grade and a referent on every number.</p>
+<h2 id="the-stack-layer-by-layer">The stack, layer by layer</h2>
+<table><thead><tr><th>layer</th><th>best grade reachable today</th><th>how</th></tr></thead><tbody>
+<tr><td>Custom gateware cores (capture, trigger, DDS)</td><td><code>proven</code> / <code>checked</code></td><td>Amaranth <code>Assert</code>/<code>Assume</code>/<code>Cover</code> + SymbiYosys</td></tr>
+<tr><td>LiteX SoC glue (Migen)</td><td><code>tested</code></td><td>Migen has no assertion statements; LiteX has no SBY flow (0 hits)</td></tr>
+<tr><td>Synthesis output</td><td><code>checked</code>, per build, per design</td><td>eqy (RTL vs netlist equivalence); eqy itself is unverified</td></tr>
+<tr><td>Bitstream reproducibility</td><td><code>unknown</code> → <code>measured</code> in Phase 0</td><td>build twice from a pinned Nix toolchain, compare hashes</td></tr>
+<tr><td>VexRiscv soft core</td><td><code>trusted</code></td><td>riscv-formal covers only the <code>FormalSimple</code> config (rv32i, no CSR/MMU/caches), bounded to 20–30 cycles; LiteX's variants are not covered</td></tr>
+<tr><td>Soft-core firmware (Rust)</td><td><code>checked</code> on pure logic</td><td>Kani (no inline asm support)</td></tr>
+<tr><td>Pico limit enforcer</td><td><code>checked</code> limit logic + <code>trusted</code> kernel isolation</td><td>Kani on the limit logic (<code>firmware/enforcer</code>), for one input from any state; see Tock below</td></tr>
+<tr><td>Host tools (Rust)</td><td><code>tested</code>, <code>checked</code> where it pays</td><td>unit tests, Kani</td></tr>
+<tr><td>Analog front end</td><td><code>measured</code></td><td>ngspice first, then the bench</td></tr>
+<tr><td>ADC/DAC modules</td><td><code>measured</code></td><td>incoming QA on every unit</td></tr>
+<tr><td>Silicon (ECP5, RP2040/RP2350), toolchains (Yosys, nextpnr, Trellis, rustc/LLVM)</td><td><code>trusted</code></td><td>—</td></tr>
+</tbody></table>
+<h2 id="where-sel4-and-pancake-fit--and-dont-on-this-hardware">Where seL4 and Pancake fit — and don't, on this hardware</h2>
+<ul>
+<li><strong>seL4</strong> has verified configurations for RV64 and ARM, not RV32; RV32 runs unverified, on
+QEMU only. It effectively requires an MMU. No VexRiscv or LiteX port was found.
+(docs.sel4.systems/projects/sel4/verified-configurations.html, docs.sel4.systems/Hardware/)
+Whether its RV64 proof reaches binary code is <code>unknown</code>: a 2021 post says yes, the current
+configurations page lists binary correctness only for AArch32.</li>
+<li><strong>Pancake</strong> has a verified compiler through the CakeML backend, and a verified Ethernet driver
+on ARMv8 (arxiv.org/abs/2501.08249). The sDDF build accepts only aarch64, riscv64 and x86_64,
+so there is no RV32 route. Pancake serial drivers merged into sDDF on 2026-09-21
+(au-ts/sddf#771), off by default, with no claim of verification in the PR.</li>
+<li><strong>CakeML</strong> has no RV32 backend.</li>
+</ul>
+<p>So neither applies to the VexRiscv soft core or the Pico. They become relevant if a host or
+instrument controller ever moves to an RV64 or ARMv8 part with an MMU. That is not planned.</p>
+<h2 id="what-does-apply-lightbulb-on-the-same-fpga-family">What does apply: Lightbulb, on the same FPGA family</h2>
+<p>Erbsen et al., PLDI 2021 (adam.chlipala.net/papers/LightbulbPLDI21/LightbulbPLDI21.pdf): one Coq
+theorem covers an RV32I Kami processor, the bedrock2 compiler, SPI and Ethernet-chip drivers and
+the application, against an I/O-trace specification. <strong>It ran on a Lattice ECP5-85k</strong>, built with
+Yosys and nextpnr. Its trusted base included a ~200-line Verilog wrapper, Kami→Bluespec
+extraction, the Bluespec compiler, Yosys, nextpnr and Coq. It proves no liveness or timing, and
+ran about 10× slower than an unverified core (5.5 ms vs 0.5 ms for the same job).</p>
+<p><strong>Research track, not a plan:</strong> in Tentzhen the sample path is gateware, and the CPU only
+configures and moves buffers. Whether that makes a slow, proven control core acceptable is
+<code>unknown</code>, and so is whether a Kami core fits the Colorlight's ECP5-45F next to the capture
+logic (Lightbulb used an 85k). Both are measurable once Phase 2 exists.</p>
+<h2 id="tock">Tock</h2>
+<p>TickTock (SOSP 2025, ranjitjhala.github.io/static/sosp25-ticktock.pdf) is a fork of Tock that
+verifies process isolation with Flux on all ARMv7-M platforms and three RV32 platforms (which
+three is <code>unknown</code>). <strong>Neither Pico is in its stated scope</strong>: upstream Tock runs the RP2040 as
+ARMv6-M (<code>cortex-m0p</code>) and the RP2350 as ARMv8-M (<code>cortex-m33</code>). So the enforcer's kernel
+isolation is <code>trusted</code>. Upstream Tock also has a <code>litex_vexriscv</code> chip and a LiteX Arty board;
+whether the soft core should run Tock rather than bare metal is an open question.</p>
+<h2 id="toolchain-trust">Toolchain trust</h2>
+<ul>
+<li>Yosys has had real mis-synthesis bugs: Verismith found four (FPGA 2020), and issues #5941,
+#5942 and #5946 (June 2026) reported behaviour-changing passes, all closed as completed.
+Verified synthesis exists only as Lutsig (HOL4), which targets Xilinx 7-series, not ECP5.
+This is why eqy per build is in the table above.</li>
+<li>Bit-for-bit reproducibility of ECP5 bitstreams is <code>unknown</code> — nextpnr's README says nothing
+about determinism. Phase 0 measures it.</li>
+</ul>
+<h2 id="trusted-base">Trusted base</h2>
+<p>Everything assumed, not shown, is an entry in <a href="https://github.com/via-balaena/tentzhen/blob/main/trusted-base.toml"><code>trusted-base.toml</code></a>. A claim
+that rests on one names its id as its <code>trusted</code> referent (<code>trusted = "dps5005"</code>), and one that
+names no entry is refused: by <code>crates/records</code>
+(<code>a_trusted_referent_names_an_entry_in_the_trusted_base</code>) and by the warehouse's foreign keys
+(<code>the_database_refuses_what_the_records_refuse</code>). Shrinking the list is the long-term work.</p>
+</div>
+<p class="notice">Written in <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/verification.md">docs/verification.md</a>, on main; this page is made from it.</p>
+</main>
+
+<footer class="site-footer">
+  <div class="column">
+    <span>腾振 TENTZHEN · A VIA BALAENA PROJECT</span>
+    <span>MIT OR APACHE-2.0 · <a href="../../legal/index.html">LEGAL</a></span>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB.COM/VIA-BALAENA/TENTZHEN</a>
+  </div>
+</footer>
+
+</body>
+</html>

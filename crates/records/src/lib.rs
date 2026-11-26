@@ -268,6 +268,10 @@ impl Claim {
 /// Where the trusted base lives, relative to the repo root.
 pub const TRUSTED_BASE: &str = "trusted-base.toml";
 
+/// Where the docs live, relative to the repo root: each `.md` there is a page on the site, and each
+/// `.svg` in its `img/` a drawing those pages show.
+pub const DOCS: &str = "docs";
+
 /// An entry in the trusted base: something assumed, not shown. A claim that rests on it names its
 /// `id` as its `trusted` referent, and a `trusted` that names no entry is refused.
 #[derive(Debug, Deserialize)]
@@ -395,6 +399,7 @@ pub struct Catalogue {
     /// The trusted base's entries, in the file's order.
     pub trusted_base: Vec<Trusted>,
     /// Every file exactly as read, the trusted base then records then drawings then site documents
+    /// (the disclaimer, then `docs/`'s Markdown, then the drawings in `docs/img/`)
     /// then the lab's limits then the lab-target list then the lab log then the measurement
     /// records then the lab's sourcing then the fab's stack: the warehouse's bronze layer.
     pub sources: Vec<Source>,
@@ -465,6 +470,17 @@ impl Catalogue {
             path: "DISCLAIMER.md".into(),
             text,
         });
+        // The docs, and the drawings they show, are site documents too: each is a page.
+        for entry in read_dir_sorted(&root.join(DOCS))? {
+            if entry.extension().is_some_and(|e| e == "md") {
+                cat.sources.push(read_source(root, &entry)?);
+            }
+        }
+        for entry in read_dir_sorted(&root.join(DOCS).join("img"))? {
+            if entry.extension().is_some_and(|e| e == "svg") {
+                cat.sources.push(read_source(root, &entry)?);
+            }
+        }
         // The lab's limits, checked on the way in; bronze holds their sha256 for lineage.
         let (limits, text) = tentzhen_lab::Limits::load(root)?;
         cat.sources.push(Source {
@@ -1117,6 +1133,7 @@ mod tests {
             target::TARGETS,
             sourcing::SOURCING,
             fab::STACK,
+            DOCS,
         ] {
             copy(&repo.join(path), &root.join(path));
         }
