@@ -7,7 +7,9 @@ its instrument #1 is a Red Pitaya-class two-channel digitizer and signal generat
 a LoRa mesh (`docs/mesh.md`). Project #3 is LittleBit × Taalas, a small neural network with its
 weights hardwired into the i9, a first step toward a chip that runs SocialJax and Concordia
 (`docs/littlebit.md`). Project #4 is an open-source fab, and the town around it, to make those
-chips; the town's safety comes first (`docs/fab.md`). Pronounced "TENT-zhen" (like "tension").
+chips; the town's safety comes first (`docs/fab.md`). Over time Tentzhen is to become "its own
+simulated shenzhen like city", this repo "slowly building towards a fully open source planned out
+city of the future" (Jon, 2026-11-25; `docs/vision.md`). Pronounced "TENT-zhen" (like "tension").
 
 Read before planning anything: `docs/vision.md` (why and for whom), `docs/roadmap.md` (phases and
 acceptance criteria), `docs/verification.md` (how every claim is graded), `docs/sourcing.md` (LCSC,
