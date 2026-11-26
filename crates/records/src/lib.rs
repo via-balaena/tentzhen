@@ -4,8 +4,9 @@
 //! base, `trusted-base.toml`: [`Trusted`]. The lab log, every hardware action, is [`log`], and a
 //! claim's `record` names a measurement record: [`measurement`]. The boards an agent may flash are
 //! the lab-target list: [`target`]. Where the lab buys what its builds need, and how far each thing
-//! has got, is [`sourcing`].
+//! has got, is [`sourcing`]. Hacker Fab's stack beside the industry's, for the fab page, is [`fab`].
 
+pub mod fab;
 pub mod log;
 pub mod measurement;
 pub mod sourcing;
@@ -395,7 +396,7 @@ pub struct Catalogue {
     pub trusted_base: Vec<Trusted>,
     /// Every file exactly as read, the trusted base then records then drawings then site documents
     /// then the lab's limits then the lab-target list then the lab log then the measurement
-    /// records then the lab's sourcing: the warehouse's bronze layer.
+    /// records then the lab's sourcing then the fab's stack: the warehouse's bronze layer.
     pub sources: Vec<Source>,
     /// The lab's limits, checked. Set by [`Catalogue::with_limits`], which [`Catalogue::load`]
     /// calls; `from_sources` leaves it empty.
@@ -415,6 +416,9 @@ pub struct Catalogue {
     /// records. Set by [`Catalogue::with_sourcing`], which [`Catalogue::load`] calls;
     /// `from_sources` leaves it empty.
     pub sourcing: Vec<sourcing::Line>,
+    /// Hacker Fab's stack beside the industry's, in the file's order. Set by
+    /// [`Catalogue::with_fab`], which [`Catalogue::load`] calls; `from_sources` leaves it empty.
+    pub fab: Vec<fab::Row>,
 }
 
 impl Catalogue {
@@ -471,7 +475,8 @@ impl Catalogue {
             .with_targets(target::read(root)?)?
             .with_log(log::read(root)?)?
             .with_measurements(measurement::read(root)?)?
-            .with_sourcing(sourcing::read(root)?)
+            .with_sourcing(sourcing::read(root)?)?
+            .with_fab(fab::read(root)?)
     }
 
     /// Adds the lab's limits, refusing what [`tentzhen_lab::Limits::check_with_claims`] refuses
@@ -533,6 +538,13 @@ impl Catalogue {
             l.check_in(&self)?;
         }
         self.sourcing = lines;
+        self.sources.push(file);
+        Ok(self)
+    }
+
+    /// Adds Hacker Fab's stack beside the industry's, refusing what [`fab::parse`] refuses.
+    pub fn with_fab(mut self, file: Source) -> Result<Self, String> {
+        self.fab = fab::parse(&file)?;
         self.sources.push(file);
         Ok(self)
     }
@@ -621,6 +633,7 @@ impl Catalogue {
             log: Vec::new(),
             measurements: BTreeMap::new(),
             sourcing: Vec::new(),
+            fab: Vec::new(),
         };
         for versions in cat.builds.values() {
             for b in versions {
@@ -1103,6 +1116,7 @@ mod tests {
             tentzhen_lab::LIMITS,
             target::TARGETS,
             sourcing::SOURCING,
+            fab::STACK,
         ] {
             copy(&repo.join(path), &root.join(path));
         }

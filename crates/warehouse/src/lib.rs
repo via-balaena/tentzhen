@@ -1,7 +1,7 @@
 //! Loads the catalogue's records, the lab's limits, the lab-target list, the lab log, the
-//! measurement records and the lab's sourcing into DuckDB: bronze (the files as read), silver
-//! (typed rows the database itself constrains) and gold (views). The schema is `schema.sql`; this
-//! only fills it.
+//! measurement records, the lab's sourcing and the fab's stack into DuckDB: bronze (the files as
+//! read), silver (typed rows the database itself constrains) and gold (views). The schema is
+//! `schema.sql`; this only fills it.
 
 use duckdb::{Connection, params};
 use tentzhen_lab::{LIMITS, Limits, Value};
@@ -179,6 +179,36 @@ pub fn load(conn: &mut Connection, cat: &Catalogue) -> duckdb::Result<()> {
                 l.record
             ],
         )?;
+    }
+    for (i, r) in (1u32..).zip(&cat.fab) {
+        tx.execute(
+            "INSERT INTO silver.fab_row VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            params![
+                i,
+                r.layer,
+                r.measure,
+                r.unit,
+                r.better.map(|b| b.as_str()),
+                r.gap,
+                r.route,
+                r.why_not,
+                r.record
+            ],
+        )?;
+        for (side, s) in [("hacker_fab", &r.hacker_fab), ("industry", &r.industry)] {
+            tx.execute(
+                "INSERT INTO silver.fab_side VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                params![
+                    i, side, s.value, s.is, s.tool, s.note, s.quote, s.source, s.read
+                ],
+            )?;
+        }
+        for (j, w) in (1u32..).zip(&r.with) {
+            tx.execute(
+                "INSERT INTO silver.fab_route_with VALUES (?, ?, ?)",
+                params![i, j, w],
+            )?;
+        }
     }
     for (claim, c) in &claims {
         load_referents(&tx, claim, c)?;
@@ -406,6 +436,69 @@ mod tests {
         assert_eq!(claims, unknown, "nothing about debug-probe is shown yet");
     }
 
+    /// The fab page's gap is worked out from the two values, the way `better` says, and left to
+    /// the row's words when a side has none.
+    #[test]
+    fn the_fab_s_gap_is_worked_out_from_its_two_values() {
+        let side = |v: &str| {
+            format!(
+                "{v}\ntool = \"t\"\nquote = \"q\"\nsource = \"https://e.org/a\"\nread = \"2026-11-25\"\n"
+            )
+        };
+        let row = |measure: &str, keys: &str, hf: &str, ind: &str| {
+            format!(
+                "[[row]]\nlayer = \"L\"\nmeasure = \"{measure}\"\nroute = \"r\"\nwith = [\"Rust\"]\n{keys}\n\
+                 [row.hacker_fab]\n{}\n[row.industry]\n{}\n",
+                side(hf),
+                side(ind)
+            )
+        };
+        let text = [
+            row(
+                "line",
+                "unit = \"m\"\nbetter = \"lower\"",
+                "value = 1e-6",
+                "value = 2e-8",
+            ),
+            row(
+                "rate",
+                "unit = \"1\"\nbetter = \"higher\"",
+                "value = 3",
+                "value = 240",
+            ),
+            row("words", "gap = \"g\"", "is = \"a\"", "is = \"b\""),
+        ]
+        .concat();
+        let base = src(
+            "trusted-base.toml",
+            "[[entry]]\nid = \"e\"\nassumes = \"x\"\n",
+        );
+        let cat = Catalogue::from_sources(&base, &[], &[])
+            .unwrap()
+            .with_fab(src("fab/stack.toml", &text))
+            .unwrap();
+        let conn = warehouse(&cat);
+        let factor = |measure: &str| -> Option<f64> {
+            conn.query_row(
+                "SELECT factor FROM gold.page_fab WHERE measure = ?",
+                [measure],
+                |r| r.get(0),
+            )
+            .unwrap()
+        };
+        assert!((factor("line").unwrap() - 50.0).abs() < 1e-9);
+        assert!((factor("rate").unwrap() - 80.0).abs() < 1e-9);
+        assert_eq!(factor("words"), None);
+        assert_eq!(one(&conn, "SELECT count(*) FROM silver.fab_side"), 6);
+        assert_eq!(
+            one(
+                &conn,
+                "SELECT count(*) FROM silver.fab_row WHERE record = 'fab/stack.toml'"
+            ),
+            3
+        );
+    }
+
     #[test]
     fn every_row_traces_to_the_bytes_it_came_from() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -419,7 +512,8 @@ mod tests {
              UNION ALL SELECT record FROM silver.lab_target \
              UNION ALL SELECT record FROM silver.lab_log_entry \
              UNION ALL SELECT record FROM silver.measurement \
-             UNION ALL SELECT record FROM silver.sourcing) s \
+             UNION ALL SELECT record FROM silver.sourcing \
+             UNION ALL SELECT record FROM silver.fab_row) s \
              LEFT JOIN bronze.record r ON r.path = s.record WHERE r.path IS NULL",
         );
         assert_eq!(orphans, 0);
@@ -463,7 +557,7 @@ mod tests {
         }
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let mut files = vec!["DISCLAIMER.md".to_string(), TRUSTED_BASE.to_string()];
-        for dir in ["parts", "builds", "lab"] {
+        for dir in ["parts", "builds", "lab", "fab"] {
             walk(&root.join(dir), &root, &mut files);
         }
         let conn = warehouse(&Catalogue::load(&root).unwrap());

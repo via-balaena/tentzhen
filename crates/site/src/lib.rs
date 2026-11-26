@@ -4,8 +4,9 @@
 //! The records in `parts/`, `builds/` and `lab/` are loaded into DuckDB (crates/warehouse); every
 //! value on a page is read back out of a `gold.page*` view. Every build version gets a permanent
 //! page at `site/builds/<name>/v<N>/`; `site/builds/<name>/` sends you to the newest. `site/parts/`
-//! lists everything the bench needs, and how far the lab has got buying it. Pages are output, never
-//! edited: the Quality Gate reruns this and fails if `site/` differs.
+//! lists everything the bench needs, and how far the lab has got buying it. `site/fab/` sets Hacker
+//! Fab's stack beside the industry's, with the gap between them. Pages are output, never edited: the
+//! Quality Gate reruns this and fails if `site/` differs.
 
 use duckdb::{Connection, params};
 use std::fmt::Write as _;
@@ -56,6 +57,7 @@ fn page(up: &str, title: &str, body: &str) -> String {
         <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">DIGITIZER AND GENERATOR</a>
         <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/mesh.md">THE MESH</a>
         <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/littlebit.md">HARDWIRED NEURAL NET</a>
+        <a href="{up}fab/index.html">THE OPEN FAB</a>
       </div>
     </div>
     <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/verification.md">VERIFICATION</a>
@@ -616,6 +618,237 @@ pub fn render_parts(conn: &Connection) -> duckdb::Result<String> {
     Ok(page("../", "Parts · Tentzhen", &h))
 }
 
+/// A value in its unit, with an SI prefix and up to three significant figures: 1e-6 m is "1 µm".
+/// A count or ratio (unit `1`) is written whole above 1,000, grouped by thousands.
+fn si(value: f64, unit: &str) -> String {
+    fn sig(m: f64, figures: i32) -> String {
+        let places = (figures - 1 - m.abs().log10().floor() as i32).max(0) as usize;
+        let s = format!("{m:.places$}");
+        if s.contains('.') {
+            s.trim_end_matches('0').trim_end_matches('.').to_string()
+        } else {
+            s
+        }
+    }
+    fn grouped(n: f64) -> String {
+        let digits = format!("{:.0}", n.round());
+        let mut out = String::new();
+        for (i, c) in digits.chars().enumerate() {
+            if i > 0 && (digits.len() - i) % 3 == 0 {
+                out.push(',');
+            }
+            out.push(c);
+        }
+        out
+    }
+    match unit {
+        "1" if value >= 1000.0 => grouped(value),
+        "1" => sig(value, 3),
+        "%" => format!("{} %", sig(value, 3)),
+        _ => {
+            const PREFIX: [&str; 10] = ["f", "p", "n", "µ", "m", "", "k", "M", "G", "T"];
+            let mut e = ((value.log10() / 3.0).floor() as i32).clamp(-5, 4);
+            let mut m = value / 10f64.powi(3 * e);
+            // 999.96 rounds to 1000: move up a prefix.
+            if sig(m, 3) == "1000" && e < 4 {
+                e += 1;
+                m /= 1000.0;
+            }
+            format!("{} {}{unit}", sig(m, 3), PREFIX[(e + 5) as usize])
+        }
+    }
+}
+
+/// The gap as a factor, in two significant figures: how many times better the industry's figure is.
+fn gap(factor: f64) -> String {
+    let two = |f: f64| {
+        let e = f.log10().floor() as i32;
+        si((f / 10f64.powi(e - 1)).round() * 10f64.powi(e - 1), "1")
+    };
+    if (0.9..=1.1).contains(&factor) {
+        "none".into()
+    } else if factor > 1.0 {
+        format!("{}×", two(factor))
+    } else {
+        format!("Hacker Fab ahead, {}×", two(1.0 / factor))
+    }
+}
+
+/// A side's source as a link: a URL as it is, and owner/repo@sha:path as the file on GitHub.
+fn source_link(source: &str) -> (String, String) {
+    if source.starts_with("https://") {
+        let shown = source
+            .trim_start_matches("https://")
+            .split('/')
+            .next()
+            .unwrap_or(source)
+            .trim_start_matches("www.")
+            .to_string();
+        return (source.to_string(), shown);
+    }
+    let (repo, rest) = source.split_once('@').unwrap_or((source, ""));
+    let (sha, path) = rest.split_once(':').unwrap_or((rest, ""));
+    (
+        format!("https://github.com/{repo}/blob/{sha}/{path}"),
+        format!("{repo} at {}", &sha[..sha.len().min(8)]),
+    )
+}
+
+/// A side of the fab page, as `gold.page_fab` gives it.
+struct FabSide {
+    value: Option<f64>,
+    is: Option<String>,
+    tool: String,
+    note: Option<String>,
+    quote: String,
+    source: String,
+    read: String,
+}
+
+/// `site/fab/`: Hacker Fab's stack beside the industry's, row by row, from `gold.page_fab`.
+pub fn render_fab(conn: &Connection) -> duckdb::Result<String> {
+    let mut stmt = conn.prepare(
+        "SELECT layer, measure, unit, gap, route, why_not, built_with, factor, \
+         hf_value, hf_is, hf_tool, hf_note, hf_quote, hf_source, CAST(hf_read AS TEXT), \
+         ind_value, ind_is, ind_tool, ind_note, ind_quote, ind_source, CAST(ind_read AS TEXT) \
+         FROM gold.page_fab ORDER BY row_no",
+    )?;
+    type Row = (
+        String,
+        String,
+        Option<String>,
+        Option<String>,
+        String,
+        Option<String>,
+        String,
+        Option<f64>,
+        FabSide,
+        FabSide,
+    );
+    let side = |r: &duckdb::Row, at: usize| -> duckdb::Result<FabSide> {
+        Ok(FabSide {
+            value: r.get(at)?,
+            is: r.get(at + 1)?,
+            tool: r.get(at + 2)?,
+            note: r.get(at + 3)?,
+            quote: r.get(at + 4)?,
+            source: r.get(at + 5)?,
+            read: r.get(at + 6)?,
+        })
+    };
+    let rows: Vec<Row> = stmt
+        .query_map([], |r| {
+            Ok((
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+                r.get(6)?,
+                r.get(7)?,
+                side(r, 8)?,
+                side(r, 15)?,
+            ))
+        })?
+        .collect::<duckdb::Result<_>>()?;
+
+    let mut h = String::new();
+    h.push_str(
+        "<p class=\"crumbs\">PROJECTS / THE OPEN FAB</p>\n\
+         <p class=\"crumbs eyebrow\">HACKER FAB ADJACENT</p>\n\
+         <h1 class=\"spec-title\">To TSMC and ASML, on a Hacker Fab budget</h1>\n\
+         <p class=\"spec-does\">Hacker Fab's open stack beside the industry's, row by row, and the gap \
+         between them. Every tool is engineered and built here, in Rust and CortenForge where they \
+         can be.</p>\n\
+         <p class=\"muted\">We build on Hacker Fab's open designs and send back what we add. We are \
+         not part of Hacker Fab, and it has not reviewed this page. Safety comes first: tools on \
+         mains are bought, listed and legal, and every step runs under its own safety plan \
+         (<a href=\"https://github.com/via-balaena/tentzhen/blob/main/docs/fab.md\">fab.md</a>, \
+         \"Safety first\").</p>\n\
+         <table class=\"spec-table fab-gap\">\n\
+         <thead><tr><th>MEASURE</th><th>HACKER FAB</th><th>INDUSTRY</th><th>GAP</th>\
+         <th class=\"ours\">OUR ROUTE</th></tr></thead>\n<tbody>\n",
+    );
+    // Each source once: a quote cited by two rows keeps its first number.
+    let mut sources: Vec<((String, String, String), String)> = Vec::new();
+    let mut cell = |s: &FabSide, unit: Option<&str>| -> String {
+        let shown = match (s.value, &s.is) {
+            (Some(v), _) => si(v, unit.unwrap_or("1")),
+            (None, Some(is)) => esc(is),
+            (None, None) => String::new(),
+        };
+        let key = (s.quote.clone(), s.source.clone(), s.read.clone());
+        let n = match sources.iter().position(|(k, _)| *k == key) {
+            Some(i) => i + 1,
+            None => {
+                let (href, site) = source_link(&s.source);
+                let n = sources.len() + 1;
+                let li = format!(
+                    "<li id=\"s{n}\">“{q}” <span class=\"muted\"><a href=\"{href}\">{site}</a>, read {r}</span></li>",
+                    q = esc(&s.quote),
+                    href = esc(&href),
+                    site = esc(&site),
+                    r = esc(&s.read)
+                );
+                sources.push((key, li));
+                n
+            }
+        };
+        let note = s
+            .note
+            .as_ref()
+            .map(|n| format!(" · {}", esc(n)))
+            .unwrap_or_default();
+        format!(
+            "{shown} <sup><a href=\"#s{n}\">{n}</a></sup><br><span class=\"muted\">{tool}{note}</span>",
+            tool = esc(&s.tool)
+        )
+    };
+    let mut layer = String::new();
+    for (l, measure, unit, words, route, why_not, with, factor, hf, ind) in &rows {
+        if *l != layer {
+            let _ = writeln!(
+                h,
+                "<tr class=\"layer\"><td colspan=\"5\">{}</td></tr>",
+                esc(&l.to_uppercase())
+            );
+            layer = l.clone();
+        }
+        let hf = cell(hf, unit.as_deref());
+        let ind = cell(ind, unit.as_deref());
+        let gap = match (factor, words) {
+            (Some(f), _) => gap(*f),
+            (None, Some(w)) => esc(w),
+            (None, None) => String::new(),
+        };
+        let why = why_not
+            .as_ref()
+            .map(|w| format!(": {}", esc(w)))
+            .unwrap_or_default();
+        let _ = writeln!(
+            h,
+            "<tr><td>{}</td><td>{hf}</td><td>{ind}</td><td class=\"gap\">{gap}</td>\
+             <td class=\"ours\">{}<br><span class=\"muted\">{}{why}</span></td></tr>",
+            esc(measure),
+            esc(route),
+            esc(with)
+        );
+    }
+    h.push_str("</tbody>\n</table>\n");
+    h.push_str(
+        "<p class=\"graded\"><span class=\"grade\">unknown</span>Every route is a proposal: \
+         nothing on it is built or measured yet. The two sides are their sources' figures, \
+         quoted below.</p>\n<h2>Sources</h2>\n<ol class=\"refs fab-sources\">\n",
+    );
+    for (_, li) in &sources {
+        h.push_str(li);
+        h.push('\n');
+    }
+    h.push_str("</ol>\n");
+    Ok(page("../", "The open fab · Tentzhen", &h))
+}
+
 /// `site/legal/`: DISCLAIMER.md, as the warehouse holds it.
 pub fn render_legal(markdown: &str) -> String {
     let mut body = String::from("<div class=\"prose\">\n");
@@ -624,7 +857,7 @@ pub fn render_legal(markdown: &str) -> String {
     page("../", "Legal · Tentzhen", &body)
 }
 
-/// Writes every generated file under `root/site/builds/`, `root/site/parts/` and
+/// Writes every generated file under `root/site/builds/`, `root/site/parts/`, `root/site/fab/` and
 /// `root/site/legal/`. Returns how many it wrote.
 pub fn write_site(conn: &Connection, root: &Path) -> Result<usize, String> {
     let out = root.join("site/builds");
@@ -648,6 +881,9 @@ pub fn write_site(conn: &Connection, root: &Path) -> Result<usize, String> {
     n += 1;
     let parts = render_parts(conn).map_err(|e| e.to_string())?;
     write(&root.join("site/parts/index.html"), parts.as_bytes())?;
+    n += 1;
+    let fab = render_fab(conn).map_err(|e| e.to_string())?;
+    write(&root.join("site/fab/index.html"), fab.as_bytes())?;
     n += 1;
     for b in &pages {
         let dir = out.join(&b.build).join(format!("v{}", b.version));
@@ -856,6 +1092,90 @@ mod tests {
             ]
         );
         assert!(page.contains("<a href=\"../parts/index.html\">PARTS</a>"));
+    }
+
+    #[test]
+    fn a_value_is_written_with_its_si_prefix() {
+        assert_eq!(si(1e-6, "m"), "1 µm");
+        assert_eq!(si(13e-9, "m"), "13 nm");
+        assert_eq!(si(2.5e-3, "s"), "2.5 ms");
+        assert_eq!(si(0.99996, "s"), "1 s");
+        assert_eq!(si(100.0, "W"), "100 W");
+        assert_eq!(si(13.56e6, "Hz"), "13.6 MHz");
+        assert_eq!(si(952.0, "1"), "952");
+        assert_eq!(si(1.2, "1"), "1.2");
+        assert_eq!(si(208e9, "1"), "208,000,000,000");
+        assert_eq!(si(94.0, "%"), "94 %");
+        assert_eq!(gap(76.923), "77×");
+        assert_eq!(gap(1234.0), "1,200×");
+        assert_eq!(gap(4.24), "4.2×");
+        assert_eq!(gap(1.05), "none");
+        assert_eq!(gap(0.25), "Hacker Fab ahead, 4×");
+    }
+
+    /// The fab page shows each side with its source, works the gap out from two values, keeps a
+    /// row's own words when it has no values, and heads each layer once.
+    #[test]
+    fn the_fab_page_sets_each_side_beside_its_source() {
+        let side = |v: &str, source: &str| {
+            format!(
+                "{v}\ntool = \"t\"\nquote = \"q <b>\"\nsource = \"{source}\"\nread = \"2026-11-25\"\n"
+            )
+        };
+        let text = format!(
+            "[[row]]\nlayer = \"Lithography\"\nmeasure = \"smallest line\"\nunit = \"m\"\n\
+             better = \"lower\"\nroute = \"r\"\nwith = [\"Rust\", \"CortenForge\"]\n\
+             [row.hacker_fab]\n{}\n[row.industry]\n{}\n\
+             [[row]]\nlayer = \"Lithography\"\nmeasure = \"cleanroom\"\nroute = \"r2\"\n\
+             with = [\"bought\"]\nwhy_not = \"rule 3\"\ngap = \"none needed\"\n\
+             [row.hacker_fab]\n{}\n[row.industry]\n{}\n",
+            side("value = 1e-6", "hacker-fab/gitbook@bd1eef57:a/b.md"),
+            side("value = 13e-9", "https://www.asml.com/en/products"),
+            side("is = \"none\"", "https://e.org/a"),
+            side("is = \"ISO 1\"", "https://e.org/b"),
+        );
+        let cat = Catalogue::from_sources(&base(), &[], &[])
+            .unwrap()
+            .with_fab(src("fab/stack.toml", &text))
+            .unwrap();
+        let mut conn = Connection::open_in_memory().unwrap();
+        tentzhen_warehouse::load(&mut conn, &cat).unwrap();
+        let page = render_fab(&conn).unwrap();
+        for want in [
+            "1 µm <sup><a href=\"#s1\">1</a></sup>",
+            "13 nm <sup><a href=\"#s2\">2</a></sup>",
+            "<td class=\"gap\">77×</td>",
+            "<td class=\"gap\">none needed</td>",
+            "Rust · CortenForge</span>",
+            "bought: rule 3</span>",
+            "href=\"https://github.com/hacker-fab/gitbook/blob/bd1eef57/a/b.md\">hacker-fab/gitbook at bd1eef57</a>",
+            ">asml.com</a>, read 2026-11-25",
+            "<li id=\"s4\">“q &lt;b&gt;”",
+            "HACKER FAB ADJACENT",
+            "it has not reviewed this page",
+        ] {
+            assert!(page.contains(want), "the page lacks {want:?}:\n{page}");
+        }
+        assert_eq!(page.matches("<tr class=\"layer\">").count(), 1);
+        // The same quote from the same source, on two rows, is listed once.
+        let twice = text.replace(
+            "is = \"ISO 1\"\ntool = \"t\"\nquote = \"q <b>\"\nsource = \"https://e.org/b\"",
+            "is = \"ISO 1\"\ntool = \"t\"\nquote = \"q <b>\"\nsource = \"https://e.org/a\"",
+        );
+        assert_ne!(twice, text);
+        let cat = Catalogue::from_sources(&base(), &[], &[])
+            .unwrap()
+            .with_fab(src("fab/stack.toml", &twice))
+            .unwrap();
+        let mut conn = Connection::open_in_memory().unwrap();
+        tentzhen_warehouse::load(&mut conn, &cat).unwrap();
+        let page = render_fab(&conn).unwrap();
+        assert_eq!(page.matches("<li id=").count(), 3, "{page}");
+        assert!(
+            page.contains("ISO 1 <sup><a href=\"#s3\">3</a></sup>"),
+            "{page}"
+        );
+        assert!(page.contains("href=\"../fab/index.html\">THE OPEN FAB</a>"));
     }
 
     /// The home page is written by hand, and carries the nav every generated page does.

@@ -319,6 +319,11 @@ runs only under its safety plan (rule 1).
 The sources are in `prior-art.md`, "Open fabs, and chips made outside one" (searched
 2026-11-25).
 
+**The gap, row by row,** is `fab/stack.toml`, and tentzhen.com's fab page shows it (`site/fab/`).
+Each row sets Hacker Fab's figure beside the industry's, quoting each source, with the gap and
+Tentzhen's route across it. Where both sides have a number, the warehouse works the gap out
+(`gold.page_fab`).
+
 **1. The sputter tool's control station, in Rust.**
 - **Hacker Fab's:**
   - Pressure control, a state machine and a PI loop, is moving from an Arduino Uno to a Pico 2

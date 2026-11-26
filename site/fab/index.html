@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The open fab · Tentzhen</title>
+<link rel="icon" href="../img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="column site-header">
+  <a class="brand" href="../index.html" aria-label="Tentzhen home">
+    <img src="../img/mark-black.svg" alt="">
+    <span class="wordmark">TENTZHEN</span>
+  </a>
+  <nav class="site-nav" aria-label="Main">
+    <a href="../builds/index.html">BUILDS</a>
+    <a href="../parts/index.html">PARTS</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/vision.md">VISION</a>
+    <div class="nav-menu">
+      <button type="button" class="nav-label">PROJECTS</button>
+      <div class="nav-items">
+        <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">DIGITIZER AND GENERATOR</a>
+        <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/mesh.md">THE MESH</a>
+        <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/littlebit.md">HARDWIRED NEURAL NET</a>
+        <a href="../fab/index.html">THE OPEN FAB</a>
+      </div>
+    </div>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/verification.md">VERIFICATION</a>
+    <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/roadmap.md">ROADMAP</a>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
+  </nav>
+</header>
+
+<main class="column spec">
+<p class="crumbs">PROJECTS / THE OPEN FAB</p>
+<p class="crumbs eyebrow">HACKER FAB ADJACENT</p>
+<h1 class="spec-title">To TSMC and ASML, on a Hacker Fab budget</h1>
+<p class="spec-does">Hacker Fab's open stack beside the industry's, row by row, and the gap between them. Every tool is engineered and built here, in Rust and CortenForge where they can be.</p>
+<p class="muted">We build on Hacker Fab's open designs and send back what we add. We are not part of Hacker Fab, and it has not reviewed this page. Safety comes first: tools on mains are bought, listed and legal, and every step runs under its own safety plan (<a href="https://github.com/via-balaena/tentzhen/blob/main/docs/fab.md">fab.md</a>, "Safety first").</p>
+<table class="spec-table fab-gap">
+<thead><tr><th>MEASURE</th><th>HACKER FAB</th><th>INDUSTRY</th><th>GAP</th><th class="ours">OUR ROUTE</th></tr></thead>
+<tbody>
+<tr class="layer"><td colspan="5">LITHOGRAPHY</td></tr>
+<tr><td>smallest line, against High-NA EUV</td><td>2 µm <sup><a href="#s1">1</a></sup><br><span class="muted">stepper V2.1, $3,012.13 · developed, in resist</span></td><td>8 nm <sup><a href="#s2">2</a></sup><br><span class="muted">ASML TWINSCAN EXE:5200B · High-NA EUV, 0.55 NA</span></td><td class="gap">250×</td><td class="ours">Climb the rungs below first. Shorter light and a wider lens are what move this; how far they go on this budget is unknown.<br><span class="muted">bought: optics and light sources are bought, and CortenForge has no optics</span></td></tr>
+<tr><td>smallest line, against i-line</td><td>2 µm <sup><a href="#s1">1</a></sup><br><span class="muted">stepper V2.1, $3,012.13 · developed, in resist</span></td><td>350 nm <sup><a href="#s3">3</a></sup><br><span class="muted">ASML TWINSCAN XT:400M · i-line, 365 nm; at most</span></td><td class="gap">5.7×</td><td class="ours">A better objective, with a higher numerical aperture (fab.md, &quot;Where to spend&quot;).<br><span class="muted">bought: a lens is bought</span></td></tr>
+<tr><td>smallest line, against a maskless writer</td><td>2 µm <sup><a href="#s1">1</a></sup><br><span class="muted">stepper V2.1, $3,012.13 · developed, in resist</span></td><td>600 nm <sup><a href="#s4">4</a></sup><br><span class="muted">Heidelberg Instruments MLA 150 · maskless; write mode I, 0.45 µm as an option</span></td><td class="gap">3.3×</td><td class="ours">The i9 as the stepper's controller: the projector fed directly, and each exposure timed to the stage and to measured vibration.<br><span class="muted">Rust · Amaranth</span></td></tr>
+<tr><td>overlay, against i-line</td><td>5 µm <sup><a href="#s5">5</a></sup><br><span class="muted">stepper V2.1, $3,012.13</span></td><td>20 nm <sup><a href="#s6">6</a></sup><br><span class="muted">ASML TWINSCAN XT:400M · at most, across the whole wafer, with ASML's optional TOP-2F software</span></td><td class="gap">250×</td><td class="ours">Overlay measured on a calibration target before and after each change; the stage's loop on the i9, with input shaping from a measured resonance.<br><span class="muted">Rust · Amaranth · CortenForge</span></td></tr>
+<tr><td>overlay, against a maskless writer</td><td>5 µm <sup><a href="#s5">5</a></sup><br><span class="muted">stepper V2.1, $3,012.13</span></td><td>500 nm <sup><a href="#s7">7</a></sup><br><span class="muted">Heidelberg Instruments MLA 150 · global second-layer alignment; local is 250 nm</span></td><td class="gap">10×</td><td class="ours">Hacker Fab's fiducial finder for alignment, with the stage held by the i9's loop and its vibration modelled in CortenForge.<br><span class="muted">Rust · Amaranth · CortenForge</span></td></tr>
+<tr><td>largest wafer</td><td>10 mm <sup><a href="#s8">8</a></sup><br><span class="muted">stepper V2.1, $3,012.13 · 1 cm square</span></td><td>300 mm <sup><a href="#s9">9</a></sup><br><span class="muted">ASML TWINSCAN XT:400M · 300 mm across</span></td><td class="gap">30×</td><td class="ours">Pieces of bought wafers first. Longer travel is the stage's, modelled in CortenForge before it is built.<br><span class="muted">CortenForge</span></td></tr>
+<tr class="layer"><td colspan="5">MOTION</td></tr>
+<tr><td>stage resolution</td><td>1 µm <sup><a href="#s10">10</a></sup><br><span class="muted">closed-loop nanopositioner · about</span></td><td>under 1 nm <sup><a href="#s11">11</a></sup><br><span class="muted">PI piezo flexure stages</span></td><td class="gap">over 1,000×</td><td class="ours">The nanopositioner's encoders read by the i9 from close by; later, a levitated stage modelled in CortenForge.<br><span class="muted">Rust · Amaranth · CortenForge</span></td></tr>
+<tr class="layer"><td colspan="5">DEPOSITION</td></tr>
+<tr><td>RF match time</td><td>5 s <sup><a href="#s12">12</a></sup><br><span class="muted">impedance matcher, $636.65 · about, from startup</span></td><td>1 s <sup><a href="#s13">13</a></sup><br><span class="muted">Advanced Energy Navigator II · under, depending on user settings</span></td><td class="gap">5×</td><td class="ours">The digitizer measures the reflection's phase as well as its size, so the capacitors are set, not searched for.<br><span class="muted">Rust · Amaranth</span></td></tr>
+<tr class="layer"><td colspan="5">GAS</td></tr>
+<tr><td>flow control</td><td>Alicat mass-flow controllers <sup><a href="#s14">14</a></sup><br><span class="muted">sputter tool's control station</span></td><td>0.8 % <sup><a href="#s15">15</a></sup><br><span class="muted">MKS CMA10B · of set point, from 20 to 100 % of full scale</span></td><td class="gap">not compared: Hacker Fab buys industry MFCs</td><td class="ours">Bought, as Hacker Fab does.<br><span class="muted">bought: an industry part already, and none of our steps uses process gas yet</span></td></tr>
+<tr class="layer"><td colspan="5">DEVICES</td></tr>
+<tr><td>gate length</td><td>5 µm <sup><a href="#s16">16</a></sup><br><span class="muted">NMOS, CMU Fab, March 2026</span></td><td>14 nm <sup><a href="#s17">17</a></sup><br><span class="muted">IRDS 2024, More Moore · roadmap for 2025, the &quot;2nm&quot; node, high-performance logic; read from table MM-7's image</span></td><td class="gap">360×</td><td class="ours">fab.md's steps 4 to 6: our stepper on Hacker Fab's NMOS process, then a small hardwired network.<br><span class="muted">Rust · Amaranth</span></td></tr>
+<tr class="layer"><td colspan="5">CLEANLINESS</td></tr>
+<tr><td>air</td><td>no cleanroom <sup><a href="#s18">18</a></sup><br><span class="muted">Hacker Fab's goals</span></td><td>classes of air by particle count <sup><a href="#s19">19</a></sup><br><span class="muted">ISO 14644-1:2015 · its title, as Wikipedia cites it; the standard was not read</span></td><td class="gap">open air, against classified air</td><td class="ours">An enclosure for each tool, its air measured with a particle counter and logged.<br><span class="muted">Rust · bought</span></td></tr>
+<tr class="layer"><td colspan="5">CONTROL AND SAFETY</td></tr>
+<tr><td>tool control</td><td>a controller per tool; SputterOS begun as a shared base <sup><a href="#s20">20</a></sup><br><span class="muted">SputterOS</span></td><td>GEM, over SECS-II <sup><a href="#s21">21</a></sup><br><span class="muted">SEMI E30-0526 · its abstract; the standard was not read</span></td><td class="gap">a shared base begun, against one standard</td><td class="ours">One controller and interlock design across the tools, in Rust on Tock, compared with SputterOS on a simulated chamber.<br><span class="muted">Rust</span></td></tr>
+<tr><td>equipment safety</td><td>a goal: minimal danger <sup><a href="#s22">22</a></sup><br><span class="muted">Hacker Fab's goals</span></td><td>a written health and safety guideline for equipment <sup><a href="#s23">23</a></sup><br><span class="muted">SEMI S2-0724E · its abstract; the guideline was not read</span></td><td class="gap">a goal, against a written guideline</td><td class="ours">A safety plan for each step before anything is bought, and interlocks below the agent, in Rust on Tock and in hardware (fab.md, rules 1 and 2).<br><span class="muted">Rust</span></td></tr>
+</tbody>
+</table>
+<p class="graded"><span class="grade">unknown</span>Every route is a proposal: nothing on it is built or measured yet. The two sides are their sources' figures, quoted below.</p>
+<h2>Sources</h2>
+<ol class="refs fab-sources">
+<li id="s1">“Developed Resolution | 2 µm” <span class="muted"><a href="https://github.com/hacker-fab/gitbook/blob/bd1eef57/fab-toolkit/lithography-stepper/lithography-stepper-v2.1+-build/README.md">hacker-fab/gitbook at bd1eef57</a>, read 2026-11-25</span></li>
+<li id="s2">“Resolution | 8 nm” <span class="muted"><a href="https://www.asml.com/en/products/euv-lithography-systems/twinscan-exe-5200b">asml.com</a>, read 2026-11-25</span></li>
+<li id="s3">“Resolution (nm) | ≤ 350” <span class="muted"><a href="https://www.asml.com/en/products/duv-lithography-systems/twinscan-xt-400m">asml.com</a>, read 2026-11-25</span></li>
+<li id="s4">“Minimum feature size [μm] | 0.6 (0.45 optional)” <span class="muted"><a href="https://heidelberg-instruments.com/product/mla150/">heidelberg-instruments.com</a>, read 2026-11-25</span></li>
+<li id="s5">“Overlay Alignment Accuracy | 5 µm” <span class="muted"><a href="https://github.com/hacker-fab/gitbook/blob/bd1eef57/fab-toolkit/lithography-stepper/lithography-stepper-v2.1+-build/README.md">hacker-fab/gitbook at bd1eef57</a>, read 2026-11-25</span></li>
+<li id="s6">“prints 200 mm and 300 mm wafers with ≤ 20 nm overlay across the entire wafer” <span class="muted"><a href="https://www.asml.com/en/products/duv-lithography-systems/twinscan-xt-400m">asml.com</a>, read 2026-11-25</span></li>
+<li id="s7">“Global 2nd layer alignment [nm] | 500” <span class="muted"><a href="https://heidelberg-instruments.com/product/mla150/">heidelberg-instruments.com</a>, read 2026-11-25</span></li>
+<li id="s8">“Maximum Wafer Size | 1 cm x 1 cm” <span class="muted"><a href="https://github.com/hacker-fab/gitbook/blob/bd1eef57/fab-toolkit/lithography-stepper/lithography-stepper-v2.1+-build/README.md">hacker-fab/gitbook at bd1eef57</a>, read 2026-11-25</span></li>
+<li id="s9">“prints 200 mm and 300 mm wafers” <span class="muted"><a href="https://www.asml.com/en/products/duv-lithography-systems/twinscan-xt-400m">asml.com</a>, read 2026-11-25</span></li>
+<li id="s10">“~1um resolution but highly affected by vibration” <span class="muted"><a href="https://github.com/hacker-fab/gitbook/blob/bd1eef57/fab-toolkit/nanopositioner/README.md">hacker-fab/gitbook at bd1eef57</a>, read 2026-11-25</span></li>
+<li id="s11">“PI's piezo flexure stages combine sub-nanometer resolution and guiding precision with minimum crosstalk.” <span class="muted"><a href="https://www.physikinstrumente.com/en/products/nanopositioning-piezo-flexure-stages">physikinstrumente.com</a>, read 2026-11-25</span></li>
+<li id="s12">“Match Speed From Startup | ~5 seconds” <span class="muted"><a href="https://github.com/hacker-fab/gitbook/blob/bd1eef57/fab-toolkit/rf-sputtering/add-ons-and-wip/automated-impedance-matching.md">hacker-fab/gitbook at bd1eef57</a>, read 2026-11-25</span></li>
+<li id="s13">“Tune Time &lt; 1 sec, depending on user settings” <span class="muted"><a href="https://www.advancedenergy.com/getmedia/835ef9e7-d9b4-4993-8842-7ec4ffb3c530/en-ppg-navigator-digital-matching-networks-data-sheet.pdf">advancedenergy.com</a>, read 2026-11-25</span></li>
+<li id="s14">“Alicat MFCs | Regulate process gas flow.” <span class="muted"><a href="https://github.com/hacker-fab/gitbook/blob/bd1eef57/fab-toolkit/rf-sputtering/add-ons-and-wip/sputtering-automation-control-system.md">hacker-fab/gitbook at bd1eef57</a>, read 2026-11-25</span></li>
+<li id="s15">“±0.8% of set point for 20 to 100% Full Scale” <span class="muted"><a href="https://www.mks.com/mam/celum/celum_assets/mks/resources/CMA10B-MFC-DS.pdf">mks.com</a>, read 2026-11-25</span></li>
+<li id="s16">“5 um gate length” <span class="muted"><a href="https://github.com/hacker-fab/gitbook/blob/bd1eef57/nmos-capabilities/current-fab-capabilities/march-2026-update/README.md">hacker-fab/gitbook at bd1eef57</a>, read 2026-11-25</span></li>
+<li id="s17">“Lg: Gate Length - HP (nm) | 14” <span class="muted"><a href="https://irds.ieee.org/images/files/pdf/2024/2024IRDS_MM.pdf">irds.ieee.org</a>, read 2026-11-25</span></li>
+<li id="s18">“No cleanroom needed” <span class="muted"><a href="https://github.com/hacker-fab/gitbook/blob/bd1eef57/guides/required-reading-todo.md">hacker-fab/gitbook at bd1eef57</a>, read 2026-11-25</span></li>
+<li id="s19">“ISO 14644-1:2015 - Cleanrooms and associated controlled environments -- Part 1: Classification of air cleanliness by particle concentration” <span class="muted"><a href="https://en.wikipedia.org/wiki/Cleanroom">en.wikipedia.org</a>, read 2026-11-25</span></li>
+<li id="s20">“Deterministic C++17 microkernel framework for safety-critical nanofab system control” <span class="muted"><a href="https://github.com/BlastermanR/SputterOS">github.com</a>, read 2026-11-25</span></li>
+<li id="s21">“GEM defines a standard implementation of SECS-II for all semiconductor manufacturing equipment” <span class="muted"><a href="https://store-us.semi.org/products/e03000-semi-e30-specification-for-the-generic-model-for-communications-and-control-of-manufacturing-equipment-gem">store-us.semi.org</a>, read 2026-11-25</span></li>
+<li id="s22">“Minimal danger” <span class="muted"><a href="https://github.com/hacker-fab/gitbook/blob/bd1eef57/guides/required-reading-todo.md">hacker-fab/gitbook at bd1eef57</a>, read 2026-11-25</span></li>
+<li id="s23">“intended as a set of performance-based environmental, health, and safety (EHS) considerations for semiconductor manufacturing equipment” <span class="muted"><a href="https://store-us.semi.org/products/s00200-semi-s2-environmental-health-and-safety-guideline-for-semiconductor-manufacturing-equipment">store-us.semi.org</a>, read 2026-11-25</span></li>
+</ol>
+</main>
+
+<footer class="site-footer">
+  <div class="column">
+    <span>腾振 TENTZHEN · A VIA BALAENA PROJECT</span>
+    <span>MIT OR APACHE-2.0 · <a href="../legal/index.html">LEGAL</a></span>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB.COM/VIA-BALAENA/TENTZHEN</a>
+  </div>
+</footer>
+
+</body>
+</html>
