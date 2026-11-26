@@ -8,7 +8,8 @@ up to scrappily and in public, to show what is possible.
   than a GPU (`littlebit.md`, "What it is for" and "The goal").
 - **The town:** a town grows around the fab, the way brownfield-compute's town
   (YoungMoolahBaby/brownfield-compute) grows around its data center, and a city like Shenzhen
-  grows from there.
+  grows from there. Tentzhen as a whole is to become "its own simulated shenzhen like city"
+  (Jon, 2026-11-25; `vision.md`).
 - **Safety comes first:** "the towns safety is 100% the most important thing" (Jon, 2026-11-24).
 
 Nothing here is built. Every step below is a proposal, and its claims are `unknown` until they
@@ -93,7 +94,7 @@ So the fab builds two kinds of chip, for two purposes:
 | 1 | a network hardwired on the i9 | the bench's i9 | now (`littlebit.md`) |
 | 2 | our design made on a shuttle, on an open PDK | a shuttle slot, which costs money: Jon's decision | the chip computes what the golden model does |
 | 3 | test gear: probe station, microscope, curve tracer | project #1's bench | it measures a bought transistor's curves |
-| 4 | lithography: a maskless stepper on Hacker Fab's open design, patterning photoresist on bought wafers | resist and a hydroxide developer, under its safety plan; no acids or furnace | the smallest line it prints, measured |
+| 4 | lithography: a maskless stepper on Hacker Fab's open design, patterning photoresist on bought wafers | resist and a hydroxide developer, under its safety plan; no acids or furnace | the smallest line it prints, and its overlay error between two layers, measured on a calibration target |
 | 5 | NMOS transistors on bought wafers | a furnace, spin-on dopant and hydrofluoric acid, each under its safety plan | measured threshold, leakage and yield |
 | 6 | a small chip: a hardwired network of a few hundred to a thousand transistors | step 5's process | it computes what the golden model does |
 
@@ -188,6 +189,9 @@ far faster than a camera takes frames. A real stepper's vibration, measured that
 the model. Until then the model's figures are `unknown`. Measuring needs a stepper, either built
 here (about $3,000, Jon's decision) or measured with a Hacker Fab.
 
+**Judged by overlay.** Each change to the stepper is judged by its overlay error between two
+layers, measured on a calibration target before and after the change (step 4).
+
 **Where it doesn't fit: the projector.** CortenForge has no optics. The projector's problems, and
 the stage's timing, point at the i9 instead.
 
@@ -218,6 +222,11 @@ a PC, an Arduino and the projector's own board each do today:
      vibration has died down. That is a cheap fix for the stepper's largest problem, and it needs
      no mechanical redesign first. OpenMLA's board breaks out pins for exposing "based on some
      sensor readout".
+   - The same measurement could shape each move so the frame rings less. Klipper does this for
+     3D printers, calling it input shaping, from an accelerometer's measurement of the printer's
+     resonances (Klipper3d/klipper, `docs/Resonance_Compensation.md`). Klipper is GPL-3.0 and
+     this repo is MIT or Apache-2.0, so the method is taken from its docs, not its code. Whether
+     it shortens the stepper's settling is `unknown`.
    - It would replace GRBL on the Arduino, whose settings Hacker Fab ties to its backlash. The
      gateware would be checked as the bench's cores are, with SymbiYosys and cocotb.
 
@@ -291,6 +300,124 @@ Shops' per-item prices are left out (CLAUDE.md). Nothing has been priced or boug
 This order puts the largest saving, and the largest unknown, in the cheapest test. Nothing more is
 bought until the free work says it is worth it.
 
+## Hacker Fab's other tools
+
+Jon, 2026-11-25: "even though these are already at hackerfab, its still a good idea to apply our
+engineering to them if we see something that can be both better and more economical ... theres a
+large gap between what they have and what the state of the art is."
+
+So a tool Hacker Fab already has is a candidate, not a reason to leave it out. Each one below:
+- is a proposal, `unknown` until it earns a grade;
+- is compared with Hacker Fab's own version, on a measure named before the work starts;
+- is judged by Hacker Fab's own goals too, among them "Low cost" and "Highly sourcable
+  materials", so that any Hacker Fab can rebuild it.
+
+The safety rules still decide which tools can have a version of ours. RF and sputter supplies,
+furnaces, hotplates and pumps stay bought (rule 3). A tool on vacuum, gas, RF or high voltage
+runs only under its safety plan (rule 1).
+
+The sources are in `prior-art.md`, "Open fabs, and chips made outside one" (searched
+2026-11-25).
+
+**1. The sputter tool's control station, in Rust.**
+- **Hacker Fab's:**
+  - Pressure control, a state machine and a PI loop, is moving from an Arduino Uno to a Pico 2
+    (RP2350). Its board is ordered, not yet tested.
+  - "safety interlocks" are on its list for later versions.
+  - Its software is to follow SputterOS (Apache-2.0), a "Deterministic C++17 microkernel
+    framework for safety-critical nanofab system control" with "multi-tier safety interlocks".
+- **Ours:** Jon: "if we wanted to build a tockOS/embassy version of the sputterOS pico2w impl of
+  theirs, and see which was better, that's fine with me." Hacker Fab's page names the Pico 2; the
+  Pico 2 W has the same RP2350. Since the chip is the same, the comparison is not about price.
+- **Judged by,** with both versions driving the same simulated chamber before either touches a
+  real one:
+  - whether each holds the same pressure set points;
+  - what each does when a device stops answering, as their pressure gauge's RS-485 link did;
+  - what is checked: Kani on our interlock logic, as on the bench's enforcer, against SputterOS's
+    own tests;
+  - whether a fault in the process logic can reach the interlocks.
+- **Tock or Embassy:** CLAUDE.md names Tock for a Pico's firmware, so Embassy needs an exception,
+  Jon's decision (below). UMSH's own firmware, which the mesh uses until a Tock port runs, is
+  built on Embassy (`mesh.md`).
+
+**2. One interlock design, for every tool.**
+- **Hacker Fab's:** each tool has a controller of its own:
+  - an Arduino Uno, then a Pico 2, for the sputter tool's pressure;
+  - a Teensy 4.1 for the impedance matcher, and another for the quartz-crystal thickness monitor;
+  - an Arduino Nano on V3's interferometer;
+  - GRBL on an Arduino for the stepper's stage;
+  - a Raspberry Pi hat for the resin printer's projector;
+  - an STM32 and a Pi for the Raman spectrometer.
+- **Ours:** one design across the tools, in the bench's pattern: limits held below the agent, and
+  the last word in hardware (rule 2). The sputter station above would be its first tool.
+- **Judged by:** whether a Hacker Fab can rebuild it from common parts.
+
+**3. Reading the stage's interferometer.**
+- **Hacker Fab's:** "Stepper V3 - WIP", last edited 2024-03-15, measures the stage with a 593 nm
+  Michelson interferometer. Its photodiode goes through a transimpedance amplifier to "an
+  Arduino Nano".
+- **Ours:** the digitizer's ADC reads the photodiode, on the same i9 that runs the stage's loop
+  ("Where the i9 comes in", above).
+- **Judged by:** the smallest stage motion each resolves, on the same stage.
+
+**4. The impedance matcher.**
+- **Hacker Fab's:**
+  - It is a "Working prototype". A Teensy 4.1 reads forward and reflected power from an
+    off-the-shelf VSWR meter and averages 300 samples.
+  - It finds the match by coordinate descent: it steps a capacitor, measures the change and
+    steps again.
+  - Rated for 100 W of forward power, it holds about 1.2 VSWR once stable and matches in about
+    5 seconds from startup. It costs $636.65.
+- **Ours:**
+  - The digitizer samples a directional coupler's two outputs before they are rectified. That
+    gives the reflection's phase as well as its size.
+  - Phase and size together give the impedance the matcher sees, so the capacitors could be set
+    from it instead of found by stepping.
+  - The sputter tool's radio supplies 14 MHz, by its page; the matcher's page says 13.56 MHz.
+    Whether instrument #1 samples either well is `unknown` until its bandwidth is measured
+    (`scope.md`).
+- **Judged by:** time to match, and the VSWR held, on the same chamber, under the sputter tool's
+  safety plan. Hacker Fab's page puts the network's maximum at 200 V peak to peak.
+
+**5. Film thickness, from a fitted model.**
+- **Hacker Fab's:**
+  - Spin-on glass is measured by matching a spectrometer's curve to calibration graphs:
+    "Determine which shape your graph most closely resembles".
+  - The furnace's oxide is read from a colour chart.
+- **Ours:** fit the same spectrum to the physics of thin-film interference, written as a golden
+  model in Rust with its tests. It needs no new hardware and carries no hazard.
+- **Judged by:** the fit's thickness against another method's on the same film. Hacker Fab has a
+  profilometer procedure.
+
+**6. The source-meter and the probe station.**
+- **Hacker Fab's:**
+  - Three Analog Discovery 3s, at $379 each, serve as source-meters.
+  - The probe station is built on $125 XYZ stages. It senses the probe's touch with a piezo
+    sensor, still in progress.
+- **Ours:** instrument #1 where an Analog Discovery 3 is used, and its ADC on the touch sensor.
+  This is step 3's test gear ("The steps", above).
+- **Judged by:** the same transistor's curves, taken on both. Instrument #1's price is `unknown`
+  until it is built.
+
+**Not read yet,** beyond their repositories' descriptions:
+- UW's board for mass-flow controllers;
+- the low-cost atomic force microscope (hacker-fab/afm);
+- the tube furnace's controller code;
+- SputterOS's own code.
+
+## Later: a gradiometer, engineered with CortenForge
+
+Jon, 2026-11-25: "the gradiometer is from cortenforge. its a goal of mine to use cortenforge to
+engineer one in the future."
+
+CortenForge's study (via-balaena/CortenForge, `docs/studies/gradiometer`) is of a
+"room-temperature MEMS gravity gradiometer".
+- **Status:** "Conditional GO" for "the large-anomaly / void niche", with "No code written yet".
+- **Scope:** it leaves "etch-process physics, circuit synthesis, DAQ firmware" out of CortenForge.
+  Etching is the fab's kind of work, and reading out an instrument is the bench's.
+
+Whether our process could make its parts is `unknown`.
+
 ## The town
 
 - **The centre is the fab, together with what made Shenzhen:** a parts market, PCB fabrication
@@ -311,3 +438,5 @@ bought until the free work says it is worth it.
   CLAUDE.md keeps long-lived code in Rust.
 - Upstream: whether via-balaena/tentzhen takes the wider scope.
 - The training's compute (`littlebit.md`, "The training needs more compute").
+- Embassy for a Pico's firmware, as one side of the comparison with SputterOS ("Hacker Fab's other
+  tools"). CLAUDE.md names Tock.
