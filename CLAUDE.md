@@ -90,7 +90,7 @@ both read 2026-10-01). So:
 | SoC integration | LiteX (Migen), importing the Amaranth cores as Verilog |
 | Gateware tests and proofs | cocotb + Verilator; SymbiYosys |
 | Soft-core firmware (VexRiscv, `riscv32`) | Rust |
-| Pico firmware (bridges, limit enforcement) | Rust on Tock OS |
+| Pico firmware (bridges, limit enforcement) | Rust on Tock OS; Embassy where Tock doesn't fit the application, with the reason written beside it (Jon, 2026-11-26) |
 | Mesh node firmware (nRF52840) | Rust on Tock OS, a port of UMSH; until it runs, UMSH's own releases |
 | Host software (ingest, SCPI, MCP, CLI, LCSC client, golden models) | Rust (tokio, duckdb) |
 | Model training (project #3) | Python, PyTorch |

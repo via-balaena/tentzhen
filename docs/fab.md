@@ -341,9 +341,10 @@ Tentzhen's route across it. Where both sides have a number, the warehouse works 
   - what is checked: Kani on our interlock logic, as on the bench's enforcer, against SputterOS's
     own tests;
   - whether a fault in the process logic can reach the interlocks.
-- **Tock or Embassy:** CLAUDE.md names Tock for a Pico's firmware, so Embassy needs an exception,
-  Jon's decision (below). UMSH's own firmware, which the mesh uses until a Tock port runs, is
-  built on Embassy (`mesh.md`).
+- **Tock, then Embassy** (Jon, 2026-11-26: "Tock then Embassy if Tock doesnt fit the application
+  well"). The station is written on Tock first. If Tock doesn't fit it, the reason is written
+  here and the station moves to Embassy (CLAUDE.md, "Language policy"). UMSH's own firmware,
+  which the mesh uses until a Tock port runs, is built on Embassy (`mesh.md`).
 
 **2. One interlock design, for every tool.**
 - **Hacker Fab's:** each tool has a controller of its own:
@@ -443,5 +444,3 @@ Whether our process could make its parts is `unknown`.
   CLAUDE.md keeps long-lived code in Rust.
 - Upstream: whether via-balaena/tentzhen takes the wider scope.
 - The training's compute (`littlebit.md`, "The training needs more compute").
-- Embassy for a Pico's firmware, as one side of the comparison with SputterOS ("Hacker Fab's other
-  tools"). CLAUDE.md names Tock.
