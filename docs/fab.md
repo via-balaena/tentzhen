@@ -391,8 +391,8 @@ The sources are in `prior-art.md`, "Open fabs, and chips made outside one" (sear
 
 **6. The source-meter and the probe station.**
 - **Hacker Fab's:**
-  - Three Analog Discovery 3s, at $379 each, serve as source-meters.
-  - The probe station is built on $125 XYZ stages. It senses the probe's touch with a piezo
+  - Three Analog Discovery 3s serve as source-meters.
+  - The probe station is built on bought XYZ stages. It senses the probe's touch with a piezo
     sensor, still in progress.
 - **Ours:** instrument #1 where an Analog Discovery 3 is used, and its ADC on the touch sensor.
   This is step 3's test gear ("The steps", above).
