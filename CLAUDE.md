@@ -96,10 +96,12 @@ both read 2026-10-01). So:
 | Model training (project #3) | Python, PyTorch |
 | SocialJax's game and its trained policy, run on the computer (project #3) | Python, JAX, as SocialJax is written |
 | Analog simulation / PCB | ngspice / KiCad |
+| Physics simulation and co-design (stages, structures, fields) | CortenForge's published crates, Rust |
 | Build reproducibility | Nix |
 
-Python only for gateware, cocotb tests, and throwaway exploration. Anything long-lived gets
-rewritten in Rust. Three exceptions: `brand/mural.py`, the source of the mural and the daybreak
+Use CortenForge and Rust wherever they can do the job (Jon, 2026-11-25: "I'd like to always use
+CortenForge/Rust where possible"). Python only for gateware, cocotb tests, and throwaway
+exploration. Anything long-lived gets rewritten in Rust. Three exceptions: `brand/mural.py`, the source of the mural and the daybreak
 skyline, which the Quality Gate checks against the committed SVGs; project #3's model training,
 in PyTorch (Jon, 2026-11-21; `docs/littlebit.md`); and the code that runs SocialJax's game and
 its trained policy, in JAX as SocialJax is written (`models/cleanup/`; Jon, 2026-11-24). Code
