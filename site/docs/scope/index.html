@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instrument #1: two-channel digitizer and signal generator · Tentzhen</title>
+<link rel="icon" href="../../img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../style.css">
+</head>
+<body>
+
+<header class="column site-header">
+  <a class="brand" href="../../index.html" aria-label="Tentzhen home">
+    <img src="../../img/mark-black.svg" alt="">
+    <span class="wordmark">TENTZHEN</span>
+  </a>
+  <nav class="site-nav" aria-label="Main">
+    <a href="../../builds/index.html">BUILDS</a>
+    <a href="../../parts/index.html">PARTS</a>
+    <a href="../../docs/vision/index.html">VISION</a>
+    <div class="nav-menu">
+      <button type="button" class="nav-label">PROJECTS</button>
+      <div class="nav-items">
+        <a href="../../docs/scope/index.html">DIGITIZER AND GENERATOR</a>
+        <a href="../../docs/mesh/index.html">THE MESH</a>
+        <a href="../../docs/littlebit/index.html">HARDWIRED NEURAL NET</a>
+        <a href="../../fab/index.html">THE OPEN FAB</a>
+      </div>
+    </div>
+    <a href="../../docs/verification/index.html">VERIFICATION</a>
+    <a href="../../docs/roadmap/index.html">ROADMAP</a>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
+  </nav>
+</header>
+
+<main class="column spec">
+<p class="crumbs"><a href="../index.html">DOCS</a> / SCOPE</p>
+<div class="prose doc">
+<h1 id="instrument-1-two-channel-digitizer-and-signal-generator">Instrument #1: two-channel digitizer and signal generator</h1>
+<p>Research date for everything below: 2026-09-28, unless a line says otherwise.</p>
+<h2 id="architecture">Architecture</h2>
+<ul>
+<li><strong>FPGA board:</strong> Colorlight i9 v7.2 + extension board. FPGA LFE5U-45F-6BG381C; SDRAM
+M12L64322A (8 MB, 32-bit); W25Q64 flash; 2× B50612D gigabit Ethernet PHYs; 25 MHz clock. The
+extension board adds a DAPLink (JTAG + USB-CDC), USB-C, HDMI and six 2×15 headers. P1 carries
+the Ethernet pairs, power and ground, and no FPGA I/O. P2–P6 carry 98 FPGA I/O, each header laid
+out as two PMOD-compatible sites plus four more I/O, a ground, and 5 V on pin 23.
+(github.com/wuxx/Colorlight-FPGA-Projects, <code>colorlight_i9_v7.x.md</code> and
+<code>schematic/i5-i9-extboard.pdf</code>; the headers read 2026-10-01)</li>
+<li><strong>One i9, three extension boards</strong> (Jon, 2026-10-06). The i9 is a module with a DDR2 SO-DIMM
+edge (<code>colorlight_i9_v7.x.md</code>, "DDR2-SODIMM-200P", same repository at 5042201f, read
+2026-10-06), so it moves between extension boards, each wired for one job and left wired: A
+carries this instrument's tier-2 modules; B a logic analyzer (<a href="../roadmap/index.html"><code>roadmap.md</code></a>, "Parallel tracks");
+C the loopback test of Phase 1 (Open questions). The i9 is moved with the USB cable unplugged.
+How many insertions the socket is rated for is <code>unknown</code>, and how the gateware tells which
+board it sits in is not designed yet (Phase 1).</li>
+<li><strong>Ethernet needs an adapter:</strong> the extension board has no RJ45 jacks, and P1 carries the PHYs'
+bare pairs. Of the i5, which uses the same extension board, Tom Verbeure wrote that the module
+"only contains the transceivers, not the Ethernet transformers or RJ45 connectors" ("Getting
+Started with ECP5 FPGAs on the Colorlight i5 FPGA Development Board", tomverbeure.github.io,
+2021-01-22); that the i9 is the same is <code>unknown</code>, as its schematic is not public. Kazumoto
+Kojima's i5ether is an adapter for P1, in kazkojima/colorlight-i5-tips, with no license file, so
+we design our own (<a href="../roadmap/index.html"><code>roadmap.md</code></a>, Phase 3). Until it is built, the host reaches the board through
+its DAPLink's USB-CDC serial port.</li>
+<li><strong>SoC:</strong> LiteX with a VexRiscv soft core, LiteEth (Ethernet streaming), LiteDRAM (SDRAM capture
+buffer). Custom cores — capture, trigger, DDS — in Amaranth so they can carry formal
+properties (<a href="../verification/index.html"><code>verification.md</code></a>).</li>
+<li><strong>Inputs, tier 2:</strong> 2× AD9226 modules (12-bit, up to 65 MS/s), one per channel, on headers P2 and
+P3 by jumper wire. Each module has a 2×10 header: 14 signals, 5 V and ground. They are the cheap
+way in, and what the capture gateware is brought up on.</li>
+<li><strong>Inputs, tier 3:</strong> one TI ADS4245 (two channels, 14-bit, up to 125 MS/s) on the front-end PCB,
+which plugs straight onto P2 and P3, with no wires. How the i9 reads it and what clocks it: "The
+tier-3 ADC", below. Why this chip, and what else exists: <a href="../prior-art/index.html"><code>prior-art.md</code></a>, "Faster ADCs".</li>
+<li><strong>Outputs (phase 5):</strong> a dual AD9767 module in the AN9767's pinout (32 signals, 5 V and ground,
+on P4 and P5) with a waveform-generation core.</li>
+<li>Which header carries what, and why: <code>builds/digitizer/v1.toml</code>.</li>
+<li><strong>Analog front end:</strong> custom PCB — input protection, switchable attenuation, AC/DC coupling,
+buffer amplifier, anti-alias filter, and from tier 3 the ADC and the oscillator that clocks it.</li>
+<li><strong>Host:</strong> Rust services for ingest (DuckDB), a SCPI server and an MCP server. UI via an
+ngscopeclient driver, later possibly native egui.</li>
+</ul>
+<p>The soft core does not run Linux; 8 MB of SDRAM is reserved for the capture buffer. It runs
+bare-metal Rust or Tock.</p>
+<p>Not pursued (sources read 2026-10-02): the EBAZ4205, a used miner's board with a Zynq-7010, two
+ARM cores beside an FPGA. Its three headers carry 42 FPGA I/O; two inputs and two outputs take 60
+(<code>builds/digitizer/v1.toml</code>), and tier 3's ADC takes 33. Its Ethernet is 10/100. What it would
+add is 256 MB of DDR3 against the i9's 8 MB of SDRAM, wired to the ARM side. A U-Boot fork for
+the board (embed-me's) sets the DDR3 up from a generated register file, copyright Xilinx; GenZ,
+the open generator of such files, notes "ddr: DDR3, unsupported yet". Whether the open FPGA tools
+can write captures into it is <code>unknown</code>. The pins rule out two inputs and two outputs whatever the
+tools do; one input and one output fit, as in kushpet's build. Sources and the builds on it:
+<a href="../prior-art/index.html"><code>prior-art.md</code></a>, "A cheaper FPGA board".</p>
+<h2 id="against-the-reference">Against the reference</h2>
+<table><thead><tr><th></th><th>Red Pitaya STEMlab 125-14</th><th>Tentzhen #1, tier 2 (modules)</th><th>Tentzhen #1, tier 3 (front-end PCB)</th></tr></thead><tbody>
+<tr><td>ADC</td><td>LTC2145-14</td><td>2× AD9226</td><td>ADS4245</td></tr>
+<tr><td>channels in / out</td><td>2 / 2</td><td>2 / 2 (outputs in phase 5)</td><td>2 / 2</td></tr>
+<tr><td>sample rate</td><td>125 MS/s</td><td>up to 65 MS/s (AD9226 rating)</td><td>up to 125 MS/s (ADS4245 rating)</td></tr>
+<tr><td>resolution</td><td>14-bit</td><td>12-bit</td><td>14-bit</td></tr>
+<tr><td>the ADC's SNR, typical</td><td>73.1 dBFS at 5 MHz</td><td>69 dB at 31 MHz</td><td>73.4 dBFS at 20 MHz</td></tr>
+<tr><td>bandwidth</td><td>DC–60 MHz</td><td>20–30 MHz usable — a target, <code>unknown</code> until measured</td><td>set by the front end, below 62.5 MHz (half the sample rate)</td></tr>
+<tr><td>input range</td><td>±1 V / ±20 V, 1 MΩ ∥ 10 pF</td><td>the module's</td><td>set by the front end</td></tr>
+</tbody></table>
+<p>Red Pitaya figures: redpitaya.readthedocs.io, <code>developerGuide/hardware/ORIG_GEN/125-14</code>; its ADC
+and DAC: RedPitaya/Documentation at 5c39e718, the same page's "Components" (the DAC is the AD9767,
+as ours is). SNR rows from each ADC's data sheet, read 2026-10-02: LTC2145-14 (21454314fa, typical
+at 25 °C), AD9226 (Rev. B, its front page), ADS4245 (SBAS533E, typical at 25 °C, with the LVDS
+interface).</p>
+<p>Expect more noise than a Red Pitaya on front end v1. That is fine. Publish real numbers.</p>
+<h2 id="price">Price</h2>
+<p>No price target. Tier 3 is to be the best instrument its money buys on the i9 (Jon, 2026-10-06),
+which stays the board because its FPGA has an open toolchain (Yosys, nextpnr, Project Trellis) and
+runs a RISC-V soft core (VexRiscv). "Best for the money" is read from Phase 7's spec sheet, every
+number <code>measured</code>, beside the BOM tool's dated price (<a href="../roadmap/index.html"><code>roadmap.md</code></a>); prices stay out of the docs
+(<a href="../vision/index.html"><code>vision.md</code></a>, "Entry tiers"). Instrument #1's price counts a whole i9 and extension board. A bench
+that runs several instruments on one i9 (Architecture) states its own price beside it, with the i9
+counted once.</p>
+<h2 id="the-tier-3-adc">The tier-3 ADC</h2>
+<p>Chosen 2026-10-02, from sources read that day. Its figures are the makers' and our arithmetic on
+them; none is measured.</p>
+<ul>
+<li><strong>Its outputs.</strong> In parallel CMOS mode the ADS4245 puts out 28 data lines and a clock (<code>DA[13:0]</code>,
+<code>DB[13:0]</code>, <code>CLKOUT</code>) at 1.8 V: its output supply, DRVDD, is 1.7 V to 1.9 V. Four more lines set
+it up (<code>RESET</code>, <code>SCLK</code>, <code>SDATA</code>, <code>SEN</code>). That is 33 of the 38 I/O on P2 and P3, which leaves P4
+and P5 to the DAC, as <code>builds/digitizer/v1.toml</code> wires it. (TI SBAS533E, revised February 2023:
+pin tables and recommended operating conditions.)</li>
+<li><strong>1.8 V into the i9.</strong> In Lattice's mixed-voltage table a bank accepts 1.8 V inputs only when its
+VCCIO is 1.8 V, and accepts 1.2 V inputs at every VCCIO (FPGA-TN-02032 1.4, Table 4.2). The
+i9's VCCIO is neither published nor measured. So the gateware reads the ADC as LVCMOS12, which
+"can also be set as fixed threshold inputs independent of VCCIO" (FPGA-DS-02012 3.4, section
+2.14.1). Table 3.12 gives LVCMOS12's thresholds as 0.35 and 0.65 of VCCIO and accepts up to
+3.465 V; its note 4 says that with mixed voltages "VIL/VIH follows the I/O signaling standard",
+so we read the thresholds as 0.42 V and 0.78 V. No Lattice text names this use, and none gives
+that receiver's speed: it is <code>unknown</code> until the loopback test passes (Open questions).</li>
+<li><strong>If it fails,</strong> the ADS4245's DDR LVDS mode is the documented route. The ECP5 takes LVDS inputs
+on its left and right banks only, with VCCIO at 2.5 V or 3.3 V (FPGA-DS-02012 3.4, Tables 3.11,
+note 4, and 3.13). It needs 15 pairs, seven per channel and the clock. P2 to P5 carry 24 true
+pairs on those banks, only 8 of them within P2 and P3 (Lattice's ECP5U-45 pinout CSV, rev. 3.0,
+against the extension board's pinout), so the ADC would spread over all four headers and the DAC's
+pins would be planned again.</li>
+<li><strong>The sampling clock.</strong> Clock jitter alone limits SNR to −20·log10(2π·f_in·t_jitter) (SBAS533E,
+section 9.2.2.4, Equation 2), so holding 73 dB at a 30 MHz input allows 1.2 ps rms. The ECP5's
+PLL is specified only peak to peak: up to 100 ps of period jitter at outputs of 100 MHz and
+above, measured "with clean reference clock with no additional I/O toggling" (FPGA-DS-02012 3.4,
+Table 3.23). Its rms jitter on the i9 is not measured. So the ADC runs from a crystal oscillator
+on the front-end board, and the FPGA captures on the ADC's <code>CLKOUT</code>, brought to a clock input:
+P2 pin 16 (J20, PCLKT2_0) or pin 13 (L20, PCLKT3_1).</li>
+<li><strong>Capture depth.</strong> Two channels at 125 MS/s carry about 440 MB/s packed at 14 bits, 500 MB/s in
+16-bit words. LiteX's i9 target runs the SDRAM on its system clock, 60 MHz by default
+(<code>--sys-clk-freq</code>, <code>--sdram-rate 1:1</code>; litex-boards <code>colorlight_i5.py</code> target at 87307deb), which
+peaks at 240 MB/s on 32 bits. Whether LiteDRAM runs this SDRAM twice as fast is <code>unknown</code>, so
+until it does, a capture fits in block RAM. The LFE5U-45 has 108 blocks of 18 kbit (FPGA-DS-02012
+3.4, Table 1.1): at one sample per 18-bit word, about 55,000 samples per channel, less what the
+SoC takes. The Red Pitaya's standard buffer is 16,384 samples (RedPitaya/Documentation,
+acquisition commands, at 5c39e718). Gigabit Ethernet carries at most 125 MB/s, so a capture is
+triggered, held, then sent.</li>
+</ul>
+<h2 id="closer-to-the-reference-without-parts">Closer to the reference without parts</h2>
+<p>Gateware and host work, no extra parts (sources read 2026-10-02):</p>
+<ul>
+<li><strong>Equalization, per unit.</strong> Each unit's own measured response sets a correction filter that
+flattens the front end up to the anti-alias cutoff and no further: past it, correcting "would
+just amplify noise" (Haasoscope Pro, <code>software/FIR_CALIBRATION_README.md</code>). The Red Pitaya has
+such a filter in its gateware, <code>red_pitaya_dfilt1</code>, a "Filter to equalize input analog chain".</li>
+<li><strong>Averaging for bits.</strong> Averaging samples trades rate for resolution where the input carries
+enough noise to dither it. The Red Pitaya's decimation does it: "Each sample is the average of
+skipped samples if DEC &gt; 1". What it gains on our units is <code>unknown</code> until measured.</li>
+<li><strong>Equivalent-time sampling of our own stimulus.</strong> Where the DAC drives the input (a Bode plot, a
+step response), shifting the stimulus's phase against the sampling clock between repeats samples
+the waveform at steps finer than one clock period. It does nothing for a single-shot signal.</li>
+<li><strong>sin(x)/x interpolation</strong> on the host, for display near half the sample rate.</li>
+</ul>
+<p>Not pursued: two AD9226s interleaved per channel for 130 MS/s. It needs the two chips' gain,
+offset and timing matched in calibration, and neither the dual module that offers it nor any open
+AD9226 project we found publishes one. (Haasoscope Pro measures and corrects the timing between
+its own interleaved boards, <code>software/calibration.py</code>.) CycleScope weighed it and did not adopt it
+(<a href="../prior-art/index.html"><code>prior-art.md</code></a>, "Faster ADCs").</p>
+<h2 id="known-part-issues">Known part issues</h2>
+<ul>
+<li><strong>AD9226 modules driven by an AD8138 clip early.</strong> On that variant the AD8138's VOCM pin is
+wired to the AD9226's VREF (2 V) instead of its common-mode level (2.5 V). Documented fix: cut
+the trace and add a jumper wire; gain is set by R2/R14.
+(github.com/machcnz/VHSDecode-HSDAOH-Capture-Hardware-Development,
+<code>initial_setup_and_modification/README.md</code>, rev 1.1, 2026-09-15.) The module's V1.2 schematic
+(2020-02-21, <code>docs/AD9226-V1.2-board.pdf</code> in kushpet/ebaz4205-sdr) shows that wiring, read
+2026-10-01. Why it clips early is <code>unknown</code>. Whether the modules we buy are that variant is
+<code>unknown</code> until they arrive; incoming QA checks it (<code>builds/digitizer/v1.toml</code>).</li>
+<li><strong>Bit order differs by seller.</strong> The AD9226's BIT1 is its MSB (<code>parts/ad9226.toml</code>). 凌智电子's
+manual (V2.3, 2021-06-03) labels BIT1 as D0; on the V1.2 board, D0 is header pin 5, which its
+schematic wires to BIT12, the LSB (traced by eye, 2026-10-01). Incoming QA reads a ramp to tell.</li>
+<li><strong>The extension board's USB-C port has no CC resistors</strong> (the schematic marks CC1 and CC2 not
+connected), and a USB-C source drives no VBUS until it detects a sink's pull-down on CC1 or CC2
+(USB Type-C spec 1.3, sections 4.5.2.2.7 and 4.5.2.2.8.2, as quoted in Zephyr's
+<code>subsys/usb/usb_c/usbc_tc_src_states.c</code>), so a USB-C to USB-C cable may give it no power. Power
+it from a USB-A port.</li>
+<li>At least one module variant is specified for ±5 V (10 Vpp) input scaled to 1–3 V, with a 5 V
+supply and 3.3 V logic (manuals.plus/ae/1005005576645194). Input stages differ between
+sellers, so each unit is characterized on arrival.</li>
+<li><strong>Availability:</strong> both Amazon listings for the Colorlight i9 read "Currently unavailable" on
+2026-09-28. Jon bought an i9 and three extension boards from Muse Lab's AliExpress store
+(<code>lab/sourcing.toml</code>; said 2026-10-06).</li>
+</ul>
+<h2 id="calibration-references-no-expensive-gear-required">Calibration references (no expensive gear required)</h2>
+<ul>
+<li>DC accuracy: LM4040 precision reference, from an authorized distributor (LCSC or DigiKey).</li>
+<li>Timebase: crystal oscillator of known frequency.</li>
+<li>Edges and timing: Pico PWM output.</li>
+<li>Noise and distortion: clean audio-range sine from a sound card.</li>
+</ul>
+<h2 id="reuse-before-reinventing">Reuse before reinventing</h2>
+<ul>
+<li>LiteX / LiteX-Boards: the i9 is <code>--board i9</code> on the <code>colorlight_i5</code> target
+(<code>litex_boards/targets/colorlight_i5.py</code>, read 2026-09-28).</li>
+<li>LiteScope for in-FPGA debugging.</li>
+<li>Red Pitaya's open FPGA code for capture/trigger structure and its input equalizer,
+<code>red_pitaya_dfilt1</code> (RedPitaya-FPGA at 728a4f37, read 2026-10-02). Its LICENSE is BSD 3-clause
+text, but the directories it says it covers (<code>Applications</code>, <code>fpga</code> and others) are none of this
+repository's, so ask Red Pitaya before copying.</li>
+<li>Haasoscope Pro's FIR calibration (MIT) and ngscopeclient's de-embed filter (scopehal, BSD-3) for
+equalizing each unit (read 2026-10-02).</li>
+<li>ThunderScope's open design files as a front-end reference (check the license).</li>
+<li>ngscopeclient for the UI.</li>
+<li>Upstream Tock's <code>litex_vexriscv</code> chip, if the soft core runs Tock.</li>
+</ul>
+<h2 id="open-questions">Open questions</h2>
+<ul>
+<li>Current state of Rust crates for LiteX-generated SoCs.</li>
+<li>Whether the i9 reads 1.8 V CMOS through LVCMOS12 inputs at 125 MHz ("The tier-3 ADC"):
+<code>unknown</code>. Settled on the i9 alone, before the front end is designed: one header pin drives a
+pseudo-random pattern through a resistor divider down to 1.8 V into an LVCMOS12 input on
+another, and the gateware counts errors at 125 Mb/s (<a href="../roadmap/index.html"><code>roadmap.md</code></a>, Phase 1).</li>
+<li>Whether LiteDRAM runs the i9's SDRAM fast enough for deep captures at 125 MS/s, and which speed
+grade of M12L64322A the i9 carries.</li>
+<li>Whether LCSC stocks the ADS4245 for JLCPCB's assembly: a person checks. Whether the 12-bit
+ADS4225 fits the same footprint: one data sheet and family table cover both, but pin for pin is
+not checked.</li>
+<li>Whether 65 MS/s survives 10 cm jumper wires (tier 2) — signal integrity is <code>unknown</code>. Scoped
+(github.com/wavius/Scoped) clocks an AD9226 module at 25 MHz over 20 cm ones, and its README
+shows a demo over UART at a 50 kHz acquisition rate, as USB kept dropping.</li>
+<li>Whether one USB port powers the i9 and three modules: the extension board's fuse rating is not
+printed, and the draw is not measured.</li>
+<li>The Ethernet adapter on P1: designed in Phase 3 (<a href="../roadmap/index.html"><code>roadmap.md</code></a>), not yet in a build.</li>
+<li>The DAC module's specs: confirm them by measurement.</li>
+<li>Front-end op-amp selection: bandwidth vs noise vs LCSC availability vs JLCPCB basic-part status.</li>
+</ul>
+</div>
+<p class="notice">Written in <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/scope.md">docs/scope.md</a>, on main; this page is made from it.</p>
+</main>
+
+<footer class="site-footer">
+  <div class="column">
+    <span>腾振 TENTZHEN · A VIA BALAENA PROJECT</span>
+    <span>MIT OR APACHE-2.0 · <a href="../../legal/index.html">LEGAL</a></span>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB.COM/VIA-BALAENA/TENTZHEN</a>
+  </div>
+</footer>
+
+</body>
+</html>

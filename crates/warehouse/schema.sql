@@ -683,3 +683,15 @@ COMMENT ON VIEW gold.page_fab IS 'The fab page: each row with both sides, and, w
 CREATE VIEW gold.legal AS
 SELECT body FROM bronze.record WHERE path = 'DISCLAIMER.md';
 COMMENT ON VIEW gold.legal IS 'The disclaimer, as the site''s legal page shows it.';
+
+CREATE VIEW gold.doc AS
+SELECT regexp_extract(path, '^docs/([^/]+)\.md$', 1) AS name, path, body
+FROM bronze.record
+WHERE regexp_full_match(path, 'docs/[^/]+\.md');
+COMMENT ON VIEW gold.doc IS 'Each doc in docs/, in Markdown, by its name: the site makes a page of each.';
+
+CREATE VIEW gold.doc_image AS
+SELECT regexp_extract(path, '^docs/img/([^/]+\.svg)$', 1) AS file, body
+FROM bronze.record
+WHERE regexp_full_match(path, 'docs/img/[^/]+\.svg');
+COMMENT ON VIEW gold.doc_image IS 'Each drawing in docs/img/, which the doc pages show.';

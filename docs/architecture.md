@@ -8,7 +8,7 @@ the same grading `verification.md` asks of any claim.
 
 ```mermaid
 flowchart LR
-  records["records<br/>parts/ builds/ lab/ fab/<br/>trusted-base.toml<br/>DISCLAIMER.md"]
+  records["records<br/>parts/ builds/ lab/ fab/<br/>trusted-base.toml<br/>DISCLAIMER.md docs/"]
   schemas["schemas and loaders<br/>crates/records<br/>crates/lab"]
   warehouse["warehouse<br/>crates/warehouse<br/>bronze, silver, gold"]
   site(["crates/site"])
@@ -21,7 +21,7 @@ flowchart LR
 
 | layer | where | what it is |
 |---|---|---|
-| records | `parts/`, `builds/`, `lab/`, `fab/`, `trusted-base.toml`, `DISCLAIMER.md` | The system of record. Everything else is rebuilt from these. |
+| records | `parts/`, `builds/`, `lab/`, `fab/`, `trusted-base.toml`; and the site's documents, `DISCLAIMER.md` and `docs/` | The system of record. Everything else is rebuilt from these. |
 | schemas and loaders | `crates/records`, `crates/lab` | Typed schemas that refuse what they don't know, and the checks the records' own rules call for. |
 | warehouse | `crates/warehouse`, described in `docs/data-catalogue.md` | Bronze holds each file as read, silver holds typed rows the database constrains, and gold holds views that answer questions. It can be deleted at any time. |
 | readers | `crates/site` today | They read gold. |
@@ -32,7 +32,7 @@ flowchart LR
 
 | rule | held by |
 |---|---|
-| Schema first: every file in `parts/`, `builds/`, `lab/` and `fab/` is loaded into the warehouse, and so are `trusted-base.toml` and `DISCLAIMER.md`, or CI fails. A record is parsed by its schema on the way in; a drawing is kept as it is. A folder's README is not a record. | `every_file_in_the_records_folders_is_loaded` |
+| Schema first: every file in `parts/`, `builds/`, `lab/` and `fab/` is loaded into the warehouse, and so are `trusted-base.toml`, `DISCLAIMER.md` and every file in `docs/`, or CI fails. A record is parsed by its schema on the way in; a drawing is kept as it is. A folder's README is not a record. | `every_file_in_the_records_folders_is_loaded` |
 | Every schema refuses a key it doesn't know. | `every_table_refuses_a_key_it_does_not_know`, in `crates/records` and in `crates/lab`; for the lab log, the measurement records, the lab-target list, the lab's sourcing and the fab's stack, `a_log_entry_keeps_its_shape`, `a_measurement_record_keeps_its_shape`, `a_lab_target_keeps_its_shape`, `a_sourcing_line_keeps_its_shape` and `a_fab_row_keeps_its_shape`; for MNIST's pins and a training run's summary, `the_mnist_pins_name_its_four_files` and `a_run_summary_refuses_a_key_it_does_not_know` in `crates/littlebit`; for a run's integer export, `an_integer_network_refuses_what_does_not_fit` |
 | A rule a record states in a comment is a check or a test. | the tests in `crates/lab` and `crates/records`, for `lab/limits.toml`, and for `lab/targets.toml` and `lab/sourcing.toml`, whose comments list what nothing holds. Nothing holds this for new files: `unknown`. |
 | Every file the warehouse loads is in bronze with its sha256, and every silver row traces to one. | `every_row_traces_to_the_bytes_it_came_from`, for the eight silver tables with a `record` column; the rest reference one of those by foreign key, directly or through another table. |
@@ -51,6 +51,7 @@ flowchart LR
 | A line's status is the last stage it has reached, never typed, with that stage's own day or none; with no stage reached, or no line, it is specced. | `a_status_comes_from_its_stages` |
 | A sourcing line for a part sold by authorized sellers only, or whose claims rest on `maker-datasheets`, says where the maker lists its seller (`authorized`) once it names a source or reaches a stage; `authorized` comes with a seller, for a part sold new. | `a_part_that_assumes_an_authorized_seller_names_one` and `a_sourcing_line_keeps_its_shape` in `crates/records`; the warehouse's checks on `silver.sourcing` hold that `authorized` comes with a seller and not beside `used` or `salvaged_from` (`the_database_refuses_what_the_records_refuse`). That the seller is on the maker's list is the writer's word, and a build's own claims on `maker-datasheets` are not held to its parts' sources. |
 | The home page, written by hand, carries the nav every generated page does. | `the_home_page_s_nav_is_the_generated_one` |
+| Every doc in `docs/` is a page on the site (`site/docs/<name>/`), made from the warehouse's copy (`gold.doc`), and the nav links those pages, not GitHub. On a doc's page, a doc it names, in a link or in code, links to that doc's page; a link to another file of the repo goes to GitHub; its drawings come from `docs/img/`; its headings carry GitHub's anchors. | `every_file_in_the_records_folders_is_loaded` in `crates/warehouse`, which counts `gold.doc` against `docs/`; `the_nav_sends_no_one_to_github_for_a_doc` and `a_doc_page_links_docs_drawings_and_the_repo` in `crates/site`. That a page matches its doc on main is held by the Quality Gate, which regenerates `site/` and fails on any difference. |
 | A build's line gives its thing's class, one of the letters `crates/records` lists (`Class`), and one thing, a part and its form or a commodity and its form, has one class in every build version that writes it. | `a_line_gives_its_class_by_letter` and `one_thing_has_one_class` in `crates/records`. The warehouse's check on `silver.line` holds the letters, every one `crates/records` lists and no other (`the_database_refuses_what_the_records_refuse`), not that one thing has one class. |
 | The parts page shows each thing the bench needs once, grouped by class, and no price. | `the_parts_page_lists_each_thing_once`. No price reaches it only as far as `lab/sourcing.toml` refuses a field it does not know: one written into a store's name, a form or a commodity would, and nothing holds that. |
 | The fab page, from `fab/stack.toml`, sets Hacker Fab's side of each row beside the industry's, each with its source, the source's own words and the day it was read. When both sides have a value in the row's unit, the gap is worked out from them, the way `better` says; otherwise the row says its gap in words, which carry no factor. A layer's rows sit together. A route is built in Rust or CortenForge, or says why not (CLAUDE.md, "Language policy"). | `a_row_with_two_values_has_its_gap_worked_out`, `a_row_with_words_says_its_gap`, `a_side_gives_a_value_or_words`, `a_value_has_a_unit_from_the_list`, `a_route_is_built_in_rust_or_cortenforge_or_says_why_not`, `a_side_names_its_source_and_the_day_it_was_read` and `a_layer_s_rows_sit_together_once_each` in `crates/records`; `the_fab_s_gap_is_worked_out_from_its_two_values` in `crates/warehouse`; `the_fab_page_sets_each_side_beside_its_source` and `a_value_is_written_with_its_si_prefix` in `crates/site`. Not held by anything: that a quote is its source's words, or that a value is what the quote says. |

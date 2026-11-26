@@ -1,0 +1,1991 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project #3: LittleBit × Taalas on a Colorlight i9 · Tentzhen</title>
+<link rel="icon" href="../../img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../style.css">
+</head>
+<body>
+
+<header class="column site-header">
+  <a class="brand" href="../../index.html" aria-label="Tentzhen home">
+    <img src="../../img/mark-black.svg" alt="">
+    <span class="wordmark">TENTZHEN</span>
+  </a>
+  <nav class="site-nav" aria-label="Main">
+    <a href="../../builds/index.html">BUILDS</a>
+    <a href="../../parts/index.html">PARTS</a>
+    <a href="../../docs/vision/index.html">VISION</a>
+    <div class="nav-menu">
+      <button type="button" class="nav-label">PROJECTS</button>
+      <div class="nav-items">
+        <a href="../../docs/scope/index.html">DIGITIZER AND GENERATOR</a>
+        <a href="../../docs/mesh/index.html">THE MESH</a>
+        <a href="../../docs/littlebit/index.html">HARDWIRED NEURAL NET</a>
+        <a href="../../fab/index.html">THE OPEN FAB</a>
+      </div>
+    </div>
+    <a href="../../docs/verification/index.html">VERIFICATION</a>
+    <a href="../../docs/roadmap/index.html">ROADMAP</a>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
+  </nav>
+</header>
+
+<main class="column spec">
+<p class="crumbs"><a href="../index.html">DOCS</a> / LITTLEBIT</p>
+<div class="prose doc">
+<h1 id="project-3-littlebit--taalas-on-a-colorlight-i9">Project #3: LittleBit × Taalas on a Colorlight i9</h1>
+<p>Research date for everything below: 2026-11-21, unless a line says otherwise.</p>
+<p>A small neural network on the Colorlight i9, with its weights compressed to well under one bit
+each and built into the FPGA's logic as constants. It measures what hardwiring low-bit weights buys
+and what it costs, on a network small enough to check image by image. Nothing is built yet. It
+needs no parts beyond the i9 and an extension board, already ordered for the digitizer
+(<code>lab/sourcing.toml</code>), and a USB-A port to power them (<a href="../scope/index.html"><code>scope.md</code></a>, "Known part issues").</p>
+<h2 id="what-it-is-for">What it is for</h2>
+<p>The point is a chip that runs SocialJax and Concordia as efficiently as possible, to simulate
+social conflict and solve it before it happens, and local AI companions in a humanoid robot. Safety
+first, and security at the hardware level is very important. (Jon, 2026-11-21.)</p>
+<p>What the two run, read from their sources:</p>
+<ul>
+<li><strong>SocialJax</strong> (cooperativex/SocialJax at 18e2171, Apache-2.0; arXiv 2503.14576) is a suite of
+multi-agent reinforcement-learning environments for sequential social dilemmas, written in JAX.
+Its IPPO baseline's network (<code>algorithms/utils/networks.py</code>) is three convolutions of 32 channels
+and a dense layer of 64, then an actor head of 64 that picks one of Clean Up's 9 actions from an
+11 × 11 × 19 observation (<code>socialjax/environments/cleanup/clean_up.py</code>). Our count from those
+files: 290,570 parameters with its critic head, 85 % of them in the dense layer, and 286,345 for
+the policy alone. The repo's Clean Up checkpoint is 1,163,141 bytes, the size of 290,570 float32
+numbers and 861 bytes more. That is the same order as this step's 234,752-weight MLP.</li>
+<li><strong>Concordia</strong> (google-deepmind/concordia at d7da449, Apache-2.0) builds its agents from calls to
+a language model: it "requires access to a standard LLM API", and "You must also provide a text
+embedder for associative memory" (README). Its model registry lists local backends (Ollama,
+Hugging Face, vLLM, Gemma in PyTorch) beside hosted ones, as a search agent read it; not re-read.
+So its compute is language-model inference, the workload Taalas hardwires: its HC1 is "hard-wired
+with Llama 3.1 8B" (taalas.com, "The path to ubiquitous AI", 2026-02-19).</li>
+</ul>
+<p>Hardwired weights are constants of the circuit. A chip built this way runs a network that is
+already trained: new weights are a new bitstream on the i9, or a new chip in silicon, and training
+stays on a computer. So this step tests the inference half: how accuracy, logic and clock speed
+move as the bits per weight fall. How much a chip with hardwired signs could still learn, by
+changing only its scales, is a first experiment of its own ("Training with the signs fixed").
+Whether what it finds carries from a 234,752-weight network to the ones above is <code>unknown</code> until a
+later step runs one of them.</p>
+<p>What "as efficiently as possible" is measured by (Jon, 2026-11-23): beating GPUs on cost for
+multi-agent simulations with trained agents, the price of a game step with the game and its policy
+running ("The goal: cheaper than a GPU per game step", below).</p>
+<p>That is the half the chip is for. Running SocialJax here means running simulations with agents
+already trained: the chip runs their fixed policies, and training them stays on a GPU (Jon,
+2026-11-23). SocialJax's agents learn by reinforcement learning, which changes the policy with
+every update, and hardwired weights can't follow that.</p>
+<p>This step drives nothing but a serial port and an LED. What safety first means for a robot is not
+written yet. The rule Tentzhen has so far is the bench's: hard limits live in hardware an AI cannot
+reconfigure (<a href="../vision/index.html"><code>vision.md</code></a>, principle 5).</p>
+<p><strong>Security at the hardware level.</strong> Jon names OpenTitan, more for the physical companion
+(2026-11-21): "Open source silicon root of trust" (lowRISC/opentitan at 3cc49775, Apache-2.0),
+written in SystemVerilog. Its tops are Earl Grey, Darjeeling and English Breakfast, and its FPGA
+builds are Earl Grey's for the CW340 board and English Breakfast's for the CW305
+(<code>hw/top_*/chip_*_cw3*.core</code>). Whether any of its tops fits the i9's LFE5U-45F is not checked, and
+it is not part of this step. Tentzhen already has a research track for keys in a TROPIC01 secure
+element (<a href="../roadmap/index.html"><code>roadmap.md</code></a>), and the mesh names an SE050 for its own board (<a href="../mesh/index.html"><code>mesh.md</code></a>); whether one part
+serves the bench, the mesh and the companion is not weighed. Hardwired weights have one property of
+their own here: in silicon they cannot change without a new chip, while on the i9 they change with
+the bitstream.</p>
+<h2 id="where-this-came-from">Where this came from</h2>
+<p>Jon's spec of 2026-11-21, "LittleBit × Taalas on a Colorlight i9 — Project Spec", written in a
+Claude session and brought in the same day. The research questions, the network, the checks, the
+experiments and the phases are its. Changed here: the languages follow CLAUDE.md; it builds in this
+repo, not a repo of its own; a board run is a measurement record; loading the board follows the
+lab-target rules; the spec's open question about the extension board is answered from this repo;
+and two bits-per-weight figures, the clock count, the image rate and the preloaded-image count are
+worked out again. Phase 5 and research question 5 come from a second Claude session's answer that
+Jon brought the same day ("so would i do openroad after the i9?"), kept where its sources were read:
+LibreLane's repo and Tiny Tapeout's site.</p>
+<h2 id="research-questions">Research questions</h2>
+<ol>
+<li><strong>Quality vs. bits:</strong> how does test accuracy fall as the factor rank r, and so the bits per
+weight, drops, for a fixed network shape?</li>
+<li><strong>Same memory, bigger model:</strong> at an equal weight-bit budget, does a wider network at very low
+bits beat a narrower one at higher bits?</li>
+<li><strong>Hardwired vs. stored:</strong> for the same weights, how do LUTs, block RAM, maximum clock and latency
+compare when the weights are logic constants (Variant A) and when they are read from block RAM
+(Variant B)?</li>
+<li><strong>Hardware fit:</strong> how many binary weights fit in the LFE5U-45F when hardwired, and what runs out
+first: LUTs, routing or timing?</li>
+<li><strong>FPGA vs. silicon:</strong> per weight bit, how much area and how many cells does a hardwired layer
+take when laid out as a chip, against the LUTs it takes on the i9?</li>
+</ol>
+<p>Out of scope for this step: LLMs, making a chip (Phase 5 lays one out; making one is a stretch
+goal), and training on the FPGA. Training runs in PyTorch on a computer; the FPGA only runs
+inference.</p>
+<h2 id="hardware">Hardware</h2>
+<p>The design fits one LFE5U-45F and leaves about 30 % of its LUTs free for routing and timing.</p>
+<table><thead><tr><th>resource</th><th>the LFE5U-45F has</th><th>budget</th><th>used for</th></tr></thead><tbody>
+<tr><td>LUT4s</td><td>44k</td><td>≤ 30,000</td><td>Variant A's weight ROMs, adders, control, UART</td></tr>
+<tr><td>block RAM (EBR)</td><td>108 × 18 kbit, 1,944 kbit</td><td>≤ 80 blocks</td><td>Variant B's weights, the input image and activation buffers</td></tr>
+<tr><td>18 × 18 multipliers</td><td>72</td><td>≤ 32</td><td>scale vectors and requantization only</td></tr>
+<tr><td>clock</td><td>a 25 MHz oscillator</td><td>50 MHz from the ECP5's PLL</td><td>50 MHz first; higher in E12</td></tr>
+</tbody></table>
+<p>The chip's figures are Lattice's (FPGA-DS-02012 3.4, Table 1.1; the PDF's sha256 26570f8b…,
+read 2026-11-21). The chip is the i9 v7.2's LFE5U-45F-6BG381C (<a href="../scope/index.html"><code>scope.md</code></a>, "Architecture"), so
+nextpnr takes <code>--45k --package CABGA381 --speed 6</code>. On arrival its JTAG IDCODE tells it from its
+siblings without reading the marking: 0x41112043 (<code>builds/digitizer/v1.toml</code>, walkthrough).</p>
+<p><strong>The board</strong> is the i9 on any of the three extension boards (<a href="../scope/index.html"><code>scope.md</code></a>, "One i9, three extension
+boards"), with nothing wired to the headers. Jon has two i9s, each in an extension board of its
+own: his #1 and #2, here i9-1 and i9-2 (2026-11-22). The serial a load logs is the extension
+board's probe's, not the i9's, so each i9 stays in its own extension board:</p>
+<table><thead><tr><th>unit</th><th>its probe's serial</th><th>port on the lab computer</th><th>IDCODE</th></tr></thead><tbody>
+<tr><td>i9-1</td><td><code>07000001006000573800001256313848a5a5a5a597969908</code></td><td>COM3</td><td>0x41112043, LFE5U-45: lab log seq 9 of 2026-11-22</td></tr>
+<tr><td>i9-2</td><td><code>07000001005400333800001256313848a5a5a5a597969908</code></td><td>COM4</td><td>0x41112043, LFE5U-45: seq 10</td></tr>
+</tbody></table>
+<p>Gate 0 ran on i9-1: its loads, seq 2 and 4, name i9-1's probe. Gate 0's records name the part and
+its revision, not the unit.</p>
+<p>i9-2 has run the same blinky bitstream from SRAM (seq 11), with only its own board plugged in. Jon
+saw its green LED blink about once a second (seq 12). It wasn't blinking before the load, as Jon
+reported afterwards (seq 13). So the blink began with the load. Gate 0's blinky used a power
+cycle as its control; this one uses before and after. What i9-2's flash holds is <code>unknown</code>.</p>
+<p><strong>The PLL at 50 MHz.</strong> Gate 0 ran at 25 MHz from the oscillator. The design will run at 50
+MHz from the ECP5's PLL (the table above). So before the layer engine, Gate 0's echo and blinky ran
+on i9-2 from the PLL at 50 MHz (<code>gateware/bringup/pll_echo.py</code>, 2026-11-23). The PLL's dividers are
+the ones Project Trellis's <code>ecppll -i 25 -o 50</code> gives: 25 MHz, times 2, from a 600 MHz VCO.</p>
+<table><thead><tr><th></th><th>the result</th><th>lab log, 2026-11-23</th></tr></thead><tbody>
+<tr><td>before the load</td><td>the 25 MHz blinky, and no echo at 115,200 baud</td><td>seq 14, 15</td></tr>
+<tr><td>after it, at 115,200 baud</td><td>all 282 bytes back, in order, twice</td><td>seq 17, 19</td></tr>
+<tr><td>after it, at 57,600 baud, the rate it would echo at from 25 MHz</td><td>the first byte back already wrong</td><td>seq 18</td></tr>
+<tr><td>the LED, by eye</td><td>about once a second, not once every 2 s</td><td>seq 20</td></tr>
+</tbody></table>
+<p>So the PLL locks, and the design runs near 50 MHz: <code>measured</code>, <code>2026-11-23-i9-pll-echo</code>. How near
+isn't measured. Echoing at 115,200 baud only shows the clock is close enough for the UART. nextpnr
+derives the 50 MHz constraint from the PLL's dividers by itself, and puts the routed design's limit
+at 155.50 MHz. That is its timing model's figure, not a measurement. That the PLL refuses dividers
+outside <code>ecppll</code>'s ranges is <code>tested</code> (<code>gateware/cores/tests/test_ecp5_pll.py</code>). So is the echo at
+50 MHz and its divisor, 434, in cocotb without the PLL, which Verilator has no model of
+(<code>uart_echo_at_50_mhz_sends_back_every_byte_at_115200_baud</code>).</p>
+<p><strong>One layer on the board.</strong> r16's first layer, 784 → 256 at rank 16, ran on i9-2 on the layer
+engine at 50 MHz from the PLL (<code>gateware/bringup/littlebit_layer.py</code>, 2026-11-23). It answered every
+input exactly as the golden model computes it: every y, and every z, the int32 before the shift and
+clamp, of all 256 outputs. That is <code>measured</code>, <code>2026-11-23-i9-littlebit-layer</code>:</p>
+<table><thead><tr><th></th><th>inputs</th><th>answered exactly as the golden model</th><th>lab log, 2026-11-23</th></tr></thead><tbody>
+<tr><td>before the load (the PLL echo)</td><td>1 frame</td><td>none: it came back as an echo</td><td>seq 21, 22</td></tr>
+<tr><td>the test vectors for the layer</td><td>6</td><td>6</td><td>seq 24</td></tr>
+<tr><td>MNIST's first 1,000 test images, shifted as the network shifts them</td><td>1,000</td><td>1,000, in 180.0 s</td><td>seq 25</td></tr>
+</tbody></table>
+<p>The computer sends a frame, 0xA5 and the layer's 784 input bytes. The design answers 0x5A and, for
+each output, y and z, 1,281 bytes: 180 ms an input at 115,200 baud, the serial link's time, not the
+engine's. A frame left part way is dropped after 100 ms of silence. <code>cargo run -p tentzhen-littlebit -- layer &lt;port&gt; (vectors | mnist &lt;count&gt;)</code> is the computer's side
+(<code>crates/littlebit/src/board.rs</code>). In cocotb, without the PLL and at a UART divisor of 8, the same
+design answers two frames as the golden model does and drops a part one
+(<code>gateware/bringup/tests/test_littlebit_layer.py</code>). Built, it takes 6,422 of nextpnr's logic cells,
+2 DP16KD blocks for the outputs' FIFO, and closes at 55.99 MHz; the weights stay logic, as the
+Yosys log shows (<code>littlebit_layer.layer.fifo.storage</code> is the only memory it maps to block RAM).
+This is one layer, not check 3, which takes the whole network's scores and digit.</p>
+<p><strong>Load with one board on USB.</strong> openFPGALoader 1.2.0 can't choose between two identical CMSIS-DAP
+v1 probes:</p>
+<ul>
+<li>With both plugged in and no index, it refuses: "more than one CMSIS-DAP v1 device".</li>
+<li><code>--cable-index</code> matches the probe's USB interface number, which is 3 on both, so it opens
+whichever probe the system lists first. In seq 9 that was i9-1's.</li>
+<li>Choosing by serial or by USB bus and device isn't supported for these probes.</li>
+</ul>
+<p>That is what 1.2.0 did here, and what its source at master does (<code>src/cmsisDAP.cpp</code>, read
+2026-11-22). So a load is made with only its own board plugged in. The serial it logs is the one
+openFPGALoader reports opening.</p>
+<p>The board uses:</p>
+<ul>
+<li><strong>Clock:</strong> 25 MHz on ball P3. From it the ECP5's PLL, EHXPLLL, makes 50 MHz
+(<code>gateware/cores/ecp5_pll.py</code>).</li>
+<li><strong>LED:</strong> ball L2, lit when driven low; the same ball is P2 pin 28.</li>
+<li><strong>UART:</strong> balls J17 (out of the FPGA) and H18 (in), wired to the extension board's DAPLink, which
+gives the computer a USB serial port (<code>builds/digitizer/v1.toml</code>, its header notes).</li>
+<li><strong>Loading a bitstream:</strong> openFPGALoader's <code>colorlight-i9</code> board, through the DAPLink as a
+CMSIS-DAP cable (openFPGALoader at 2aafd902, <code>src/board.hpp</code>). It writes the FPGA's SRAM by
+default, so a bitstream is gone at power-off; <code>-f</code> writes the flash (its README, same commit).</li>
+</ul>
+<p>The balls are LiteX's for the i9 v7.2 (litex-boards at 53dc2ed0,
+<code>litex_boards/platforms/colorlight_i5.py</code>, <code>_io_v7_2</code>). An Amaranth platform for the i9 exists in
+Muse Lab's own repo, <code>src/amaranth_boards/colorlight_i9_r7_2.py</code> (wuxx/Colorlight-FPGA-Projects at
+016e5889, Apache-2.0): the chip, the 25 MHz clock on P3, the LED on L2, and the headers, with the
+UART's balls on its P5 connector and no UART resource of its own. Its comment says "Some of these
+still need verifying". Upstream amaranth-boards has no i9 (at f270d210). Ours,
+<code>gateware/boards/colorlight_i9.py</code>, has the clock, the LED and the UART. On our board the clock and
+the LED are <code>measured</code> (<code>2026-11-22-i9-blinky</code>), and so is the UART, TX on J17 and RX on H18
+(<code>2026-11-22-i9-uart-echo</code>).</p>
+<p><strong>Loading the board is a flash.</strong> Loading code into a board counts as flashing it, into SRAM too
+(<code>lab/targets.toml</code>). The i9 is not a lab target, so until a person lists it, every load needs a
+person's approval in the session, and every load is logged as a <code>firmware.flash</code>.</p>
+<h2 id="languages-and-layout">Languages and layout</h2>
+<table><thead><tr><th>piece</th><th>language</th><th>where</th></tr></thead><tbody>
+<tr><td>training and the rank sweep</td><td>Python, PyTorch: the exception CLAUDE.md names for it</td><td><code>models/littlebit/</code></td></tr>
+<tr><td>SocialJax's Clean Up and its trained policy, played on the computer</td><td>Python, JAX, as SocialJax is written: CLAUDE.md's exception for it. <code>behaviour.py</code> only reads their outputs, so it is outside the exception, and stays Python until it is written in Rust</td><td><code>models/cleanup/</code></td></tr>
+<tr><td>the weight export and the integer golden model</td><td>Rust</td><td><code>crates/littlebit</code></td></tr>
+<tr><td>Clean Up's golden model, so far JAX's random numbers</td><td>Rust</td><td><code>crates/cleanup</code></td></tr>
+<tr><td>the layer engine, the output layer, the weight-ROM generator, the whole network</td><td>Amaranth</td><td><code>gateware/cores/littlebit.py</code></td></tr>
+<tr><td>a layer as a hardwired kernel, a window a clock</td><td>Amaranth</td><td><code>gateware/cores/littlebit_kernel.py</code></td></tr>
+<tr><td>the UART</td><td>Amaranth</td><td><code>gateware/cores/uart.py</code></td></tr>
+<tr><td>the top level: the network behind the UART</td><td>Amaranth</td><td><code>gateware/littlebit/network.py</code></td></tr>
+<tr><td>tests of the gateware</td><td>cocotb on Verilator, run by pytest</td><td><code>gateware/cores/tests/</code> and <code>gateware/littlebit/tests/</code></td></tr>
+<tr><td>the host: sends inputs, compares answers</td><td>Rust, <code>tentzhen-littlebit</code>'s commands</td><td><code>crates/littlebit</code></td></tr>
+</tbody></table>
+<p>Each directory is made when its first real file arrives (<a href="../roadmap/index.html"><code>roadmap.md</code></a>, Phase 0).</p>
+<p>The pieces meet at one file: the exported weights (signs, scales, shifts and biases) as JSON,
+<code>models/littlebit/runs/&lt;run&gt;/integer.json</code>. The golden model and the ROM generator both read it, so
+they cannot read different weights. The golden model also writes out the intermediate vectors and
+scores that the cocotb tests compare against.</p>
+<p>The export is in Rust, not Python, although it's part of the model work (2026-11-22). It needs no
+PyTorch, only a run's committed weights and the training images. In Rust, the Quality Gate
+re-runs it and fails if the committed file differs (<code>r16_integer_json_is_what_the_exporter_writes</code>).
+It also measures each layer's latent shift with the golden model's own arithmetic, so the two can't
+disagree about it.</p>
+<p>Why these for this project: in Amaranth, the ROM generator is Python that builds the circuit from
+the JSON, with no Verilog text to template; Rust makes every integer widening explicit and stops a
+test on an overflow, which is what "integer-exact" asks of the golden model; and the host writes the
+lab log and the records, which are Rust already.</p>
+<p><strong>Toolchain:</strong> Yosys, nextpnr-ecp5, Project Trellis, Verilator, cocotb and Amaranth, pinned with the
+rest (<a href="../roadmap/index.html"><code>roadmap.md</code></a>, Phase 0), plus PyTorch and openFPGALoader. Until that pinned toolchain exists,
+training runs in <code>models/littlebit/</code>'s uv environment: Python 3.12.15, PyTorch 2.15.0 (its CUDA
+13.2 build on Windows and Linux) and NumPy 2.5.5, every package pinned by its <code>uv.lock</code>, and
+<code>every_python_dependency_is_pinned</code> holds the pins it names. Amaranth's ECP5 platform runs Yosys,
+nextpnr-ecp5 and ecppack itself (amaranth at 90449f1e, <code>amaranth/vendor/_lattice.py</code>). nextpnr's
+<code>--report</code> writes a "timing and utilization report in JSON format" (nextpnr at 15b77f5f,
+<code>common/kernel/command.cc</code>), the source of each run's LUT, EBR and Fmax figures. MNIST is fetched
+and checked against a pinned sha256; its terms are not read, so it is not committed. Phase 5 adds
+LibreLane, "ASIC implementation flow infrastructure, successor to OpenLane" (Apache-2.0,
+librelane/librelane at 8494d4fe), whose README recommends installing it with Nix; Tiny Tapeout's
+local-hardening guide runs it in Docker (TinyTapeout/tinytapeout_www at ce1fff22). It runs on
+GitHub's computers, in LibreLane's Docker image, as Tiny Tapeout's GDS action does, with the
+version and the action pinned, not on the lab computer (Jon, 2026-11-21; <a href="../prior-art/index.html"><code>prior-art.md</code></a>, "A
+chip's layout").</p>
+<h2 id="model">Model</h2>
+<p>The baseline is a 784 → 256 → 128 → 10 MLP on MNIST, 234,752 weights. The two hidden layers use
+LittleBit-style factorized binary weights. The output layer stays dense int8: it has 1,280 weights.</p>
+<p><strong>Layer math.</strong> Each LittleBit layer replaces its weight matrix W (out × in) with two binary factors
+and three scale vectors:</p>
+<pre><code class="language-math">y = h \odot \Big( U_s \big( \ell \odot ( V_s^{\top} ( g \odot x ) ) \big) \Big) + b, \qquad U_s \in \{\pm 1\}^{\text{out} \times r},\; V_s \in \{\pm 1\}^{\text{in} \times r}
+</code></pre>
+<p>g (length in), ℓ (length r) and h (length out) are learned scales; b is a bias. Multiplying by U_s
+or V_s is only addition and subtraction.</p>
+<p><strong>Bit accounting.</strong> Every run reports both numbers, because at this size the scales are a real
+share of the budget:</p>
+<pre><code class="language-math">\text{sign bpw} = \frac{r\,(\text{in} + \text{out})}{\text{in} \cdot \text{out}}, \qquad \text{total bpw} = \frac{r\,(\text{in} + \text{out}) + 8\,(\text{in} + \text{out} + r)}{\text{in} \cdot \text{out}}
+</code></pre>
+<p>The 8 is for 8-bit scales; it changes if the export uses 16-bit ones. It is the paper's Eq. 16
+without the residual path, and with 8 bits a scale where the paper's are FP16, 16 bits each (arXiv
+2506.13771v5, Appendix D). Neither counts the bias, an int32 per output: 8,192 bits on layer 1,
+about as many as its signs at r = 8.</p>
+<p><strong>Rank sweep for layer 1</strong> (784 → 256, 200,704 weights):</p>
+<table><thead><tr><th>rank r</th><th>sign bits</th><th>sign bpw</th><th>total bpw, 8-bit scales</th></tr></thead><tbody>
+<tr><td>4</td><td>4,160</td><td>0.021</td><td>0.062</td></tr>
+<tr><td>8</td><td>8,320</td><td>0.041</td><td>0.083</td></tr>
+<tr><td>16</td><td>16,640</td><td>0.083</td><td>0.125</td></tr>
+<tr><td>32</td><td>33,280</td><td>0.166</td><td>0.209</td></tr>
+<tr><td>64</td><td>66,560</td><td>0.332</td><td>0.376</td></tr>
+</tbody></table>
+<p><code>tested</code>: <code>the_littlebit_bit_counts_follow_from_the_formula</code> recomputes this table from the formula,
+and the experiments' bits-per-weight column from it, E3's binary row too. Layer 2 (256 → 128) uses
+the same r. The baselines have the same shape: dense FP32, dense int8, and plain binary weights
+(1 bit per weight, one scale per output).</p>
+<p><strong>Training recipe</strong> (Jon's spec):</p>
+<ol>
+<li>Train the FP32 MLP (Adam, learning rate 1e-3, cosine decay, about 20 epochs) and record its
+accuracy as the ceiling.</li>
+<li>Start each LittleBit layer from its FP32 weights: a truncated SVD to rank r, the signs of the
+factors become U_s and V_s, and the magnitudes are folded into g, ℓ and h. The paper's Dual-SVID
+does it this way: a rank-1 approximation of |U′| gives h and one latent scale, one of |V′| gives
+g and another, and ℓ starts as their element-wise product (arXiv 2506.13771v5, section 3.2,
+Eqs. 6–8).</li>
+<li>Fine-tune with quantization-aware training: sign() in the forward pass, and a straight-through
+estimator in the backward pass (the gradient passed where |w| ≤ 1). About 20 epochs. The paper
+instead uses SmoothSign ("backward gradient: tanh(kx), k = 100"), reporting it better than the
+straight-through estimator, and distils from the full-precision model as teacher (section 4.1,
+Appendix B.2).</li>
+<li>Fake-quantize activations to uint8 during training (ReLU, then a per-layer power-of-two scale),
+so that the trained model matches the integer hardware.</li>
+<li>Optional, after the core sweep: the paper's Residual Compensation, which splits the same bit
+budget into two lower-rank paths, the second started on what the first leaves (section 3.3).
+Measure whether two paths beat one at the same bits.</li>
+</ol>
+<p>The paper's code (SamsungLabs/LittleBit at 42d658b) is under CC BY-NC 4.0, for non-commercial use
+only, so Tentzhen writes its layer from the paper and copies none of that code.</p>
+<p><strong>The first LittleBit run, r = 16</strong> (<code>models/littlebit/littlebit.py</code> and <code>train_rank.py</code>,
+2026-11-22). It runs steps 2–4 from E1's committed weights. Whatever the recipe and the paper
+leave open was chosen before the run:</p>
+<ul>
+<li><strong>Dual-SVID's splits.</strong> The paper doesn't say how W's singular values are shared between U′ and
+V′, or how each rank-one fit is split between its two vectors. Here each side takes the square
+root, both times. U and V start as U′ and V′, as the paper has them.</li>
+<li><strong>The sign.</strong> +1 where the latent weight is ≥ 0, −1 elsewhere, with step 3's straight-through
+gradient rather than SmoothSign.</li>
+<li><strong>The input.</strong> Pixels enter as ⌊p / 2⌋ / 128, the 0–127 inputs of "Fixed-point formats".</li>
+<li><strong>The activations.</strong> Each hidden layer's outputs are uint8 times 2^e: ⌊y / 2^e⌋ clamped to
+0–255, the same as the hardware's shift, ReLU and clamp. Each e is fixed before training: the
+smallest that clamps nothing the started model gives on the training images. That is −5 after
+layer 1 and −4 after layer 2.</li>
+<li><strong>What stays float.</strong> The scales g, ℓ and h and the output layer stay float in training. The
+exporter makes them integers, and check 1 measures what that costs. At r = 16 it costs nothing
+(Verification, "Check 1 passes at r = 16").</li>
+<li><strong>The training.</strong> E1's settings: Adam at 1e-3, cosine decay to 0 over 20 epochs, batches of 128,
+seed 0, and cross-entropy on the labels. It doesn't distil from E1, as the paper does.</li>
+</ul>
+<p>The run gets 9,713 of the 10,000 test images right, 97.13 %, which is 1.18 points under E1. It also
+gets 58,798 of the 60,000 training images. Both counts are <code>tested</code> by
+<code>r16_scores_what_its_summary_says</code>, which re-scores the committed weights
+(<code>models/littlebit/runs/r16</code>) with the signs and the uint8 grid in its own f32 arithmetic. Three
+runs gave the same weights, byte for byte, in about 50 s each on the lab computer's GPU (each
+summary's <code>seconds</code>).</p>
+<p>Before any fine-tuning, the network as Dual-SVID started it got 4,710 test images right. That is
+PyTorch's count in the summary, and no test re-checks it. In the summary's curve, the test count
+moved between 9,418 and 9,686 over the first 19 epochs, and rose as the learning rate fell to 0.
+Whether a smaller learning rate or the paper's distillation would do better is <code>unknown</code>. A run
+that chooses between them should choose on images held out of the training set, not on the test
+images.</p>
+<p><strong>The baselines, E2 and E3</strong> (<code>models/littlebit/train_baseline.py</code>, 2026-11-23). They follow r16's
+recipe in everything but the hidden layers, so a baseline and a LittleBit run differ only there.
+Each starts from E1's committed weights, with pixels as ⌊p / 2⌋ / 128, uint8 activations whose
+exponents are fixed before training, E1's training settings and a dense output layer. What
+differs was chosen before the runs:</p>
+<ul>
+<li><strong>E2, int8.</strong> The hidden layers are dense. Their weights stay float in training, as the output
+layer's do, and the exporter makes them int8, each matrix on one power-of-two grid, as it makes
+the output layer's. Check 1 measures what that costs.</li>
+<li><strong>E3, binary.</strong> Each hidden layer is y = h ⊙ (sign(W) x) + b, with one scale per output. W
+starts as E1's weights, each h as the mean of |W| along its output's row, and b as E1's bias.
+That h is the scale that brings h sign(W) closest to W in squared error. The sign and its
+gradient are r16's.</li>
+</ul>
+<table><thead><tr><th>run</th><th>test images right, float</th><th>integer</th><th>the same digit, float and integer</th><th>training images right, float</th><th>activation exponents</th></tr></thead><tbody>
+<tr><td>E2, int8</td><td>9,835 (98.35 %)</td><td>9,833 (98.33 %)</td><td>9,992</td><td>60,000</td><td>−4, −3</td></tr>
+<tr><td>E3, binary</td><td>9,824 (98.24 %)</td><td>9,824 (98.24 %)</td><td>9,991</td><td>60,000</td><td>−4, −4</td></tr>
+</tbody></table>
+<p>These counts are <code>tested</code>. <code>e2_scores_what_its_summary_says</code> and <code>e3_scores_what_its_summary_says</code>
+re-score the committed weights in f32 (<code>models/littlebit/runs/e2</code> and <code>e3</code>), and
+<code>e2_and_e3_integer_are_within_half_a_point_of_float</code> exports them as integers and scores them. So
+check 1 holds for both: E2 loses 2 images to its int8 weights, and E3 loses none in all, though
+its integer and float models pick different digits on 9 images. Two runs of each gave the same weights, byte for byte, in 24 s (E2) and 38 s (E3) on the
+lab computer's GPU.</p>
+<p>A baseline runs on the computer only, so its integer network is not written to a file. The test
+exports it from the committed weights as it scores it (<code>export::baseline</code> in <code>crates/littlebit</code>).
+E2's hidden weights land on a grid of 2^−7, and E3's scales on one of 2^−9.</p>
+<p>What the counts show:</p>
+<ul>
+<li><strong>E2 in float gets 4 more test images right than E1,</strong> 9,835 against 9,831. Several things
+could explain it: the hardware's pixel and activation grids, 20 more epochs, or chance. Which
+one it is, is <code>unknown</code>, since no run separates them.</li>
+<li><strong>E3, at about 1 bit a weight, is 7 images under E1</strong> and 107 above r16's integer model, which
+has 0.125 bits a weight in layer 1.</li>
+<li><strong>Both get all 60,000 training images right,</strong> as E1 does. r16 gets 58,798.</li>
+</ul>
+<p>Each started where its summary says, before fine-tuning: E2 at 9,828 test images right, E3 at
+8,535. Those are PyTorch's counts, and no test re-checks them.</p>
+<p><strong>The rest of the rank sweep, E4, E5, E7 and E8</strong> (<code>models/littlebit/train_rank.py</code>, 2026-11-23).
+These are r16's run at r = 4, 8, 32 and 64, with nothing else changed, each exported as r16 is:</p>
+<table><thead><tr><th>run</th><th>r</th><th>test images right, float</th><th>integer</th><th>the same digit, float and integer</th><th>training images right, float / integer</th><th>latents saturated, test images</th><th>activation exponents</th></tr></thead><tbody>
+<tr><td>E4</td><td>4</td><td>8,802 (88.02 %)</td><td>8,791 (87.91 %)</td><td>9,932</td><td>52,869 / 52,850</td><td>1</td><td>−5, −5</td></tr>
+<tr><td>E5</td><td>8</td><td>9,464 (94.64 %)</td><td>9,463 (94.63 %)</td><td>9,974</td><td>57,036 / 57,018</td><td>0</td><td>−5, −5</td></tr>
+<tr><td>E6</td><td>16</td><td>9,713 (97.13 %)</td><td>9,717 (97.17 %)</td><td>9,980</td><td>58,798 / 58,809</td><td>0</td><td>−5, −4</td></tr>
+<tr><td>E7</td><td>32</td><td>9,772 (97.72 %)</td><td>9,776 (97.76 %)</td><td>9,993</td><td>59,602 / 59,597</td><td>0</td><td>−5, −5</td></tr>
+<tr><td>E8</td><td>64</td><td>9,814 (98.14 %)</td><td>9,815 (98.15 %)</td><td>9,993</td><td>59,887 / 59,886</td><td>0</td><td>−4, −5</td></tr>
+</tbody></table>
+<p><code>tested</code>: <code>the_sweep_scores_what_its_summaries_say</code> re-scores each run's committed weights in f32
+(<code>models/littlebit/runs/r4</code>, <code>r8</code>, <code>r32</code> and <code>r64</code>). <code>the_sweep_s_integer_json_is_what_the_exporter_writes</code>
+and <code>the_sweep_s_integer_is_within_half_a_point_of_float</code> check the exports and their counts. E6's
+row is r16's, from the tests above. Two runs at each rank gave the same weights, byte for byte, in
+about a minute each.</p>
+<p>What the counts show:</p>
+<ul>
+<li><strong>Check 1 holds at every rank.</strong> The largest loss from float to integer is E4's, 11 images.</li>
+<li><strong>Accuracy falls fast below r = 16.</strong> As integers, r = 8 gets 254 fewer test images right than
+r = 16, and r = 4 gets 926 fewer. This is the plan's first risk, "accuracy collapses at low r"
+(Risks). Whether residual compensation or the paper's distillation would hold it up is
+<code>unknown</code>: neither has run.</li>
+<li><strong>Above r = 16 it gains slowly.</strong> In float, r = 64, at 0.376 bits a weight in layer 1, gets 17
+fewer images right than E1. E3, at 1.010 bits, gets 7 fewer.</li>
+<li><strong>One latent saturates at r = 4, on one test image.</strong> The latent shift is chosen so that none
+saturates on the training images. On the test images, this one did.</li>
+</ul>
+<p>Before fine-tuning, Dual-SVID's starts got 2,906, 4,164, 5,282 and 5,303 test images right at
+r = 4, 8, 32 and 64. Those are PyTorch's counts, and no test re-checks them.</p>
+<p><strong>E10, the wider network</strong> (<code>models/littlebit/e1_fp32.py</code> and <code>train_rank.py</code>, 2026-11-23).
+Research question 2 asks whether, at the same weight bits, a wider network at fewer bits a weight
+beats a narrower one at more. E10 is the 784 → 1024 → 512 → 10 MLP, made LittleBit as the sweep's
+are, at the rank whose hidden layers hold E7's bits. What "the same weight bits" means was fixed
+before training: the two hidden layers' bits, signs and 8-bit scales, as "Bit accounting" counts
+them. r = 9 is the largest rank whose hidden layers hold no more than E7's:</p>
+<table><thead><tr><th>run</th><th>widths</th><th>r</th><th>sign bits</th><th>8-bit scales</th><th>the hidden layers' bits</th><th>the output layer's int8 weights</th></tr></thead><tbody>
+<tr><td>E7</td><td>784 → 256 → 128 → 10</td><td>32</td><td>45,568</td><td>11,904</td><td>57,472</td><td>10,240</td></tr>
+<tr><td>E10</td><td>784 → 1024 → 512 → 10</td><td>9</td><td>30,096</td><td>26,896</td><td>56,992</td><td>40,960</td></tr>
+<tr><td>E10's shape at r = 10</td><td>784 → 1024 → 512 → 10</td><td>10</td><td>33,440</td><td>26,912</td><td>60,352</td><td>40,960</td></tr>
+</tbody></table>
+<p><code>tested</code>: <code>the_littlebit_bit_counts_follow_from_the_formula</code> recomputes this table from the widths,
+and <code>e10_weights_are_the_ones_their_summaries_name</code> recomputes E10's and E7's hidden-layer bits from
+their committed runs. The output layer can't be held to E7's. It stays dense int8, and with 512
+inputs its weights alone hold 30,720 bits more than E7's, more than the hidden layers could give
+up. So E10 holds more bits in all, and the budget is the hidden layers'. Neither counts the biases.</p>
+<p>E10 needs a start of its own shape, as the sweep starts from E1. E10's start is that MLP, dense in
+FP32, trained as E1 was (<code>e1_fp32.py</code>, given the widths). E10 is r16's run on it at r = 9, with
+nothing else changed (<code>train_rank.py</code>, given the start), and it is exported as r16 is:</p>
+<table><thead><tr><th>run</th><th>test images right, float</th><th>integer</th><th>the same digit, float and integer</th><th>training images right, float / integer</th><th>latents saturated, test images</th><th>activation exponents</th></tr></thead><tbody>
+<tr><td>E10's start, dense FP32</td><td>9,856 (98.56 %)</td><td>—</td><td>—</td><td>60,000 / —</td><td>—</td><td>—</td></tr>
+<tr><td>E10, r = 9</td><td>9,555 (95.55 %)</td><td>9,546 (95.46 %)</td><td>9,976</td><td>57,827 / 57,803</td><td>0</td><td>−5, −5</td></tr>
+<tr><td>E7, r = 32</td><td>9,772 (97.72 %)</td><td>9,776 (97.76 %)</td><td>9,993</td><td>59,602 / 59,597</td><td>0</td><td>−5, −5</td></tr>
+</tbody></table>
+<p><code>tested</code>: <code>e10_scores_what_its_summaries_say</code>, <code>e10_integer_json_is_what_the_exporter_writes</code> and
+<code>e10_integer_is_within_half_a_point_of_float</code> (<code>models/littlebit/runs/e10-start</code> and <code>e10</code>). Two
+runs of each gave the same weights, byte for byte, in 17 s for the start and 55 s for E10. Moving
+the shape out of the two scripts left E1, r16 and E2 as they were: run again, each gave its
+committed weights, byte for byte.</p>
+<p>What it answers, for research question 2:</p>
+<ul>
+<li><strong>At E7's bits, the wider network loses.</strong> E10 gets 9,546 test images right as integers, 230
+fewer than E7's 9,776. Its dense start gets 25 more than E1, 9,856 against 9,831, so the width
+helps in float and not at this budget.</li>
+<li><strong>Its scales hold nearly half its bits.</strong> At these widths E10's 8-bit scales hold 26,896 bits,
+against E7's 11,904. That leaves its signs 30,096 bits, at r = 9, against E7's 45,568 at
+r = 32. Whether that is why it loses is <code>unknown</code>.</li>
+<li><strong>As integers it lands between E5 and E6,</strong> r = 8 and r = 16 of the narrow network: 9,463 and
+9,717.</li>
+<li><strong>Check 1 holds,</strong> 9 images fewer as integers.</li>
+</ul>
+<p>That is one recipe at one seed, without the paper's distillation or residual compensation, at one
+budget. Whether a wider network would win with them, or at a larger budget, is <code>unknown</code>. Before
+fine-tuning, E10's Dual-SVID start got 4,849 test images right, PyTorch's count, which no test
+re-checks.</p>
+<p><strong>Fixed-point formats,</strong> fixed at export and the same in the golden model and the gateware:</p>
+<ul>
+<li>Input pixels: uint8, 0–255 scaled to 0–127.</li>
+<li>Scales g, ℓ and h: int8, with one power-of-two shift per vector. Bias: int32.</li>
+<li>Accumulators: int32 everywhere (784 terms of int16 need at most 26 bits).</li>
+<li>The ℓ-scaled latents: each V sum times its int8 ℓ, a product of at most 33 bits, then an
+arithmetic right shift by the layer's latent shift, saturated to int16.</li>
+<li>Between layers: arithmetic right shift, ReLU, clamp to uint8.</li>
+<li>The output layer's weights: int8, with one power-of-two shift for the whole matrix.</li>
+<li>Output: 10 int32 scores. The predicted digit is their argmax, computed on the FPGA.</li>
+</ul>
+<p>Every right shift is arithmetic, so it rounds toward minus infinity, and nothing rounds to nearest
+while the network runs. The exporter rounds to nearest only once, when it turns the float weights
+into integers. The golden model follows these steps in <code>crates/littlebit/src/integer.rs</code>, and
+<code>a_littlebit_layer_computes_what_its_steps_say</code> works one small layer by hand against it.</p>
+<p>How the exporter chooses each value (<code>crates/littlebit/src/export.rs</code>):</p>
+<ul>
+<li><strong>Scales and output weights.</strong> Each vector, or the output matrix, gets the finest power-of-two
+grid that holds its largest value in 127 steps
+(<code>int8_takes_the_finest_grid_that_holds_the_largest</code>).</li>
+<li><strong>Latent shifts.</strong> Each layer's is the smallest that saturates no latent on the 60,000 training
+images (<code>r16_integer_saturates_no_latent_on_the_training_images</code>). At r = 16 that is 10 for
+layer 1 and 9 for layer 2. No latent saturates on the test images either
+(<code>r16_integer_is_within_half_a_point_of_float</code>).</li>
+<li><strong>Output shifts.</strong> These put each layer's outputs on the grid it trained on, so an output is
+⌊y / 2^e⌋ clamped to 0–255, as in training.</li>
+</ul>
+<p>A layer's exponents add up to that grid, and <code>Network::parse</code> refuses a file where they don't
+(<code>an_integer_network_refuses_what_does_not_fit</code>). At r = 16, layer 1's add up to −5:</p>
+<ul>
+<li>pixels −7</li>
+<li>g −8</li>
+<li>ℓ −7</li>
+<li>latent shift +10</li>
+<li>h −8</li>
+<li>output shift +15</li>
+</ul>
+<p>The 33-bit ℓ product is wider than one of the ECP5's 18 × 18 multipliers takes. How the gateware
+forms it is Phase 2's to decide.</p>
+<h2 id="hardware-architecture">Hardware architecture</h2>
+<p>The design is time-multiplexed: each LittleBit layer takes one input per clock and updates all its
+accumulators at once. That keeps the adders small. Between runs at one rank only the weight ROMs,
+the thing being studied, change; a new rank also changes how many accumulators the V stage has.</p>
+<pre><code class="language-mermaid">flowchart LR
+  uin["UART in&lt;br/&gt;784 pixels"] --&gt; l1["layer 1&lt;br/&gt;784 → 256"] --&gt; l2["layer 2&lt;br/&gt;256 → 128"] --&gt; out["output layer&lt;br/&gt;128 → 10, int8"] --&gt; am["argmax&lt;br/&gt;digit to UART"]
+</code></pre>
+<p>Layers 1 and 2 each get a LittleBit engine of their own, so they run as a pipeline. The output layer
+uses 10 multipliers at once, one per digit: each input, one a clock, is multiplied by its column of
+the weights and added into 10 accumulators that start from the biases. Then the argmax reads the
+10 scores one a clock and keeps the first of the highest, as the golden model does
+(<code>DenseEngine</code> and <code>LittleBitNetwork</code> in <code>gateware/cores/littlebit.py</code>). One engine:</p>
+<pre><code class="language-mermaid">flowchart LR
+  g["scale by g&lt;br/&gt;1 multiplier"] --&gt; v["add/sub by V&lt;br/&gt;r accumulators"] --&gt; l["scale by ℓ&lt;br/&gt;r values"] --&gt; u["add/sub by U&lt;br/&gt;one per output"] --&gt; h["× h, + b&lt;br/&gt;ReLU, clamp"]
+  vrom[("V weight ROM&lt;br/&gt;in × r sign bits")] --&gt; v
+  urom[("U weight ROM&lt;br/&gt;r × out sign bits")] --&gt; u
+</code></pre>
+<p>The two weight ROMs are what the experiments change. In Variant A they are logic constants
+generated from the trained weights; in Variant B the same bits sit in block RAM.</p>
+<p><strong>Per-layer schedule</strong> (r = rank), as the engine runs it (<code>gateware/cores/littlebit.py</code>):</p>
+<ol>
+<li>Scale by g, then add or subtract by V: one input per clock for <code>in</code> clocks, and one more. Each
+input's row of V (r sign bits) adds it into, or subtracts it from, r accumulators.</li>
+<li>Scale by ℓ: one latent per clock for r clocks, each shifted, saturated to int16 and kept.</li>
+<li>Add or subtract by U, scale by h, add the bias, ReLU, clamp to uint8: one output per clock for
+<code>out</code> clocks. Each clock reads one row of U (r sign bits) and sums the r latents by it in one
+adder tree, then one multiplier scales the sum.</li>
+</ol>
+<p>The plan first had stage 2 read U's columns and update <code>out</code> accumulators at once. Synthesized for
+r16's first layer, those 256 accumulators came to 18,778 LUT4s and 3,106 carry cells (Yosys, OSS
+CAD Suite 2026-11-21, 2026-11-23): more than both layers' budget. Summing each output's r latents
+in stage 3 instead brought the layer to 5,973 of nextpnr's logic cells. Each stage also keeps its
+values for a clock between reading a ROM and the arithmetic after it. Without those registers,
+nextpnr's first routes of the two layers reached 40.72 and 44.80 MHz, short of 50.</p>
+<p><strong>Clocks per image.</strong> The engine takes in + r + out + 1 clocks a vector, and its last output comes
+2 clocks after that. With inputs back to back, that is <code>tested</code>: 1,057 clocks for r16's layer 1
+and 401 for its layer 2 (<code>littlebit_engine_computes_r16_layer_1_as_the_golden_model_does</code>,
+<code>littlebit_engine_computes_r16_layer_2_as_the_golden_model_does</code>). Run one after another, the
+three layers would take 1,554 + 2r clocks. The network overlaps them instead. Each engine hands
+its outputs to the next as it makes them, one a clock, and the next takes them as they come:</p>
+<ul>
+<li>Layer 2 takes its first input 784 + 1 + r + 3 clocks after layer 1 takes the first pixel.</li>
+<li>The output layer takes its first input 256 + 1 + r + 3 clocks after that.</li>
+<li>It then takes its 128 inputs, adds the last a clock later, and runs the argmax in 10.</li>
+</ul>
+<p>That makes 1,187 + 2r clocks from the first pixel to the digit: 1,219 at r = 16, 24.4 µs at
+50 MHz. It is <code>tested</code> as both the design's cycle counter and the test count it
+(<code>littlebit_network_scores_r16s_test_vectors_as_the_golden_model_does</code>). The spec estimated
+1,550 + 4r. On the board the counter reported 1,219 for each of the 1,006 images it was sent,
+<code>measured</code>, <code>2026-11-23-i9-littlebit-network</code>. At exactly 50 MHz that is 24.38 µs, or 41,017
+images a second if the link kept up. The PLL's clock is <code>measured</code> only as close enough to 50 MHz
+for the UART at 115,200 baud (<code>2026-11-23-i9-pll-echo</code>), not to how many places.</p>
+<p><strong>The serial link sets the pace.</strong> At 115,200 baud and 10 bits a byte (8N1, assumed), the 785-byte
+request takes 68.1 ms and the 46-byte reply 4.0 ms: at most 13.9 images a second, however fast the
+network is. So each run reports two speeds, compute from the cycle counter and end to end. End to
+end, the board run managed 13.73 images a second, 1,000 images in 72.8 s, <code>measured</code>,
+<code>2026-11-23-i9-littlebit-network</code>. The DAPLink's top baud rate is <code>unknown</code>.</p>
+<p>For a throughput test that leaves the link out, the spec preloaded 512 test images into block RAM.
+They do not fit: 512 images take 401,408 bytes, and all 108 blocks hold 248,832 (1,944 kbit), so
+fewer than 318 images would fit with nothing else in block RAM. The i9's 8 MB of SDRAM (<a href="../scope/index.html"><code>scope.md</code></a>)
+or its 8 MB W25Q64 flash (the Amaranth platform above) hold 512, behind a controller this design
+does not have yet.</p>
+<p><strong>UART protocol</strong></p>
+<table><thead><tr><th>direction</th><th>bytes</th><th>contents</th></tr></thead><tbody>
+<tr><td>computer → FPGA</td><td>1 + 784</td><td>header 0xA5, then 784 uint8 pixels as MNIST stores them; the FPGA shifts them</td></tr>
+<tr><td>FPGA → computer</td><td>1 + 40 + 1 + 4</td><td>header 0x5A, 10 int32 scores (little-endian), the argmax digit, the cycle count (uint32, little-endian)</td></tr>
+</tbody></table>
+<p>The top level, <code>gateware/littlebit/network.py</code>, keeps a frame's pixels in a FIFO until the last one
+arrives. Then it feeds them to the network back to back, so the cycle count covers the network
+alone, not the serial link. A frame left part way is dropped after 100 ms of silence, as the one
+layer's was. In cocotb, without the PLL and at a UART divisor of 8, it answers two frames as the
+golden model does, each in 1,219 clocks, and drops a part one
+(<code>gateware/littlebit/tests/test_network_over_uart.py</code>). <code>cargo run -p tentzhen-littlebit -- network &lt;port&gt; (vectors | mnist &lt;count&gt;)</code> is the computer's side (<code>crates/littlebit/src/board.rs</code>):
+it sends each image as a frame, checks each answer's scores and digit against the golden model's,
+and reports the clocks the network counted.</p>
+<p><strong>Variant A and Variant B in Amaranth</strong></p>
+<ul>
+<li><strong>A, hardwired:</strong> the generator, <code>ROM</code> in <code>gateware/cores/littlebit.py</code>, builds each ROM as a
+tree of 2:1 multiplexers on the constant rows, one level per bit of the row index. Yosys turns it
+into LUT logic, so the weights become part of the circuit. The plan had a <code>Switch</code> over the row
+index with a constant on each <code>Case</code>. But Yosys's <code>proc_rom</code> pass turns such a <code>Switch</code> into a
+memory, and once the engine registered a ROM's output, <code>synth_ecp5</code> put layer 1's ROMs in 4
+DP16KD blocks of block RAM: Variant B, not A. A tree of multiplexers is no <code>Switch</code>, and gave no
+block RAM.</li>
+<li><strong>B, stored:</strong> the same bits are the initial contents of an Amaranth memory, <code>StoredROM</code>, which
+Yosys maps to block RAM. That holds for every table whose row an engine keeps in a register a
+clock before using it: each hidden layer's g, V, U, h and bias, and the output layer's weights.
+ℓ's r values are read on the clock they're used, and stay logic. So do the output layer's 10
+biases, which are where its accumulators start. A memory gives its row a clock after it is
+asked, so each is asked a clock early, for the row the engine will need next. The row then goes
+into the same register as in Variant A, and the network takes the same clocks. Each memory is
+marked <code>ram_style = "block"</code>, and the Yosys log shows where each landed ("E9, the weights in
+block RAM", below). <code>python -m gateware.littlebit.network --variant B &lt;build-dir&gt;</code> builds it.</li>
+</ul>
+<p><strong>What the engines cost.</strong> nextpnr's report for each of r16's two engines alone, at 50 MHz
+(OSS CAD Suite 2026-11-21, seed 1; <code>python -m gateware.cores.littlebit</code> writes one as Verilog,
+2026-11-23):</p>
+<table><thead><tr><th>r16</th><th>logic cells (TRELLIS_COMB)</th><th>flip-flops</th><th>18 × 18 multipliers</th><th>block RAM</th><th>Fmax after routing</th></tr></thead><tbody>
+<tr><td>layer 1, 784 → 256</td><td>5,973</td><td>1,093</td><td>5</td><td>0</td><td>58.64 MHz</td></tr>
+<tr><td>layer 2, 256 → 128</td><td>4,236</td><td>1,055</td><td>5</td><td>0</td><td>60.12 MHz</td></tr>
+</tbody></table>
+<p>Those are the toolchain's figures, <code>trusted</code> with it (<code>trusted-base.toml</code>, <code>fpga-toolchain</code>), and
+the engines alone, with no UART, output layer or top level. Together they take 10,209 of the
+30,000 cells Gate 2 allows. The spec estimated layer 1's U-stage accumulators at a few thousand
+LUTs, and the hardwired ROMs at about 1,000–1,500.</p>
+<p><strong>What the whole network costs.</strong> The board's design: r16's two engines, its output layer, the
+argmax, the cycle counter, the pixel FIFO, the UART, the blinky and the PLL
+(<code>python -m gateware.littlebit.network &lt;build-dir&gt;</code>, OSS CAD Suite 2026-11-21, 2026-11-23).
+nextpnr reports:</p>
+<table><thead><tr><th>r16, the board's design</th><th>logic cells (TRELLIS_COMB)</th><th>flip-flops</th><th>18 × 18 multipliers</th><th>block RAM</th><th>Fmax after routing</th></tr></thead><tbody>
+<tr><td><code>littlebit_network</code></td><td>12,640</td><td>3,050</td><td>20</td><td>1 DP16KD</td><td>55.63 MHz</td></tr>
+</tbody></table>
+<p>That is within Gate 2's 30,000 at 50 MHz, <code>trusted</code> with the toolchain (<code>fpga-toolchain</code>). The one
+DP16KD is the pixel FIFO. The Yosys log maps one memory to block RAM,
+<code>littlebit_network.network.pixels.storage</code>, so the weights stay logic. The bitstream's sha256 is
+754c51aef2aabe3598296aacbada86a962afd274002b39c0ab929c387d52047b. Rebuilt from main at 34dedf8,
+it came out the same, byte for byte, and that is the bitstream check 3 ran on (Verification,
+"Check 3 passes at r = 16").</p>
+<p><strong>What each rank costs.</strong> Each rank of the sweep is the same board design built from its own
+integer network (<code>python -m gateware.littlebit.network &lt;build-dir&gt; models/littlebit/runs/r&lt;r&gt;/integer.json</code>, OSS CAD Suite 2026-11-21, 2026-11-23). r16, built the
+same way on this branch, came out as the bitstream above, byte for byte. nextpnr reports:</p>
+<table><thead><tr><th>run</th><th>r</th><th>logic cells (TRELLIS_COMB)</th><th>flip-flops</th><th>18 × 18 multipliers</th><th>block RAM</th><th>Fmax after routing</th><th>bitstream's sha256</th></tr></thead><tbody>
+<tr><td>E4</td><td>4</td><td>6,889</td><td>1,616</td><td>18</td><td>1 DP16KD</td><td>55.27 MHz</td><td><code>ed3d189e…</code></td></tr>
+<tr><td>E5</td><td>8</td><td>8,939</td><td>2,086</td><td>20</td><td>1 DP16KD</td><td>50.06 MHz</td><td><code>b41e697e…</code></td></tr>
+<tr><td>E6</td><td>16</td><td>12,640</td><td>3,050</td><td>20</td><td>1 DP16KD</td><td>55.63 MHz</td><td><code>754c51ae…</code></td></tr>
+<tr><td>E7</td><td>32</td><td>20,172</td><td>4,973</td><td>20</td><td>1 DP16KD</td><td>50.43 MHz</td><td><code>1b92ff46…</code></td></tr>
+<tr><td>E8</td><td>64</td><td>35,139</td><td>8,815</td><td>20</td><td>1 DP16KD</td><td>49.55 MHz, short of 50</td><td>none to load</td></tr>
+</tbody></table>
+<p>These are the toolchain's figures, <code>trusted</code> with it (<code>fpga-toolchain</code>). None of these bitstreams
+but r16's has been loaded onto a board. What they show:</p>
+<ul>
+<li><strong>The logic grows with the rank, about linearly.</strong> Across the five builds, each step of r adds
+about 470 cells, on top of about 5,000 for the rest: (35,139 − 6,889) / (64 − 4) = 471. That's
+arithmetic on these five figures, not a model of the logic.</li>
+<li><strong>E8 doesn't fit the plan.</strong> At r = 64, its 35,139 cells are over the 30,000 that Gate 2 allows,
+though they're 80 % of the chip's 43,848, so the chip isn't full. Its route also misses 50 MHz,
+at 49.55. nextpnr stops with an error when a clock is missed. A bitstream packed from its
+output anyway is not one to load, and none is kept.</li>
+<li><strong>So, for research question 4,</strong> at r = 64 timing runs out before the chip's logic does, and
+routing completes. The largest rank that fits, E11, is r = 42 ("E11, the largest rank that
+fits", below).</li>
+<li><strong>Two ranks only just close.</strong> r = 8 reaches 50.06 MHz and r = 32 reaches 50.43, slower than
+r = 4 and r = 16. Why is <code>unknown</code>. nextpnr's placement is a seeded search, and each build ran
+at its default seed.</li>
+<li><strong>E4 uses 18 multipliers, and the rest 20.</strong> Why is <code>unknown</code> too.</li>
+</ul>
+<p>The clocks an image are the cocotb test's: each rank's network scores its six test images as its
+golden model does, in 1,187 + 2r clocks, which is 1,195, 1,203, 1,251 and 1,315
+(<code>littlebit_network_scores_the_sweep_s_test_vectors_as_the_golden_model_does</code>). That test runs
+r16's six images through each network. Only r16 has run all 10,000 MNIST test images in cocotb
+(check 2) and 1,000 on the board (check 3).</p>
+<p><strong>E11, the largest rank that fits</strong> (2026-11-23). "Fits" means the whole board design places,
+routes and closes at 50 MHz in nextpnr, at its default seed, as the experiments table has it.
+How to search was fixed before the first build:</p>
+<ol>
+<li>Raise r from 32, which fit, in steps of 8, to the first rank that doesn't.</li>
+<li>Then bisect between the last that fit and the first that didn't, down to a step of 1.</li>
+<li>Train each rank tried as the sweep's were, export it, check it, and build it once.</li>
+</ol>
+<p>r = 56 was built alongside 40 and 48, before the bisection. It isn't part of the search, and
+its build didn't finish. nextpnr's router was still running 32 minutes in, and was stopped. For
+comparison, r = 64's whole build took 11 minutes alone, while r = 56 shared the computer with
+other builds for part of its time. Whether r = 56 routes at this seed is <code>unknown</code>. Its
+accuracy is in the sweep's tests: 9,794 test images right as integers, 9,795 in float.</p>
+<table><thead><tr><th>r</th><th>test images right, integer (float)</th><th>logic cells</th><th>flip-flops</th><th>Fmax after routing</th><th></th></tr></thead><tbody>
+<tr><td>32</td><td>9,776 (9,772)</td><td>20,172</td><td>4,973</td><td>50.43 MHz</td><td>fits (E7)</td></tr>
+<tr><td>40</td><td>9,771 (9,771)</td><td>23,915</td><td>5,936</td><td>51.34 MHz</td><td>fits</td></tr>
+<tr><td>48</td><td>9,791 (9,792)</td><td>27,266</td><td>6,895</td><td>49.11 MHz</td><td>misses 50 MHz</td></tr>
+<tr><td>44</td><td>9,803 (9,803)</td><td>25,429</td><td>6,417</td><td>47.35 MHz</td><td>misses</td></tr>
+<tr><td>42</td><td>9,795 (9,796)</td><td>24,934</td><td>6,174</td><td>50.29 MHz</td><td><strong>fits: E11</strong></td></tr>
+<tr><td>43</td><td>9,805 (9,802)</td><td>25,326</td><td>6,296</td><td>49.68 MHz</td><td>misses</td></tr>
+</tbody></table>
+<p>The rows are in the order the search built them. Each design took 20 of the 18 × 18 multipliers
+and 1 DP16KD, the pixel FIFO, and each routed. So E11 is r = 42: the largest rank this search
+found that fits, with r = 43 the smallest that doesn't. r = 42's bitstream is <code>e55ea4b7…</code>, and
+no board has run it. The test counts are <code>tested</code>, by the sweep's tests above, which take in
+every rank committed here. The build figures are nextpnr's, <code>trusted</code> (<code>fpga-toolchain</code>).</p>
+<p>What it answers:</p>
+<ul>
+<li><strong>Research question 4, what runs out first: timing.</strong> At r = 42, 24,934 cells are 57 % of the
+chip, within Gate 2's 30,000 budget. Every design the search built routed, and so did
+r = 64's. The 50 MHz clock is what stops the rank rising.</li>
+<li><strong>How many binary weights fit:</strong> at r = 42 the two hidden layers hold 42 × (784 + 256) +
+42 × (256 + 128) = 59,808 sign bits. They stand for the hidden layers' 233,472 weights, at 0.261
+total bits a weight in layer 1.</li>
+<li><strong>The boundary is not sharp.</strong> Fmax doesn't fall steadily with r: r = 40 closes at 51.34 MHz,
+r = 44 misses at 47.35, and r = 8 and r = 32 only just close. Each figure is one route at one
+seed, so another seed could move the line by a rank or more. Whether a rank above 42 would
+close at another seed is <code>unknown</code>. E12, the clock push, is the experiment that varies the
+clock.</li>
+<li><strong>Accuracy has flattened by here.</strong> From r = 40 to r = 48, the integer models get 9,771 to
+9,805 test images right, against r = 64's 9,815 and E1's 9,831 in float.</li>
+</ul>
+<p>Like the sweep's, the search ranks are committed (<code>models/littlebit/runs/r40</code> to <code>r56</code>) and
+held by the same tests. r = 42 also has a network case in the test vectors, and cocotb runs it
+like the sweep's: 1,271 clocks an image
+(<code>littlebit_network_scores_the_sweep_s_test_vectors_as_the_golden_model_does</code>).</p>
+<p><strong>E9, the weights in block RAM</strong> (2026-11-23). E9 is E6's network, r16's integer.json, in Variant
+B: every table an engine keeps a row of is in block RAM ("Variant A and Variant B in Amaranth",
+above). It is built as E6 is, with <code>--variant B</code> (OSS CAD Suite 2026-11-21). nextpnr reports
+both, built from the same commit:</p>
+<table><thead><tr><th>r16, the board's design</th><th>logic cells (TRELLIS_COMB)</th><th>flip-flops</th><th>18 × 18 multipliers</th><th>block RAM</th><th>Fmax after routing</th><th>clocks an image</th><th>bitstream's sha256</th></tr></thead><tbody>
+<tr><td>E6, Variant A</td><td>12,640</td><td>3,050</td><td>20</td><td>1 DP16KD</td><td>55.63 MHz</td><td>1,219</td><td><code>754c51ae…</code></td></tr>
+<tr><td>E9, Variant B</td><td>7,400</td><td>3,080</td><td>20</td><td>14 DP16KD</td><td>54.35 MHz</td><td>1,219</td><td><code>2f70c963…</code></td></tr>
+</tbody></table>
+<p>The 14 blocks are the pixel FIFO, one for each of the hidden layers' 10 tables, and 3 for the
+output layer's weights, whose rows are 80 bits wide. The Yosys log maps all 11 tables' memories
+to block RAM, each <code>via $__DP16KD_</code> or <code>via $__PDPW16KD_</code>. A second build of E9 gave the same
+bitstream, byte for byte. Adding Variant B left Variant A's design as it was: built again from
+this commit, E6 gave the bitstream above, byte for byte. Its RTLIL, the file Yosys reads, is the
+same as before but for its notes of source lines, and so is r = 42's.</p>
+<p>The clocks are cocotb's. In both variants, r16 scores its six test images as the golden model
+does, in 1,219 clocks each. Variant B also does so on MNIST's first 1,000 test images, and each
+hidden layer computes as the golden model does, as does the convolution, with its gaps
+(<code>littlebit_network_scores_r16s_test_vectors_as_the_golden_model_does</code>,
+<code>littlebit_network_scores_mnist_test_images_as_the_golden_model_does</code>, and the layer tests). The
+build figures are nextpnr's, <code>trusted</code> (<code>fpga-toolchain</code>). No board has run E9.</p>
+<p>What it answers, for research question 3, at r = 16:</p>
+<ul>
+<li><strong>Logic: Variant B takes 5,240 fewer cells, 41 % fewer.</strong> The two variants differ only in where
+the tables are and in how they are asked for a row (<code>gateware/cores/littlebit.py</code>). So the
+5,240 cells are what the tables cost as logic, less what B adds to ask a clock early.</li>
+<li><strong>Block RAM: 13 blocks more,</strong> 14 of the chip's 108, within the plan's 80.</li>
+<li><strong>Clock: both close at 50 MHz,</strong> B at 54.35 MHz and A at 55.63. Each is one route at the default
+seed, so whether B is slower at other seeds is <code>unknown</code>.</li>
+<li><strong>Latency: the same, 1,219 clocks an image.</strong> Variant B asks each memory a clock early, so it
+spends no clock more. It does take no input on its first clock after a reset, while its
+memories read their first rows.</li>
+</ul>
+<p>Two builds came before this one:</p>
+<ul>
+<li><strong>The first fed each memory's output straight into the arithmetic,</strong> the memory's own read
+register standing in for the engine's. It took 8,109 cells and 10 blocks, and missed 50 MHz,
+at 47.54. nextpnr's slowest path started at layer 1's g memory: 5.61 ns from the clock to its
+output, then the multiplier and an accumulator, 21.03 ns in all against the 20 ns a clock has.
+Asking each memory a clock early put the engine's register back between the memory and the
+arithmetic.</li>
+<li><strong>The second left the choice to Yosys,</strong> with no <code>ram_style</code>. It put four of the tables in
+logic: layer 1's h, and layer 2's g, U and h, each of 2,048 bits or fewer. Yosys's memory_libmap
+costs a ROM in logic at a sixteenth a bit and a DP16KD at 128, and keeps the logic unless a block
+costs less (<code>StoredROM</code>'s docstring). That build took 8,033 cells and 10 blocks, and closed at
+57.48 MHz. E9 marks every table for block RAM, so that all the weights are stored, as Variant B
+is defined.</li>
+</ul>
+<p><strong>E12, the highest clock that closes</strong> (2026-11-23). E12 is E6, r16 in Variant A, at a clock
+above 50 MHz. "Closes" means what "fits" meant for E11: the whole board design places, routes and
+meets its clock in nextpnr, at its default seed. The PLL makes only some clocks from the 25 MHz
+oscillator: 25 MHz × CLKFB / CLKI, with the PFD and VCO in range. From 50 to 80 MHz, it makes 15
+whole numbers of hertz, rising from 50 in steps of 3.125 MHz or less. ecppll's dividers for each
+are in <code>gateware/bringup/pll_echo.py</code> (<code>ECPPLL</code>), and each gives its clock exactly
+(<code>test_each_clock_s_ecppll_dividers_give_it</code>). How to search was fixed before the first build:
+build at each clock, rising from 53.125 MHz, and stop after two misses in a row. E12 is the
+highest that closed. Each was built with <code>--clock-mhz</code> (OSS CAD Suite 2026-11-21), and nextpnr
+took the PLL's clock as its target ("Derived frequency constraint", in its log):</p>
+<table><thead><tr><th>clock</th><th>logic cells (TRELLIS_COMB)</th><th>flip-flops</th><th>Fmax after routing</th><th></th></tr></thead><tbody>
+<tr><td>53.125 MHz</td><td>12,635</td><td>3,050</td><td>57.96 MHz</td><td>closes</td></tr>
+<tr><td>55 MHz</td><td>12,648</td><td>3,050</td><td>58.35 MHz</td><td>closes</td></tr>
+<tr><td>56.25 MHz</td><td>12,646</td><td>3,050</td><td>58.21 MHz</td><td>closes</td></tr>
+<tr><td>59.375 MHz</td><td>12,632</td><td>3,052</td><td>59.78 MHz</td><td><strong>closes: E12</strong></td></tr>
+<tr><td>60 MHz</td><td>12,703</td><td>3,052</td><td>52.93 MHz</td><td>misses</td></tr>
+<tr><td>62.5 MHz</td><td>12,629</td><td>3,052</td><td>55.25 MHz</td><td>misses</td></tr>
+</tbody></table>
+<p>Each took 20 of the multipliers and 1 DP16KD, the pixel FIFO, and each routed. E12's bitstream is
+<code>13ee59f5…</code>, and a second build gave it byte for byte. At 50 MHz the design is still E6's: its
+RTLIL is the same as before but for its notes of source lines. The build figures are nextpnr's,
+<code>trusted</code> (<code>fpga-toolchain</code>). No board has run E12, or any clock but 50 MHz.</p>
+<p>What it shows:</p>
+<ul>
+<li><strong>r16 closes at 59.375 MHz in nextpnr, 18.75 % past 50.</strong> At 1,219 clocks an image, that is
+20.5 µs an image, or 48,708 images a second if nothing else held it back, against 41,017 at
+50 MHz. On the board the serial link holds it to 13.9 images a second at either clock ("The
+serial link sets the pace", above).</li>
+<li><strong>E6's 55.63 MHz is not the most r16 reaches.</strong> Built for 50 MHz, it reached 55.63; built for
+59.375, the same design reached 59.78. Why a higher target gave a faster route is <code>unknown</code>
+until nextpnr's source is read.</li>
+<li><strong>The edge is not sharp.</strong> 59.375 MHz closes and 60 misses, 0.625 MHz apart, and 60's route was
+the slowest of the six, at 52.93. Each figure is one route at one seed. Whether 60 MHz or more
+would close at another seed is <code>unknown</code>, and nothing above 62.5 MHz was built.</li>
+<li><strong>Whether the board keeps up is <code>unknown</code>.</strong> nextpnr's timing is the toolchain's model of the
+chip. The PLL is <code>measured</code> only at 50 MHz (<code>2026-11-23-i9-pll-echo</code>). A board run at
+59.375 MHz, scored against the golden model as check 3 was, would make E12 <code>measured</code>.</li>
+</ul>
+<p><strong>E10 on the board's design</strong> (2026-11-23). E10, the wider network at E7's bits ("E10, the wider
+network", in Model), is built as the sweep's ranks are, from its own integer network
+(<code>python -m gateware.littlebit.network &lt;build-dir&gt; models/littlebit/runs/e10/integer.json</code>, OSS
+CAD Suite 2026-11-21). nextpnr reports, beside E7:</p>
+<table><thead><tr><th>run</th><th>widths</th><th>r</th><th>logic cells (TRELLIS_COMB)</th><th>flip-flops</th><th>18 × 18 multipliers</th><th>block RAM</th><th>Fmax after routing</th><th>clocks an image</th><th>bitstream's sha256</th></tr></thead><tbody>
+<tr><td>E7</td><td>784 → 256 → 128 → 10</td><td>32</td><td>20,172</td><td>4,973</td><td>20</td><td>1 DP16KD</td><td>50.43 MHz</td><td>1,251</td><td><code>1b92ff46…</code></td></tr>
+<tr><td>E10</td><td>784 → 1024 → 512 → 10</td><td>9</td><td>17,455</td><td>2,258</td><td>20</td><td>1 DP16KD</td><td>53.52 MHz</td><td>2,357</td><td><code>c7fc7532…</code></td></tr>
+</tbody></table>
+<p>The build figures are nextpnr's, <code>trusted</code> (<code>fpga-toolchain</code>), and a second build of E10 gave the
+same bitstream, byte for byte. The clocks are cocotb's: E10 scores r16's six test images as its
+golden model does, in 2,357 clocks each
+(<code>littlebit_network_scores_the_sweep_s_test_vectors_as_the_golden_model_does</code>). That is
+784 + 1 + 9 + 3 for layer 1, 1,024 + 1 + 9 + 3 for layer 2 and 512 + 1 + 10 for the output layer,
+as the network's schedule counts them (Clocks per image, above). No board has run E10.</p>
+<p>So at E7's bits, E10 fits the board, in 2,717 fewer cells and at a faster clock than E7. It takes
+1,106 more clocks an image, 47.1 µs at 50 MHz, or 21,213 images a second. It gets 230 fewer test
+images right.</p>
+<h2 id="verification">Verification</h2>
+<p>Every stage must match the integer golden model bit for bit; accuracy is compared only at the step
+from float to integer. Four models, three checks:</p>
+<table><thead><tr><th>check</th><th>compares</th><th>passes when</th><th>its grade</th></tr></thead><tbody>
+<tr><td>1. quantization gap</td><td>the PyTorch float model vs. the Rust integer golden model</td><td>accuracy drops ≤ 0.5 points on the 10,000 MNIST test images</td><td><code>tested</code></td></tr>
+<tr><td>2. the gateware</td><td>the golden model vs. Verilator, through cocotb</td><td>all 10 scores identical on all 10,000 test images</td><td><code>tested</code></td></tr>
+<tr><td>3. the board</td><td>the golden model vs. the i9 over UART</td><td>the same digit and scores on at least 1,000 images</td><td><code>measured</code></td></tr>
+</tbody></table>
+<p><strong>Check 1 passes at r = 16</strong> (2026-11-22). Run from <code>models/littlebit/runs/r16/integer.json</code>, the
+integer golden model gets 9,717 of the 10,000 test images right. That is 4 more than the float
+model's 9,713, not fewer, and the two pick the same digit on 9,980 of the images. On the training
+images the integer model gets 58,809 right, against the float model's 58,798. Both are <code>tested</code>, by
+<code>r16_integer_is_within_half_a_point_of_float</code> and
+<code>r16_integer_saturates_no_latent_on_the_training_images</code>. So 8-bit scales were enough at this rank.</p>
+<p><strong>Check 2 passes at r = 16</strong> (2026-11-23). On Verilator, the network's gateware (<code>LittleBitNetwork</code>)
+scored all 10,000 MNIST test images exactly as the golden model does: every one of the 10 scores,
+and the digit. Each image took 1,219 clocks. That is <code>tested</code>, by
+<code>littlebit_network_scores_mnist_test_images_as_the_golden_model_does</code>, which the Quality Gate runs
+on every commit. In the gate it takes 356 s of real time for the 10,000 images. With nextpnr's
+12,640 logic cells at 55.63 MHz (What the whole network costs), Gate 2 passes.</p>
+<p><strong>Check 3 passes at r = 16</strong> (2026-11-23). On i9-2, at 50 MHz from the PLL, the whole network
+(<code>gateware/littlebit/network.py</code>) scored MNIST's first 1,000 test images exactly as the golden
+model does: every one of the 10 scores, and the digit. The network counted 1,219 clocks for every
+image. That is <code>measured</code>, <code>2026-11-23-i9-littlebit-network</code>, so Gate 3 passes:</p>
+<table><thead><tr><th></th><th>images</th><th>scored exactly as the golden model</th><th>lab log, 2026-11-23</th></tr></thead><tbody>
+<tr><td>before the load (r16's first layer), the network's test vectors</td><td>6 frames</td><td>none: the host command refused image 1's answer, which started 0x01</td><td>seq 26</td></tr>
+<tr><td>the network's test vectors for r16</td><td>6</td><td>6, 1,219 clocks each</td><td>seq 28</td></tr>
+<tr><td>MNIST's first 1,000 test images, as MNIST stores them</td><td>1,000</td><td>1,000, 1,219 clocks each, in 72.8 s</td><td>seq 29</td></tr>
+</tbody></table>
+<p>974 of the board's 1,000 digits are MNIST's labels. The golden model gets the same 974 by
+construction, since the scores are identical. Which bytes the host command read before the load
+is <code>unknown</code>: the layer design answers 1,281 bytes a frame, and the command reads 46.</p>
+<p>What each figure of a run rests on: its accuracy is computed on the host, so <code>tested</code> at best; its
+LUTs, EBR blocks and Fmax are nextpnr's, <code>trusted</code> with the toolchain (<code>trusted-base.toml</code>,
+<code>fpga-toolchain</code>); its images per second and cycle counts are <code>measured</code>. Each board run is a
+measurement record, <code>lab/records/&lt;id&gt;.toml</code> (CLAUDE.md, "Conventions"), in place of the spec's
+<code>results/runs.csv</code>. The record's gateware hash covers the weights in both variants, since both are
+inside the bitstream.</p>
+<p><strong>The golden model</strong></p>
+<ul>
+<li>Written in Rust with explicit integer types (i8, i32) and the same shift and rounding steps as the
+gateware: an arithmetic right shift (Rust's <code>&gt;&gt;</code> on a signed integer), and no rounding to nearest
+unless the gateware rounds too.</li>
+<li>It reads the same exported JSON the ROM generator reads.</li>
+<li>It gives every intermediate vector for one image, after g, V, ℓ, U and h (<code>integer::Trace</code>), to
+find a mismatch layer by layer. It writes them out for the cocotb tests:
+<code>cargo run -p tentzhen-littlebit -- vectors</code> writes <code>gateware/cores/tests/littlebit_vectors.json</code>
+(<code>crates/littlebit/src/vectors.rs</code>), and <code>littlebit_vectors_are_what_the_golden_model_writes</code>
+fails if the committed file is not what it writes. No MNIST image is in them, since MNIST's files
+are never committed: the inputs are drawn from a fixed seed.</li>
+<li>For a convolution, it takes the window around each position of the grid, with zeros past the
+edge, as Flax's default "same" padding does (<code>integer::windows</code>; <code>tested</code> by
+<code>windows_take_each_position_s_patch_with_zeros_past_the_edge</code>).</li>
+</ul>
+<p><strong>cocotb tests</strong></p>
+<ul>
+<li>Unit tests per block: UART loopback, one accumulator bank, one weight-ROM read against its
+exported column. The UART's are written (<code>gateware/cores/tests/test_uart.py</code>), with one of the
+board's echo design (<code>gateware/bringup/tests/test_uart_echo.py</code>). So is the ROM read, of r16
+layer 1's V and U (<code>littlebit_sign_roms_read_back_r16_layer_1s_v_rows_and_u_columns</code>). The
+accumulator bank has no test of its own: the layer tests check its sums through every output.
+<a href="../architecture/index.html"><code>docs/architecture.md</code></a>, "Rules", lists them.</li>
+<li>A layer test: one LittleBit layer alone against the golden model. Written
+(<code>gateware/cores/tests/test_littlebit.py</code>), on r16's two hidden layers, each given all zeros, all
+at the top of its range, and 4 random vectors, back to back. It also runs on a small convolution:
+a made-up 3 × 3 layer from 2 channels to 4 at rank 3, given the 25 windows of a 5 × 5 grid with
+gaps between inputs. Every output's y and z must be the golden model's, and every case
+saturates some latents and clamps some outputs at each end. The engine takes the windows as the
+golden model builds them; gateware that builds them from a grid is not written yet. Each layer
+test runs in both variants, the tables in logic and in block RAM.</li>
+<li>A kernel test: the hardwired kernel, a made-up layer of Clean Up's conv1's shape, against the
+golden model on the 121 windows of an observation's grid
+(<code>gateware/cores/tests/test_littlebit_kernel.py</code>, "A hardwired kernel for conv1").</li>
+<li>An output-layer test: r16's output layer alone against the golden model, given all zeros, all
+255 and 4 random inputs. A made-up layer from 4 inputs to 5 is tested too: its scores reach both
+ends of an int32, and some tie, so the argmax must pick the first of the highest
+(<code>gateware/cores/tests/test_littlebit_network.py</code>).</li>
+<li>A full-network test: r16 against the golden model, every score and the digit of each image, on
+its test vectors and on all 10,000 MNIST test images, in the same file. The plan asked for 100
+images on every commit and all 10,000 before any board run. The gate runs all 10,000 on every
+commit. MNIST is never committed, so the golden model scores the images as the test runs, into
+the test's own temporary folder (<code>cargo run -p tentzhen-littlebit -- mnist-vectors &lt;count&gt; &lt;file&gt;</code>). The sweep's other networks, r4, r8, r32 and r64, are each given r16's six test images,
+and checked for every score, the digit and 1,187 + 2r clocks an image
+(<code>littlebit_network_scores_the_sweep_s_test_vectors_as_the_golden_model_does</code>). So are E11's
+r42, and E10, the wider network, in its own count of 2,357 clocks. r16 in Variant B,
+E9, is given its test vectors and MNIST's first 1,000 test images, as the board was given in
+check 3. Its arithmetic is Variant A's, and every image reads every row of every table, so the
+gate doesn't spend another 10,000 images on it. A top-level test
+sends r16 frames over the UART
+(<code>gateware/littlebit/tests/test_network_over_uart.py</code>).</li>
+<li>Waveforms (FST) kept only for failing tests.</li>
+</ul>
+<p><strong>On the board:</strong> the host command sends each image, reads back the 10 scores and the argmax, and
+logs any mismatch with the image's index. It also times round trips, for images per second.</p>
+<p><strong>Grading a training run</strong> (decided by Claude at Jon's request, 2026-11-22). A run's weights and
+summary are committed, in <code>models/littlebit/runs/&lt;run&gt;/</code>: <code>weights.f32</code>, every parameter as
+little-endian float32, and <code>summary.json</code>, what was run and what it scored, with the weights'
+sha256. A Rust test in <code>crates/littlebit</code> re-scores the committed weights with its own arithmetic
+and checks the summary's counts, on MNIST the Quality Gate fetches and the test refuses unless
+each file is its pin (<code>models/littlebit/mnist.toml</code>). The gate does not retrain: GitHub's runners
+have no GPU, and a GPU's and a CPU's float products differ, so a retrain there would grade another
+model. Weights are committed because a grade must be re-checkable, and because rebuilding a run's
+bitstream needs them. They are small: E1's are 0.9 MB, and the largest, E10's dense start's,
+5.3 MB. Gateware tests stay cocotb, as the language
+policy has them, and a cocotb test is a referent as a Rust test is, named <code>gateware &lt;name&gt;</code>:
+<code>a_code_referent_names_code_that_exists</code> finds them, and the Quality Gate runs them on Verilator
+from OSS CAD Suite's Linux build of 2026-11-21, the lab computer's day. A Rust test wrapping
+cocotb's results would only add a layer.</p>
+<h2 id="milestones">Milestones</h2>
+<p>Six phases, in order. Each ends on a gate that passes before the next starts. There are no dates.
+Phase 0 may run beside Phase 1: it needs only the board and the toolchain.</p>
+<ol>
+<li><strong>Phase 0, bring-up.</strong> The toolchain (Open questions), the i9's Amaranth platform, a blinky, then
+a UART echo at 115,200 baud, each load approved and logged. <strong>Gate 0:</strong> the LED blinks, and bytes
+from the computer echo back.</li>
+<li><strong>Phase 1, the model on the computer.</strong> Train E1–E3 and the LittleBit sweep; write the golden
+model and the exporter. <strong>Gate 1:</strong> check 1 at r = 16, the integer model within 0.5 points of
+float. Check 1 passed on 2026-11-22 (Verification). E2 and E3 ran on 2026-11-23 (Model, "The
+baselines, E2 and E3"), and so did the sweep's other ranks, 4, 8, 32 and 64 ("The rest of the
+rank sweep").</li>
+<li><strong>Phase 2, gateware and simulation.</strong> The weight-ROM generator, the layer engine and the top
+level; cocotb on Verilator. <strong>Gate 2:</strong> check 2, bit-exact on all 10,000 test images, and at most
+30,000 LUTs at 50 MHz in nextpnr's report. The network's first board run waits for this gate.
+Two smaller board runs come before it, by Jon's choice (2026-11-22). The first is the PLL at
+50 MHz, done (The board). The second is one layer from the engine, checked against the golden
+model: r16's first layer, done (The board, "One layer on the board"). Gate 2 passed at r = 16
+on 2026-11-23 (Verification, "Check 2 passes at r = 16").</li>
+<li><strong>Phase 3, on the board.</strong> Load E6 (r = 16, Variant A), run the host command, read the cycle
+counts. <strong>Gate 3:</strong> check 3, 1,000 images identical to the golden model. Gate 3 passed at
+r = 16 on 2026-11-23 (Verification, "Check 3 passes at r = 16").</li>
+<li><strong>Phase 4, experiments and write-up.</strong> Run E1–E12, fill the results table, plot accuracy vs.
+bits per weight and LUTs vs. bits. <strong>Gate 4:</strong> the table is full, and both plots are made.
+Gate 4 passed on 2026-11-23 (Experiments, "The two plots").</li>
+<li><strong>Phase 5, a chip's layout, with no chip made.</strong> The largest hardwired LittleBit layer that fits
+one Tiny Tapeout tile, laid out with LibreLane. Its Classic flow takes Verilog, which Amaranth
+emits, and runs Yosys's synthesis and OpenROAD's placement and routing
+(<code>librelane/flows/classic.py</code>) for a standard-cell process (<code>sky130A</code> in its README's example).
+The ECP5's own blocks go: no PLL, block RAM or multipliers, so it is Variant A only, and the
+cocotb layer test runs against the Verilog it lays out. A tile is "about 160x100 um", "enough for
+about 1000 digital logic gates" (Tiny Tapeout's FAQ, of its runs TT04 to TT10; a sky130A tile is
+now 161.00 × 111.52 µm, <a href="../prior-art/index.html"><code>prior-art.md</code></a>, "A chip's layout"), with 8 inputs, 8 outputs and 8 bidirectional pins besides the clock and reset
+(same FAQ), so the layer takes its inputs a few bits at a time. It costs nothing. Its figures
+rest on LibreLane, OpenROAD and the process kit, which <code>trusted-base.toml</code> does not list yet.
+<strong>Gate 5:</strong> LibreLane finishes the layer with its own checks passing, and its cells and area per
+weight bit stand beside the i9's LUTs per weight bit (research question 5).</li>
+</ol>
+<p>Gate 0's echo goes through the same DAPLink serial port as the bench's Phase 1 "hello" over UART
+(<a href="../roadmap/index.html"><code>roadmap.md</code></a>), so whichever runs first settles those pins for both. Gate 0 ran first
+(<code>2026-11-22-i9-uart-echo</code>).</p>
+<p><strong>First steps</strong></p>
+<ul>
+<li><input disabled="" type="checkbox" checked=""/>
+Read the i9's IDCODE on arrival (<code>builds/digitizer/v1.toml</code>): 0x41112043, lab log seq 1 of
+2026-11-22. Its incoming-QA record is not written yet.</li>
+<li><input disabled="" type="checkbox"/>
+Settle where the toolchain runs (Open questions).</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Write the i9's Amaranth platform: the clock, the LED and the UART, from the balls above
+(<code>gateware/boards/colorlight_i9.py</code>).</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Blinky, then the UART echo (Gate 0): <code>2026-11-22-i9-blinky</code> and <code>2026-11-22-i9-uart-echo</code>.</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Train the E1 FP32 baseline and save it (<code>models/littlebit/e1_fp32.py</code>, 2026-11-22): 9,831 of
+the 10,000 test images, 98.31 %, <code>tested</code> by <code>e1_scores_what_its_summary_says</code>, which re-scores
+the committed weights (<code>models/littlebit/runs/e1</code>). Six runs gave the same weights, byte for
+byte.</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Write the LittleBit layer in PyTorch and run r = 16 (<code>models/littlebit/littlebit.py</code> and
+<code>train_rank.py</code>, 2026-11-22): 9,713 of the 10,000 test images, 97.13 %, in float, <code>tested</code> by
+<code>r16_scores_what_its_summary_says</code>, which re-scores the committed weights
+(<code>models/littlebit/runs/r16</code>).</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Write the exporter and the integer golden model, then run check 1 at r = 16 (Gate 1)
+(<code>crates/littlebit</code>, 2026-11-22): 9,717 of the 10,000 test images, 97.17 %, against the float
+model's 97.13 %, <code>tested</code> by <code>r16_integer_is_within_half_a_point_of_float</code>.</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Run Gate 0's echo and blinky at 50 MHz from the PLL (<code>gateware/bringup/pll_echo.py</code>,
+2026-11-23): <code>measured</code>, <code>2026-11-23-i9-pll-echo</code>.</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Write the layer engine and the weight-ROM generator, and test them against the golden model in
+cocotb, a small convolution among the tests (<code>gateware/cores/littlebit.py</code>, 2026-11-23):
+<code>tested</code> by the layer tests above.</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Run one layer from the engine on the board, ahead of Gate 2
+(<code>gateware/bringup/littlebit_layer.py</code>, 2026-11-23): r16's first layer answered 1,000 MNIST test
+images exactly as the golden model, <code>measured</code>, <code>2026-11-23-i9-littlebit-layer</code>.</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Write the output layer, the whole network, its top level over the UART and the full-network
+test, then pass Gate 2 (<code>gateware/cores/littlebit.py</code>, <code>gateware/littlebit/network.py</code>,
+2026-11-23). The network scored all 10,000 test images exactly as the golden model, <code>tested</code> by
+<code>littlebit_network_scores_mnist_test_images_as_the_golden_model_does</code>. nextpnr reports 12,640
+logic cells at 55.63 MHz.</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Write the host command for the network's frames, then run the network on the board (Gate 3)
+(<code>crates/littlebit/src/board.rs</code>, 2026-11-23): it scored 1,000 MNIST test images exactly as the
+golden model, 1,219 clocks each, <code>measured</code>, <code>2026-11-23-i9-littlebit-network</code>. Next, Phase 4:
+the experiments, E2 to E12.</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Train the baselines E2 (int8) and E3 (binary, one scale per output), and export them as
+integers (<code>models/littlebit/train_baseline.py</code>, 2026-11-23). E2 got 9,833 of the 10,000 test
+images right as integers (9,835 in float). E3 got 9,824 both ways. Both are <code>tested</code> by
+<code>e2_and_e3_integer_are_within_half_a_point_of_float</code>.</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Run the sweep's other ranks, E4, E5, E7 and E8, export them and build each for the board
+(<code>models/littlebit/train_rank.py</code> and <code>gateware/littlebit/network.py</code>, 2026-11-23). Check 1
+holds at every rank, <code>tested</code> by <code>the_sweep_s_integer_is_within_half_a_point_of_float</code>. r = 4
+falls to 87.91 % as integers. r = 64 misses both 50 MHz in nextpnr and Gate 2's cell budget
+(Hardware architecture, "What each rank costs").</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Find the largest rank that fits, E11, by raising r from 32 and then bisecting
+(2026-11-23): r = 42 closes at 50.29 MHz in nextpnr, and r = 43 misses, at 49.68 (Hardware
+architecture, "E11, the largest rank that fits").</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Write Variant B, the tables in block RAM, and build r16 in it, E9
+(<code>gateware/cores/littlebit.py</code>, 2026-11-23): 7,400 logic cells and 14 DP16KD at 54.35 MHz in
+nextpnr, against Variant A's 12,640 cells at 55.63 MHz, in the same 1,219 clocks an image
+(Hardware architecture, "E9, the weights in block RAM").</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Push r16's clock, E12, through the clocks the PLL makes from 25 MHz (2026-11-23): it closes
+at 59.375 MHz in nextpnr, and misses at 60 and 62.5 (Hardware architecture, "E12, the highest
+clock that closes").</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Train E10, the 784 → 1024 → 512 → 10 network at r = 9, whose hidden layers hold no more
+bits than E7's, from a dense start of its own; export it and build it (2026-11-23). It gets
+9,546 test images right as integers, 230 fewer than E7, in 17,455 logic cells at 53.52 MHz
+(Model, "E10, the wider network"; Hardware architecture, "E10 on the board's design").</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Fill the experiments table and draw its two plots, accuracy against bits per weight and
+logic cells against sign bits (<code>crates/littlebit/src/plots.rs</code>, 2026-11-23). The table's
+accuracies are <code>tested</code> against the runs, and the plots against the table (Experiments, "The
+two plots"). Gate 4 passes. Next: Phase 5, a hardwired layer laid out as a chip.</li>
+<li><input disabled="" type="checkbox" checked=""/>
+At Jon's request, fine-tune r16 with its signs fixed and only its scales free, on MNIST,
+inverted MNIST and Fashion-MNIST (<code>models/littlebit/train_frozen.py</code>, 2026-11-23). On
+Fashion-MNIST the scales get about three quarters of the way from training the output layer
+alone to training everything ("Training with the signs fixed").</li>
+<li><input disabled="" type="checkbox" checked=""/>
+Play SocialJax's Clean Up with its own trained policy on the computer, the float baseline
+for the first real workload (<code>models/cleanup/</code>, 2026-11-23): 524.2 a game when the agents draw
+from the policy, and 0 when they take its most likely action, so the chip is to give the 9
+scores and the computer to draw ("After MNIST: Clean Up's policy", "The float baseline"). Next:
+compress the policy, and the convolutions' integer export and golden model.</li>
+</ul>
+<h2 id="experiments">Experiments</h2>
+<p>Twelve runs answer research questions 1–4: E1–E3 set the baselines, E4–E8 sweep the rank, E9
+compares hardwired and stored, and E10–E12 test the budget and the fit. Question 5 is Phase 5's.
+Each cell fills as its run finishes, from the run's record or test.</p>
+<table><thead><tr><th>run</th><th>model (784 → 256 → 128 → 10 unless noted)</th><th>variant</th><th>layer-1 total bpw</th><th>integer test acc (%)</th><th>LUTs</th><th>EBR blocks</th><th>Fmax (MHz)</th><th>images/s</th><th>status</th></tr></thead><tbody>
+<tr><td>E1</td><td>FP32 dense (the ceiling)</td><td>computer only</td><td>32</td><td>98.31 (float)</td><td>—</td><td>—</td><td>—</td><td>—</td><td>done</td></tr>
+<tr><td>E2</td><td>int8 dense</td><td>computer only</td><td>8</td><td>98.33 (float 98.35)</td><td>—</td><td>—</td><td>—</td><td>—</td><td>done</td></tr>
+<tr><td>E3</td><td>binary dense, one scale per output</td><td>computer only</td><td>1.010</td><td>98.24 (float 98.24)</td><td>—</td><td>—</td><td>—</td><td>—</td><td>done</td></tr>
+<tr><td>E4</td><td>LittleBit r = 4</td><td>A, hardwired</td><td>0.062</td><td>87.91 (float 88.02)</td><td>6,889</td><td>1 (the pixel FIFO)</td><td>55.27</td><td>1,195 clocks each, 41,841 at 50 MHz</td><td>built; not run on the board</td></tr>
+<tr><td>E5</td><td>LittleBit r = 8</td><td>A, hardwired</td><td>0.083</td><td>94.63 (float 94.64)</td><td>8,939</td><td>1 (the pixel FIFO)</td><td>50.06</td><td>1,203 clocks each, 41,563 at 50 MHz</td><td>built; not run on the board</td></tr>
+<tr><td>E6</td><td>LittleBit r = 16</td><td>A, hardwired</td><td>0.125</td><td>97.17 (float 97.13)</td><td>12,640</td><td>1 (the pixel FIFO)</td><td>55.63</td><td>13.73 end to end; 1,219 clocks each, 41,017 at 50 MHz</td><td>Gate 3 passed</td></tr>
+<tr><td>E7</td><td>LittleBit r = 32</td><td>A, hardwired</td><td>0.209</td><td>97.76 (float 97.72)</td><td>20,172</td><td>1 (the pixel FIFO)</td><td>50.43</td><td>1,251 clocks each, 39,968 at 50 MHz</td><td>built; not run on the board</td></tr>
+<tr><td>E8</td><td>LittleBit r = 64</td><td>A, hardwired</td><td>0.376</td><td>98.15 (float 98.14)</td><td>35,139</td><td>1 (the pixel FIFO)</td><td>49.55, short of 50</td><td>1,315 clocks each; 50 MHz not met</td><td>over the cell budget, and short of 50 MHz</td></tr>
+<tr><td>E9</td><td>LittleBit r = 16</td><td>B, block RAM</td><td>0.125</td><td>97.17 (float 97.13): E6's integer network</td><td>7,400</td><td>14 (13 for the weights, 1 the pixel FIFO)</td><td>54.35</td><td>1,219 clocks each, 41,017 at 50 MHz</td><td>built; not run on the board</td></tr>
+<tr><td>E10</td><td>LittleBit r = 9, wider: 784 → 1024 → 512 → 10, its hidden layers' bits within E7's</td><td>A, hardwired</td><td>0.038</td><td>95.46 (float 95.55)</td><td>17,455</td><td>1 (the pixel FIFO)</td><td>53.52</td><td>2,357 clocks each, 21,213 at 50 MHz</td><td>built; not run on the board</td></tr>
+<tr><td>E11</td><td>LittleBit r = 42, the largest fit: r raised until place-and-route or 50 MHz fails</td><td>A, hardwired</td><td>0.261</td><td>97.95 (float 97.96)</td><td>24,934</td><td>1 (the pixel FIFO)</td><td>50.29</td><td>1,271 clocks each, 39,339 at 50 MHz</td><td>built; not run on the board</td></tr>
+<tr><td>E12</td><td>clock push: E6, LittleBit r = 16, at the highest clock that passes, 59.375 MHz</td><td>A, hardwired</td><td>0.125</td><td>97.17 (float 97.13)</td><td>12,632</td><td>1 (the pixel FIFO)</td><td>59.78, clocked at 59.375</td><td>1,219 clocks each, 48,708 at 59.375 MHz</td><td>built; not run on the board</td></tr>
+</tbody></table>
+<p>A dash marks a figure that a computer-only run doesn't have. E3's 1.010 bits a weight are its
+signs and one 8-bit scale per output, (784 × 256 + 8 × 256) / (784 × 256). Like the LittleBit
+formula, it counts no bias, and no power-of-two exponent.</p>
+<p>The table's accuracies are what the runs get: each integer network as the golden model scores it,
+and each float run's count, from its summary, on the 10,000 test images (<code>tested</code>,
+<code>the_experiments_table_s_accuracies_are_what_the_runs_get</code>). Its LUTs, EBR blocks and Fmax are
+nextpnr's, <code>trusted</code> (<code>fpga-toolchain</code>). Its clocks an image are cocotb's, and the images a second
+beside them are worked out from those clocks at the clock named. E6's 13.73 images a second end to
+end is the one measured on a board (<code>2026-11-23-i9-littlebit-network</code>).</p>
+<p><strong>The two plots</strong> (2026-11-23), drawn from this table by <code>cargo run -p tentzhen-littlebit -- plots</code> (<code>crates/littlebit/src/plots.rs</code>). <code>the_plots_are_what_the_experiments_table_draws</code> fails
+if either file is not what the table draws. Each image's description lists every value it plots,
+and the table above gives them too.</p>
+<p><img src="../img/littlebit-accuracy.svg" alt="Test accuracy against layer 1&#39;s total bits per weight, E1 to E8" /></p>
+<ul>
+<li><strong>Accuracy holds to about 1/4 bit a weight, then falls.</strong> From E8's 0.376 bits to E6's 0.125,
+the integer networks lose 98 test images, 98.15 % to 97.17 %. From there to E4's 0.062 bits
+they lose 926 more, to 87.91 %.</li>
+<li><strong>The dense baselines sit level from 1 bit to 32.</strong> E3's binary weights, E2's int8 and E1's
+FP32 get 98.24 %, 98.33 % and 98.31 %, within 9 images of each other. E8, at 0.376 bits, is 9
+images under E3.</li>
+</ul>
+<p><img src="../img/littlebit-cells.svg" alt="Logic cells against the sign bits hardwired, Variant A, E4 to E8 and E11" /></p>
+<ul>
+<li><strong>The cells grow about in line with the sign bits,</strong> some 470 a step of r, 0.33 a sign bit, on
+top of about 5,000 for the rest of the design ("What each rank costs", in Hardware
+architecture).</li>
+<li><strong>E8 is the only one past Gate 2's 30,000 cells,</strong> and the only one that misses 50 MHz.
+Timing stops the rank before the cells do: E11, r = 42, the largest that closes, takes 24,934
+("E11, the largest rank that fits").</li>
+</ul>
+<h2 id="training-with-the-signs-fixed">Training with the signs fixed</h2>
+<p>Jon asked whether this helps training as well as inference (2026-11-23). Hardwired weights can't
+be trained where they are: in Variant A, a new weight is a new bitstream. But a LittleBit layer
+keeps its magnitudes apart from its signs, in the scale vectors g, ℓ and h. A chip could keep
+those, the biases and the output layer in registers or block RAM, and its signs in logic. At
+r = 16 that is 3,130 values beside 22,784 signs. This experiment asks how much such a chip could
+learn by changing only those (<code>models/littlebit/train_frozen.py</code>, 2026-11-23).</p>
+<p>All of it was fixed before the first run. Each run starts from r16 as committed and keeps r16's
+activation exponents, as the hardware's shifts are fixed. It trains by r16's recipe, unchanged.
+There are three tasks:</p>
+<ul>
+<li><strong>MNIST,</strong> the control.</li>
+<li><strong>MNIST inverted,</strong> each pixel p made 255 − p: the same digits, light on dark.</li>
+<li><strong>Fashion-MNIST</strong> (zalandoresearch/fashion-mnist, MIT licence, read 2026-11-23): MNIST's
+format, with 10 kinds of clothing in place of the digits. Its four files came from the repo's
+<code>data/fashion</code>, matched the MD5s its README lists, and are pinned by sha256 in the script. Like
+MNIST's, they are never committed.</li>
+</ul>
+<p>There are four regimes, by what may train:</p>
+<ul>
+<li><strong>nothing</strong>;</li>
+<li><strong>the output layer</strong> alone, 1,290 values;</li>
+<li><strong>the scales,</strong> each hidden layer's g, ℓ, h and bias and the output layer, 3,130 values, with
+every sign fixed;</li>
+<li><strong>everything,</strong> 25,914 values, so signs can flip. A new bitstream could hold that.</li>
+</ul>
+<table><thead><tr><th>task</th><th>nothing trained</th><th>the output layer</th><th>the scales, signs fixed</th><th>everything</th><th>signs flipped by "everything", of 22,784</th></tr></thead><tbody>
+<tr><td>MNIST</td><td>9,713</td><td>9,730</td><td>9,731</td><td>9,707</td><td>1,978</td></tr>
+<tr><td>MNIST, inverted</td><td>108</td><td>8,771</td><td>9,024</td><td>9,526</td><td>3,392</td></tr>
+<tr><td>Fashion-MNIST</td><td>340</td><td>7,269</td><td>8,301</td><td>8,667</td><td>4,813</td></tr>
+</tbody></table>
+<p>The figures are test images right, of 10,000, in float. They are PyTorch's counts on the GPU, and
+<code>unknown</code>: the runs are not committed, and no test re-checks them. Two runs of each gave the same
+weights, byte for byte, in 22 to 54 s each. Untrained, the script's r16 is the committed one: its
+weights' sha256 is r16's, and it gets r16's 9,713.</p>
+<p>What it shows:</p>
+<ul>
+<li><strong>Fixed signs still learn much of a new task.</strong> On Fashion-MNIST, the scales get 8,301 test
+images right. That is 1,032 more than the output layer alone and 366 fewer than training
+everything, about three quarters of the way from one to the other. On inverted MNIST they get
+253 more than the output layer and 502 fewer than everything, a third of the way.</li>
+<li><strong>On inverted MNIST, that is the training's limit, not the scales'.</strong> The inverted input is
+127/128 − x, since ⌊(255 − p)/2⌋ = 127 − ⌊p/2⌋. So negating layer 1's g and moving its bias makes
+the network r16 on MNIST again, with every sign as it was. Built that way, with nothing trained,
+it gets 9,713 of the inverted test images right, and picks the same digit as r16 does on MNIST
+for all 10,000 (<code>train_frozen.py &lt;mnist&gt; &lt;fashion&gt; inverted built &lt;out&gt;</code>). Training from r16
+found 9,024. The network built here has every g of layer 1 on the far side of zero from r16's.
+Whether another recipe would reach it, or one as good, is <code>unknown</code>.</li>
+<li><strong>The control stays put.</strong> On MNIST, no regime moves r16 by more than 18 images.</li>
+<li><strong>Training everything flips about a fifth of the signs</strong> on Fashion-MNIST, 4,813 of 22,784, and
+that is what buys the last 366 images. A chip whose signs are fixed gives those up.</li>
+</ul>
+<p>What it doesn't show:</p>
+<ul>
+<li><strong>The scales are floats here.</strong> On the chip they would be int8, and the biases int32. What that
+costs is <code>unknown</code> until an export measures it.</li>
+<li><strong>How a chip would compute the gradients</strong> is not designed: a backward pass through U and V for
+each training image, beside the forward pass this gateware runs.</li>
+<li><strong>Whether this holds beyond MNIST-sized networks</strong> is <code>unknown</code>.</li>
+</ul>
+<h2 id="after-mnist-clean-ups-policy">After MNIST: Clean Up's policy</h2>
+<p>The first real objective after MNIST passes Gate 3 is SocialJax's Clean Up policy hardwired into
+the i9, and its convolutions come early, not when that step starts (Jon, 2026-11-22). The game runs
+on the computer: each step it sends an agent's 11 × 11 × 19 observation over the UART, the i9 gives
+the 9 actions' scores, and the computer draws an action from them and plays it. The plan had the i9
+pick the action itself, but the trained policy taking its most likely action never scores ("The
+float baseline", below). Agents on the i9 and on the computer can share a game. The check is
+MNIST's: the hardwired policy gives the golden model's 9 scores on every observation, and its game
+score stands beside the float policy's.</p>
+<p>The policy as SocialJax builds it (<code>algorithms/utils/networks.py</code> at 18e2171). Flax's convolutions
+default to stride 1 and "same" padding (google/flax at v0.10.7, the version SocialJax pins,
+<code>flax/linen/linear.py</code>), so the grid stays 11 × 11 through all three:</p>
+<table><thead><tr><th>layer</th><th>kernel</th><th>channels in</th><th>channels out</th><th>positions</th><th>weights</th><th>MACs per decision</th></tr></thead><tbody>
+<tr><td>conv 1</td><td>5 × 5</td><td>19</td><td>32</td><td>121</td><td>15,200</td><td>1,839,200</td></tr>
+<tr><td>conv 2</td><td>3 × 3</td><td>32</td><td>32</td><td>121</td><td>9,216</td><td>1,115,136</td></tr>
+<tr><td>conv 3</td><td>3 × 3</td><td>32</td><td>32</td><td>121</td><td>9,216</td><td>1,115,136</td></tr>
+<tr><td>dense</td><td>1 × 1</td><td>3,872</td><td>64</td><td>1</td><td>247,808</td><td>247,808</td></tr>
+<tr><td>actor 1</td><td>1 × 1</td><td>64</td><td>64</td><td>1</td><td>4,096</td><td>4,096</td></tr>
+<tr><td>actor 2</td><td>1 × 1</td><td>64</td><td>9</td><td>1</td><td>576</td><td>576</td></tr>
+<tr><td>total</td><td></td><td></td><td></td><td></td><td>286,112</td><td>4,321,952</td></tr>
+</tbody></table>
+<p><code>tested</code>: <code>the_clean_up_policy_counts_follow_from_its_shapes</code> recomputes the table from its shapes,
+and the two bit rates below. Biases, 233 more, are left out, as the MNIST counts leave them out.</p>
+<p>What it means for the plan:</p>
+<ul>
+<li><strong>The convolutions are the time, not the logic.</strong> They hold 12 % of the weights and do 94 % of the
+arithmetic, since each kernel runs at every one of the 121 positions: about 18 times the MNIST
+network's 234,752 multiply-accumulates per input. Hardwiring them is cheap in LUTs; they cost
+time, and buffers between layers (11 × 11 × 32 activations, 3,872 bytes at uint8).</li>
+<li><strong>So Phase 2's engine is a hardwired matrix applied to a stream of vectors</strong> from the start: an MLP
+layer streams one vector, a convolution its 121 windows of the grid (the 5 × 5 or 3 × 3 patch
+around each position, flattened). The cocotb layer test includes a small convolution against the
+golden model, and the MNIST network runs as the one-vector case.</li>
+<li><strong>Low rank saves little on the convolutions' matrices.</strong> Conv 1's is 32 × 475, and at r = 16 its
+sign bits per weight would be 0.534, against MNIST layer 1's 0.083. Whether they stay int8 or
+binary, or are factorized at all, is an experiment of this step. The dense layer, 64 × 3,872, is
+where LittleBit pays: 0.254 at r = 16.</li>
+<li><strong>How long a decision takes</strong> is <code>unknown</code> until the engine is designed: it depends on how many
+multiply-accumulates it does in a cycle.</li>
+<li><strong>Running SocialJax needs JAX,</strong> pinned at <code>jax[cuda12]==0.6.2</code>. Its CUDA build has no Windows
+wheel, so the lab computer runs JAX 0.6.2 on the CPU instead, which is fast enough to play the
+game ("The float baseline", below).</li>
+</ul>
+<p><strong>The float baseline</strong> (<code>models/cleanup/</code>, 2026-11-23). This is SocialJax's own trained policy
+playing Clean Up on the computer, the figure the hardwired policy is to stand beside.</p>
+<ul>
+<li><strong>The checkpoint and the game.</strong> SocialJax's checkpoint for Clean Up was trained by IPPO with
+individual rewards from seed 30, as one network shared by all 7 agents
+(<code>checkpoints/clean_up_seed30_reward_individual.pkl</code> at 18e2171). It is played as it was
+trained: 7 agents, 1,000 steps, individual rewards. <code>models/cleanup/fetch.py</code> clones SocialJax at
+that commit, outside the repo, and checks the checkpoint's sha256.</li>
+<li><strong>Loading it safely.</strong> The checkpoint is a pickle, and unpickling can run any code a file names.
+<code>pickletools</code>, which runs nothing, read the classes this one names: NumPy's array
+reconstruction, its array and its dtype. <code>models/cleanup/policy.py</code> refuses any other. It runs
+the network as SocialJax builds it, with Flax's own layers.</li>
+<li><strong>The environment.</strong> JAX 0.6.2 on the CPU, Flax 0.10.7, chex, NumPy and Pillow, the versions
+SocialJax pins, are all its environments import (<code>models/cleanup/uv.lock</code>).</li>
+<li><strong>How the games were played.</strong> All 100 at once, seeded 0 to 99, each agent acting one of three
+ways, fixed before the first game:</li>
+</ul>
+<table><thead><tr><th>how an agent acts</th><th>games</th><th>return, mean (sd)</th><th>the actions taken most</th></tr></thead><tbody>
+<tr><td>drawn from the policy, as SocialJax plays it</td><td>100</td><td>524.2 (211.6)</td><td>up 41 %, zap_clean 24 %</td></tr>
+<tr><td>the policy's most likely action</td><td>100</td><td>0.0 in every game</td><td>zap_clean 71 %; up never</td></tr>
+<tr><td>uniformly at random</td><td>100</td><td>4.0 (17.0)</td><td>each about 11 %</td></tr>
+</tbody></table>
+<p>A game's return is its 7 agents' rewards summed over its 1,000 steps. Out of 700,000 actions in
+each mode, the policy's most likely one was <code>up</code> none of the time, and <code>zap_clean</code> 497,680 times.
+These are <code>play.py</code>'s figures, and <code>unknown</code>: its output is not committed, and no test re-checks
+it, since the game runs in JAX and nothing in Rust plays it. A second run of each mode gave the
+same returns, game by game.</p>
+<p>What it means for the plan:</p>
+<ul>
+<li><strong>The chip can't pick the most likely action.</strong> That never eats an apple: the agents fire the
+cleaning beam, turn and move down, and never move up. The policy is trained to be drawn from,
+so the i9 gives the 9 scores, as the MNIST network gives its 10, and the computer draws the
+action. A chip that draws for itself, from its own noise, is a later choice.</li>
+<li><strong>The input is mostly bits.</strong> Over every step of the 100 drawn games, 14 of the observation's 19
+channels were never above 1, and 3 more, channels 3, 4 and 18, were 0 throughout. The other 2,
+16 and 17, are inventory counts and reached 81. If that holds, each of the 121 cells takes 14
+bits and a byte for each count, 30 bits, so an observation is 3,630 bits, against 2,299 bytes as
+19 uint8s a cell.</li>
+<li><strong>The scores, not the action, are what to match.</strong> The golden model and the gateware compare the
+9 scores exactly, as MNIST's 10 are. The game score then tests how much the compression costs.</li>
+</ul>
+<p><strong>JAX's random numbers, in Rust</strong> (<code>crates/cleanup</code>, 2026-11-23). For a hardwired game to be checked
+against SocialJax's step for step, its golden model has to draw the random numbers JAX draws, and
+then the gateware the golden model's. So that comes first. JAX 0.6.2 draws with Threefry-2x32, 20
+rounds of 32-bit adds, rotations and exclusive-ors (<code>jax/_src/prng.py</code>), which is cheap in LUTs and
+needs no multiplier. Its layout is the one JAX calls "partitionable", the default since 0.5.0
+(<code>jax/_src/config.py</code>), and SocialJax doesn't change it: nothing at 18e2171 sets JAX's PRNG
+options. In this layout the i-th number drawn from a key is the hash of the counter i.</p>
+<ul>
+<li><strong>What the game draws.</strong> Clean Up's randomness all goes through four calls: <code>split</code>; <code>uniform</code>, for
+apple regrowth and dirt spawning (<code>clean_up.py</code>, lines 1051 to 1068); <code>randint</code>, as int8 for
+the agents' first facings (line 1363) and in the type of the agents' positions for a respawn's
+facing (<code>movement.py</code>, line 147); and <code>permutation</code>, of spawn points at a reset and a respawn
+(<code>clean_up.py</code>, lines 1323 and 1325; <code>movement.py</code>, line 140), and of the agents, as a random
+order that settles who wins a contested cell (<code>movement.py</code>, line 61). Zapping draws nothing.</li>
+<li><strong>A quirk to copy.</strong> Each step draws three times from one key, for apple regrowth, the dirt's noise
+and the dirt's chance, and a draw from a key begins with every smaller draw from the same key. So
+the three repeat each other's first numbers. A match has to repeat them too.</li>
+<li><strong>What is matched.</strong> <code>crates/cleanup/src/random.rs</code> gives the same bits as JAX for the hash, a
+seed's key, <code>split</code>, <code>bits</code>, <code>uniform</code>, <code>randint</code> as int8, int16 and int32, at the ends of each
+type and on empty and reversed ranges, and <code>permutation</code>, both of 0 to n − 1 and of rows. It
+matches on 9 keys, at sizes from 1 to 1,700, a shuffle sorting once and twice: <code>tested</code>,
+<code>jax_s_random_numbers_are_these_bit_for_bit</code>, against the vectors <code>models/cleanup/ random_vectors.py</code> writes from JAX itself. The hash also gives Random123's three known answers
+(<code>threefry_gives_random123_s_known_answers</code>). Breaking the split's order or <code>randint</code>'s multiplier
+on purpose failed the test (by hand, once each). That the vectors are JAX's is
+<code>random_vectors.py --check</code>, run by
+hand: the Quality Gate has no JAX.</li>
+<li><strong>What is left for the game.</strong> Two places in it compute in floats: the chance an apple regrows, one
+float32 division and multiplication a step, compared with uniform draws; and the dirt's noise,
+a uniform draw times 10⁻⁴ added to each cell's label, which is then sorted. Both are small, and
+IEEE float32 rounds them one way. Whether XLA's GPU build divides with the same rounding as
+its CPU build is <code>unknown</code>, so the CPU is the reference. The policy's own draw, a categorical one
+through Gumbel noise and a float logarithm, is not one to copy: the integer policy will be drawn
+from in a way the chip and its golden model can both do exactly, with a JAX copy of it.</li>
+</ul>
+<p>The biggest risk is accuracy at very low rank. If r ≤ 8 collapses, the project still answers its
+questions, with r = 16–64 as the low end.</p>
+<table><thead><tr><th>risk</th><th>effect</th><th>fallback</th></tr></thead><tbody>
+<tr><td>accuracy collapses at low r</td><td>E4–E5 unusable</td><td>report it as a finding; add residual compensation; keep r ≥ 16</td></tr>
+<tr><td>the float and integer models differ by more than 0.5 points</td><td>check 1 fails</td><td>fake-quantize more stages in training; widen the scales to 16 bits</td></tr>
+<tr><td>hardwired ROMs blow up the LUT count or the routing</td><td>E7–E8 don't fit</td><td>move layer 1 to Variant B; hardwire only layer 2</td></tr>
+<tr><td>timing fails at 50 MHz</td><td>the board runs unreliably</td><td>pipeline the accumulator adds; drop to 25 MHz for correctness runs</td></tr>
+<tr><td>wrong balls for the clock, LED or UART</td><td>nothing works on the board</td><td>Gate 0, a blinky and an echo, before the network</td></tr>
+<tr><td>Yosys folds or duplicates ROM logic unexpectedly</td><td>Variant A's figures mislead</td><td>read the post-synthesis LUT breakdown; synthesize one layer alone and compare</td></tr>
+</tbody></table>
+<h2 id="the-goal-cheaper-than-a-gpu-per-game-step">The goal: cheaper than a GPU per game step</h2>
+<p>Jon, 2026-11-23: "the goal is to beat gpus at cost for this exact type of ml, basically solving
+societal conflict before it actually happens irl". That means multi-agent simulations run with
+agents already trained. The order: first match JAX, then "eventually build a system that is
+completely optimized for the fpga/an asiic". So the measure is cost per game step, the hardware's
+price over its life plus its energy, with the game and its trained policy both running. Speed
+alone isn't the measure.</p>
+<p><strong>The bar on the GPU</strong> (<code>models/cleanup/bench.py</code>, 2026-11-24, 00:20 to 00:23 UTC). This is
+SocialJax's Clean Up on the lab computer's RTX 4070 Ti: driver 621.01, WSL2's Ubuntu 24.04, JAX
+0.6.2 with its CUDA 12 build (the <code>cuda</code> extra in <code>models/cleanup/pyproject.toml</code>).</p>
+<ul>
+<li><strong>How each row is timed.</strong> A run of 1,000 steps is compiled, run once to warm up, then timed 5
+times; the table gives the median, then the slowest to the fastest.</li>
+<li><strong>How the power is read.</strong> nvidia-smi's <code>power.draw.instant</code>, read every 100 ms, which nvidia-smi's
+own help gives as accurate to within 5 W. It is the board alone, not the computer around it.</li>
+<li><strong>The two loads.</strong> Moves drawn at random time the game alone. With the policy, every agent's move
+is drawn from SocialJax's trained policy, all 7 agents of every game each step. A game step is 7
+agents' moves.</li>
+</ul>
+<table><thead><tr><th>games at once</th><th>random moves, game steps a second</th><th>with the policy, game steps a second</th><th>board watts, with the policy</th><th>millijoules a game step, with the policy</th></tr></thead><tbody>
+<tr><td>1</td><td>4,041 (3,369 to 5,376)</td><td>4,330 (4,264 to 4,412)</td><td>59</td><td>13.6</td></tr>
+<tr><td>16</td><td>58,957 (50,112 to 68,037)</td><td>45,937 (32,205 to 48,048)</td><td>92</td><td>2.29</td></tr>
+<tr><td>256</td><td>430,364 (429,806 to 430,713)</td><td>164,390 (164,183 to 164,724)</td><td>233</td><td>1.42</td></tr>
+<tr><td>1,024</td><td>613,662 (612,195 to 616,270)</td><td>177,885 (177,616 to 178,549)</td><td>255</td><td>1.44</td></tr>
+</tbody></table>
+<p>Idle, with JAX loaded, the board drew 27 W. With random moves at 1,024 games it drew 160 W, 0.26 mJ
+a game step. These are <code>bench.py</code>'s figures, and <code>unknown</code>: no record or test holds them. An earlier
+run, timed once a row, gave 179,348 game steps a second with the policy at 1,024 games, and 620,407
+with random moves. new-melting-pot (YoungMoolahBaby/new-melting-pot) measured about 630,000 random
+game steps a second at 1,024 games on the same card, on JAX 0.12.</p>
+<p>What it means for the plan:</p>
+<ul>
+<li><strong>The bar is 1.44 mJ, and 1/177,885 of a second, a game step.</strong> That's with the policy at 1,024
+games. Fewer games at once cost more a step: 13.6 mJ with one game.</li>
+<li><strong>The policy is most of the time.</strong> At 1,024 games it takes about 71 % of a step: 1 −
+177,885/613,662. A chip that runs the policy alone, beside a GPU running the game, could at most
+bring a step to the game's own 613,662 a second.</li>
+<li><strong>The whole computer draws more than the board.</strong> How much is <code>unknown</code>. So is the i9's energy a
+game step, until a design runs; its power is measured on the bench, within <code>lab/limits.toml</code>.
+Prices are what was paid, not a shop's listing (CLAUDE.md).</li>
+<li><strong>The GPU's bar can rise.</strong> A hand-written CUDA port of another JAX environment, Craftax, ran tens
+of times faster than JAX on its author's own figures (<a href="../prior-art/index.html"><code>prior-art.md</code></a>, "Simulations in
+hardware"). So a claim to beat a GPU names which GPU program it beats. This one is SocialJax's.</li>
+<li><strong>One i9 is unlikely to beat it on speed alone.</strong> Rough arithmetic, <code>unknown</code> until built: put
+the whole game on the chip, with the policy at rank 16 on every layer. Make each layer a
+hardwired kernel that positions stream through, and pipeline the layers. Then conv 1 takes 121
+clocks a move, at a position a clock, and convs 2 and 3 and the dense layer take about 484 each.
+At 59.375 MHz that is about 120,000 moves a second, or 17,500 game steps: about 10 times short
+of the GPU, anywhere from 3 to 30 times. Games are independent, so boards add up. Whether a
+few i9s cost less a step than one GPU is the question the measurements answer.</li>
+</ul>
+<p><strong>The plan.</strong> Each step is a PR, and its claims carry their grades.</p>
+<ol>
+<li>
+<p><strong>Match JAX.</strong> First JAX's random numbers in Rust (<code>crates/cleanup</code>). Then:</p>
+<ul>
+<li>Clean Up's game in Rust, step for step against trajectories SocialJax plays.</li>
+<li>The integer policy: LittleBit on the convolutions and the dense layer, playing as the float
+policy does ("Whether a student plays as the teacher does"). Its draw is defined so that the
+chip and the golden model both make it exactly, with a JAX copy that matches them.</li>
+<li>The game and the policy in gateware, checked in cocotb against the golden model, then on the
+i9.</li>
+</ul>
+<p>One cheap early check: synthesize conv 1 with the real policy's signs and read nextpnr's LUTs and
+clock, to replace the guess of a LUT a weight with a figure.</p>
+</li>
+<li>
+<p><strong>Measure the cost a game step on both.</strong> The i9's power on the bench, the GPU's as above, and
+what each cost.</p>
+</li>
+<li>
+<p><strong>Build for the FPGA or an ASIC.</strong> Shape the game and the policy for the hardware, judged by
+whether it plays as the trained agents do ("Whether a student plays as the teacher does")
+rather than bit for bit against JAX.</p>
+</li>
+</ol>
+<p><strong>What exists already</strong> (searched 2026-11-23; <a href="../prior-art/index.html"><code>prior-art.md</code></a>, "Simulations in hardware"):</p>
+<ul>
+<li><strong>Environments written in HDL:</strong> FPGA-Gym. They are single-agent, with the policy on the host.</li>
+<li><strong>A whole game and network on FPGAs:</strong> IBM's Atari neuroevolution, on 432 Xilinx FPGAs.</li>
+<li><strong>FPGA actors and trainers for RL:</strong> FA3C, FIXAR and LearningGroup.</li>
+<li><strong>Threefry in HDL:</strong> rial and LoWA. Neither claims to match JAX's streams.</li>
+<li><strong>A JAX environment rebuilt, Threefry streams and all, and checked exactly against a pinned JAX:</strong>
+EnvPool's Craftax port, in C++ on a CPU.</li>
+</ul>
+<p>Not found:</p>
+<ul>
+<li>a multi-agent social-dilemma game run on one chip with its policy;</li>
+<li>hardware matched bit for bit with JAX;</li>
+<li>any of it on open tools and an ECP5;</li>
+<li>low-rank binary factors in an RL policy, with its return measured;</li>
+<li>a published cost per game step, policy included, against a GPU.</li>
+</ul>
+<h2 id="how-small-the-policy-can-get">How small the policy can get</h2>
+<p>The compression sweep, 2026-11-24. Smaller students are trained to act as SocialJax's policy does,
+and each is scored by playing the game. This was moved ahead of the game's golden model because it
+is the biggest lever on cost: what a move computes sets the hardware for everything after it (Jon,
+2026-11-24, agreeing the order).</p>
+<p><strong>How it was run.</strong> The bar, set before the first run: a student keeps the policy's score if its
+mean return is at least 90 % of the teacher's on the same games. That bar has since been replaced:
+a student must play as the teacher does, not only score as it does, and under the new bar none of
+these students does ("Whether a student plays as the teacher does", below).</p>
+<ul>
+<li><strong>The evaluation games.</strong> All 1,000 seeded 1,000 to 1,999. The bar was first set over 100 games.
+It became 1,000 after the teacher's own 100-game means came out at 521.0 and 481.0 on two sets of
+seeds, and before any student was scored.</li>
+<li><strong>The teacher's games.</strong> <code>models/cleanup/rollouts.py</code> records the teacher playing 100 games,
+seeded 0 to 99, on the GPU. That gives 700,000 observations, each with the teacher's logits.</li>
+<li><strong>Training.</strong> <code>models/littlebit/distill.py</code> trains each student in PyTorch to the teacher's
+action distribution, by KL divergence. The recipe is the same for all, fixed before the first
+run: Adam at 10⁻³, cosine-decayed over 20 epochs of 4,096, from seed 0.</li>
+<li><strong>Where a student starts.</strong> One of the teacher's shape starts from its weights, and its LittleBit
+layers from Dual-SVID of them. The others start from PyTorch's own initialization, "fresh".</li>
+<li><strong>Scoring.</strong> <code>rollouts.py</code> plays each student on the evaluation games, its moves drawn from its
+logits, as SocialJax plays, on the GPU.</li>
+<li><strong>Round 2: one step of DAgger.</strong> A student plays 100 games of its own, seeded 200 to 299, and the
+teacher's logits are recorded for every observation it meets. The student is then trained
+again, fresh, on the teacher's games and its own.</li>
+</ul>
+<p>Every LittleBit student keeps the 9 logits' layer in float: 576 multiply-adds and 576 weights.
+Activations are float throughout; the integer form is the next step. The difference is each
+student's return less the teacher's, game by game on the same seeds, with its standard error.</p>
+<table><thead><tr><th>student</th><th>convolutions</th><th>LittleBit</th><th>a move computes</th><th>it holds</th><th>return</th><th>of the teacher</th><th>difference</th><th>keeps it</th></tr></thead><tbody>
+<tr><td>teacher</td><td>32, 32, 32</td><td>—</td><td>4,321,952 multiply-adds</td><td>286,112 weights</td><td>479.4</td><td></td><td></td><td></td></tr>
+<tr><td>t32</td><td>32, 32, 32</td><td>—</td><td>4,321,952 multiply-adds</td><td>286,112 weights</td><td>483.6</td><td>101 %</td><td>+4.2 ± 8.2</td><td>yes</td></tr>
+<tr><td>w16</td><td>16, 16, 16</td><td>—</td><td>1,605,744 multiply-adds</td><td>140,784 weights</td><td>446.2</td><td>93 %</td><td>−33.1 ± 7.8</td><td>yes</td></tr>
+<tr><td>w8</td><td>8, 8, 8</td><td>—</td><td>665,816 multiply-adds</td><td>71,576 weights</td><td>453.3</td><td>95 %</td><td>−26.1 ± 7.6</td><td>yes</td></tr>
+<tr><td>w4</td><td>4, 4, 4</td><td>—</td><td>300,396 multiply-adds</td><td>37,836 weights</td><td>435.9</td><td>91 %</td><td>−43.4 ± 7.7</td><td>not settled: 0.6 standard errors over the bar</td></tr>
+<tr><td>dense-r16</td><td>32, 32, 32</td><td>the dense layer, r = 16</td><td>4,074,144 multiply-adds and 62,976 sign additions</td><td>38,304 weights and 62,976 sign bits</td><td>466.7</td><td>97 %</td><td>−12.7 ± 8.1</td><td>yes</td></tr>
+<tr><td>dense-r4</td><td>32, 32, 32</td><td>the dense layer, r = 4</td><td>4,074,144 multiply-adds and 15,744 sign additions</td><td>38,304 weights and 15,744 sign bits</td><td>461.6</td><td>96 %</td><td>−17.8 ± 8.1</td><td>yes</td></tr>
+<tr><td>all-r16, all-r8, all-r4</td><td>32, 32, 32</td><td>every layer, from the teacher</td><td>—</td><td>—</td><td>0.0 in every game</td><td>0 %</td><td></td><td>no: never trained</td></tr>
+<tr><td>all-r16-fresh</td><td>32, 32, 32</td><td>every layer, r = 16, fresh</td><td>2,285,616 sign additions, 148,691 scalings</td><td>83,376 sign bits, 5,291 scales</td><td>413.8</td><td>86 %</td><td>−65.5 ± 7.9</td><td>no</td></tr>
+<tr><td>all-r4-fresh</td><td>32, 32, 32</td><td>every layer, r = 4, fresh</td><td>571,404 sign additions, 144,311 scalings</td><td>20,844 sign bits, 5,231 scales</td><td>390.4</td><td>81 %</td><td>−89.0 ± 7.3</td><td>no</td></tr>
+<tr><td>w8-all-r8</td><td>8, 8, 8</td><td>every layer, r = 8</td><td>631,704 sign additions, 81,883 scalings</td><td>14,424 sign bits, 1,843 scales</td><td>386.6</td><td>81 %</td><td>−92.7 ± 7.5</td><td>no</td></tr>
+<tr><td>w8-all-r4</td><td>8, 8, 8</td><td>every layer, r = 4</td><td>315,852 sign additions, 80,423 scalings</td><td>7,212 sign bits, 1,823 scales</td><td>386.9</td><td>81 %</td><td>−92.5 ± 7.3</td><td>no</td></tr>
+<tr><td>w8, DAgger</td><td>8, 8, 8</td><td>—</td><td>665,816 multiply-adds</td><td>71,576 weights</td><td>525.4</td><td>110 %</td><td>+46.0 ± 8.1</td><td>yes</td></tr>
+<tr><td>w8-all-r4, DAgger</td><td>8, 8, 8</td><td>every layer, r = 4</td><td>315,852 sign additions, 80,423 scalings</td><td>7,212 sign bits, 1,823 scales</td><td>468.6</td><td>98 %</td><td>−10.8 ± 7.7</td><td>yes</td></tr>
+<tr><td>all-r16-fresh, DAgger</td><td>32, 32, 32</td><td>every layer, r = 16</td><td>2,285,616 sign additions, 148,691 scalings</td><td>83,376 sign bits, 5,291 scales</td><td>469.1</td><td>98 %</td><td>−10.2 ± 7.7</td><td>yes</td></tr>
+</tbody></table>
+<p><strong>From one training run to the next.</strong> The two DAgger students that matter most were trained
+again from seeds 1 and 2, on the same data. The seed sets both the starting weights and the order
+of the batches. (A first retrain at seed 0 gave the same held-out KL to 4 digits, so it showed
+only that training repeats, as new-melting-pot pointed out.)</p>
+<table><thead><tr><th>student, with DAgger</th><th>seed 0</th><th>seed 1</th><th>seed 2</th><th>against the teacher, game by game</th></tr></thead><tbody>
+<tr><td>w8</td><td>525.4</td><td>517.5</td><td>512.9</td><td>+46.0 ± 8.1, +38.1 ± 8.5, +33.5 ± 8.5</td></tr>
+<tr><td>w8-all-r4</td><td>468.6</td><td>446.3</td><td>488.7</td><td>−10.8 ± 7.7, −33.1 ± 7.5, +9.3 ± 7.9</td></tr>
+</tbody></table>
+<p>So w8 outscores its teacher in all three runs, each by at least 3.9 standard errors. w8-all-r4
+keeps 93 to 102 % and clears the bar in all three, the closest by 2.1 standard errors. Its score
+moves about twice as far between runs as w8's.</p>
+<p>How these are known:</p>
+<ul>
+<li><strong>The scripts' figures, <code>unknown</code>.</strong> They come from <code>rollouts.py</code> and <code>distill.py</code>, one training
+run per student but for the two above, and no test re-checks them. The students' files are kept
+outside the repo, in <code>D:\tentzhen-data\cleanup\</code>, and none is committed.</li>
+<li><strong>What the counts follow.</strong> The arithmetic and weight counts are <code>distill.py</code>'s <code>costs</code>: a
+LittleBit layer adds r (fan-in + out) signs and scales fan-in + r + out values at each position.</li>
+<li><strong>Pairing hardly helps.</strong> On the same seed, a student's return and the teacher's correlate at only
+0.0 to 0.12. So the standard errors are about what independent games would give.</li>
+</ul>
+<p>What it means for the plan:</p>
+<ul>
+<li><strong>The convolutions can be 8 wide, not 32.</strong> That is 6.5 times less arithmetic. After one DAgger
+step, that student scores 34 to 46 more a game than its teacher, in each of three training runs.
+Why a student outscores its teacher is <code>unknown</code>.</li>
+<li><strong>The whole policy can be LittleBit.</strong> At 8 wide and r = 4 it is 7,212 sign bits and 1,823
+scales, and after one DAgger step it keeps 93 to 102 % of the score over three training runs.
+That is 316,000 sign additions and 80,000 scalings a move, against the teacher's 4.3 million
+multiply-adds.</li>
+<li><strong>One round of DAgger lifted two fully LittleBit students more than rank did.</strong> The fully
+LittleBit students sat at 81 to 86 % whatever their rank. One round of DAgger lifted the two of
+them it was run on, w8-all-r4 and all-r16-fresh, to 98 %. Why is <code>unknown</code>, and a later DAgger
+step, on 500 games, made w8-all-r4 worse ("Longer training, and one step of DAgger").</li>
+<li><strong>Dual-SVID from the teacher fails when every layer is factorized.</strong> The factorized network starts
+near random, at a KL of 1.77 nats, and never recovers. Started fresh, the same shapes train.
+Factorizing only the dense layer from the teacher also starts near random, at 1.77, but it
+trains back, to 97 %. Why the whole network doesn't is <code>unknown</code>.</li>
+<li><strong>The same seeds make different games on the CPU and the GPU.</strong> On the CPU the teacher replays
+seeds 0 to 99 exactly, 524.2 as <code>play.py</code> first gave. On the GPU the same seeds score 481.0.
+Why they differ is <code>unknown</code>. The CPU is the one to match bit for bit.</li>
+<li><strong>Next.</strong> The integer form, and a bar on behaviour, not score: the next section.</li>
+</ul>
+<h2 id="whether-a-student-plays-as-the-teacher-does">Whether a student plays as the teacher does</h2>
+<p>The integer form of w8-all-r4 changed the bar. Started from w8-all-r4's DAgger student and
+calibrated, untrained, it scored 737 a game, 152 % of the teacher. It got there by playing another
+game. 5.8 of its 7 players do a tenth of the cleaning or more, against the teacher's 4.0; they zap
+1.7 times as often; and the river holds 18 % less dirt. The chip
+is to simulate the agents it was given, so a student that scores higher by acting differently is a
+different agent. So the bar from here: a student must play as the teacher does, measure by measure,
+and its score is one measure of 30 (Jon, 2026-11-24, agreeing to the recommendation).</p>
+<p><strong>How it is measured.</strong></p>
+<ul>
+<li><strong>What a game records.</strong> Besides each game's return, <code>models/cleanup/rollouts.py</code> records each
+agent's apples, how often it took each of the 9 actions, and how often it was zapped. For the
+town, it records the river's dirt and the apples on the map each step, and the dirt the beams
+removed. Clean Up starts the next game inside its own 1,000th step, so what is read from the
+game's state counts 999 steps a game.</li>
+<li><strong>The 30 measures.</strong> <code>models/cleanup/behaviour.py</code> adapts new-melting-pot's report and
+comparison (its <code>sims/jaxtown/coop_report.py</code> and <code>compare.py</code> at 480062a, Apache-2.0):
+<ul>
+<li>the return;</li>
+<li>each player's apples and clean beams, ranked within the game, most first;</li>
+<li>zaps fired, and times zapped;</li>
+<li>how many players fired at least a tenth of the clean beams;</li>
+<li>the dirt removed;</li>
+<li>the dirt, and the apples on the map, each step on average;</li>
+<li>the share of each of the 9 actions.</li>
+</ul>
+</li>
+<li><strong>The rule, set before any student was compared.</strong> A student matches a measure if its mean over
+the 1,000 evaluation games is within 3 standard errors of the difference between two independent
+1,000-game means of the teacher's: 3 × √2 × the teacher's standard deviation / √1,000. It plays as
+the teacher does if it matches all 30. With 30 measures, the teacher itself would fail one by
+chance about 8 % of the time.</li>
+<li><strong>The rule on the teacher itself.</strong> On 1,000 other games, seeded 3,000 to 3,999, the teacher
+matches all 30. The closest call is the dirt removed: 4.6 less, against a tolerance of 6.5.</li>
+<li><strong>Every policy was played again.</strong> GPU runs don't repeat. The teacher on the evaluation games,
+by the same program twice, scored 485.5 and 484.9, and only 579 of the 1,000 games came out the
+same. The earlier program, before these records were added, gave 479.4, with 537 games the same.
+Why is <code>unknown</code>. So each policy here was played again by the same program, and each run counts
+as an independent sample, as the √2 assumes.</li>
+</ul>
+<p>The held-out KL and the same top action are <code>distill.py</code>'s, on the last 5 % of a student's
+training observations. For a DAgger student those are the end of its own games, not the teacher's,
+so its figures are on other observations than the rest's. "Where it misses" counts the measures
+missed of each kind:</p>
+<ul>
+<li>apples and beams, of the 7 ranked players each;</li>
+<li>zaps, fired and received;</li>
+<li>the town: the cleaners, the dirt removed, and the dirt and apples a step;</li>
+<li>actions, the 9 shares.</li>
+</ul>
+<p>w8-all-r4's DAgger student at seed 0 was trained twice, the second time with the same held-out KL
+to 4 digits. Its two rows differ by 2 measures, which shows how much the count moves on its own.</p>
+<table><thead><tr><th>student</th><th>started from</th><th>measures that match, of 30</th><th>return</th><th>held-out KL, nats</th><th>same top action</th><th>where it misses</th></tr></thead><tbody>
+<tr><td>teacher, seeds 1,000 to 1,999</td><td>—</td><td>the reference</td><td>485.5</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>teacher, seeds 3,000 to 3,999</td><td>—</td><td>30</td><td>480.0</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>t32</td><td>the teacher</td><td>30</td><td>484.5</td><td>0.001</td><td>99.5 %</td><td>—</td></tr>
+<tr><td>t32-fresh</td><td>fresh</td><td>27</td><td>471.3</td><td>0.125</td><td>83.7 %</td><td>apples 1; beams 1; actions 1</td></tr>
+<tr><td>w16</td><td>fresh</td><td>6</td><td>442.4</td><td>0.131</td><td>82.0 %</td><td>return; apples 5; beams 5; zaps 2; the town 3; actions 8</td></tr>
+<tr><td>w8</td><td>fresh</td><td>18</td><td>453.7</td><td>0.137</td><td>80.9 %</td><td>return; apples 3; beams 3; the town 1; actions 4</td></tr>
+<tr><td>w4</td><td>fresh</td><td>19</td><td>429.5</td><td>0.149</td><td>80.2 %</td><td>return; apples 6; beams 2; actions 2</td></tr>
+<tr><td>dense-r16</td><td>the teacher</td><td>23</td><td>464.0</td><td>0.127</td><td>84.9 %</td><td>beams 1; zaps 1; the town 1; actions 4</td></tr>
+<tr><td>dense-r4</td><td>the teacher</td><td>24</td><td>457.6</td><td>0.149</td><td>81.6 %</td><td>return; apples 1; beams 1; zaps 1; actions 2</td></tr>
+<tr><td>all-r16-fresh</td><td>fresh</td><td>3</td><td>410.2</td><td>0.160</td><td>79.3 %</td><td>return; apples 5; beams 6; zaps 2; the town 4; actions 9</td></tr>
+<tr><td>all-r4-fresh</td><td>fresh</td><td>11</td><td>392.9</td><td>0.182</td><td>78.8 %</td><td>return; apples 6; beams 6; zaps 1; the town 1; actions 4</td></tr>
+<tr><td>w8-all-r8</td><td>fresh</td><td>14</td><td>388.8</td><td>0.174</td><td>77.1 %</td><td>return; apples 5; beams 1; zaps 1; the town 1; actions 7</td></tr>
+<tr><td>w8-all-r4</td><td>fresh</td><td>3</td><td>385.7</td><td>0.200</td><td>77.3 %</td><td>return; apples 6; beams 7; zaps 1; the town 3; actions 9</td></tr>
+<tr><td>w8, DAgger, seed 0</td><td>fresh</td><td>16</td><td>523.9</td><td>0.138</td><td>82.5 %</td><td>return; apples 6; beams 2; the town 1; actions 4</td></tr>
+<tr><td>w8, DAgger, seed 1</td><td>fresh</td><td>14</td><td>520.9</td><td>0.163</td><td>81.7 %</td><td>return; apples 6; beams 3; the town 3; actions 3</td></tr>
+<tr><td>w8, DAgger, seed 2</td><td>fresh</td><td>16</td><td>516.7</td><td>0.146</td><td>82.2 %</td><td>return; apples 6; beams 3; actions 4</td></tr>
+<tr><td>w8-all-r4, DAgger, seed 0</td><td>fresh</td><td>13</td><td>473.6</td><td>0.244</td><td>74.3 %</td><td>apples 3; beams 3; zaps 1; the town 2; actions 8</td></tr>
+<tr><td>w8-all-r4, DAgger, seed 0 again</td><td>fresh</td><td>11</td><td>471.7</td><td>0.244</td><td>74.3 %</td><td>apples 3; beams 4; zaps 1; the town 3; actions 8</td></tr>
+<tr><td>w8-all-r4, DAgger, seed 1</td><td>fresh</td><td>15</td><td>454.3</td><td>0.255</td><td>73.5 %</td><td>return; apples 3; beams 3; the town 1; actions 7</td></tr>
+<tr><td>w8-all-r4, DAgger, seed 2</td><td>fresh</td><td>7</td><td>490.1</td><td>0.248</td><td>75.1 %</td><td>apples 5; beams 6; zaps 2; the town 2; actions 8</td></tr>
+<tr><td>all-r16-fresh, DAgger</td><td>fresh</td><td>8</td><td>467.3</td><td>0.102</td><td>85.8 %</td><td>apples 3; beams 7; zaps 2; the town 2; actions 8</td></tr>
+<tr><td>w8-all-r4, integer, calibrated only</td><td>w8-all-r4, DAgger, seed 0 again</td><td>1</td><td>737.1</td><td>0.386</td><td>69.7 %</td><td>return; apples 7; beams 7; zaps 2; the town 3; actions 9</td></tr>
+<tr><td>w8-all-r4, integer, trained 20 epochs</td><td>w8-all-r4, DAgger, seed 0 again</td><td>14</td><td>440.8</td><td>0.231</td><td>76.2 %</td><td>return; apples 4; beams 4; zaps 1; the town 1; actions 5</td></tr>
+</tbody></table>
+<p><strong>What it showed.</strong></p>
+<ul>
+<li>
+<p><strong>No student trained to a new shape plays as the teacher does.</strong> t32 does, but t32 started from
+the teacher's own weights and still picks the teacher's likeliest action 99.5 % of the time: it
+is the teacher. Closest of the rest:</p>
+<ul>
+<li>t32-fresh, the teacher's own shape trained from scratch, at 27 of 30;</li>
+<li>dense-r4 and dense-r16, which keep the teacher's convolutions, at 24 and 23.</li>
+</ul>
+</li>
+<li>
+<p><strong>The recipe limits faithfulness before size does.</strong> Every float student started fresh and
+trained on the teacher's games alone, from 4 to 32 wide, ends at a held-out KL of 0.12 to 0.15
+nats a move, and picks the teacher's likeliest
+action 80 to 84 % of the time. Even at the teacher's size, this recipe doesn't make a faithful
+student.</p>
+</li>
+<li>
+<p><strong>The students' cleaners clean less.</strong> Of the 20 students besides t32, 19 fire fewer clean beams
+than the teacher from the player who fires the most, 17 of them by more than the tolerance. 18 do
+from the second, 16 by more than the tolerance.</p>
+</li>
+<li>
+<p><strong>The students hedge.</strong> On the teacher's held-out observations, the teacher's choice of action
+has an entropy of 0.80 nats. Nine students were measured besides t32:</p>
+<ul>
+<li>those with float convolutions, 0.93 to 0.96;</li>
+<li>w8-all-r4's DAgger student, 1.05;</li>
+<li>its integer forms, 1.03 trained and 1.29 calibrated only.</li>
+</ul>
+<p>Where the clean beam is the teacher's likeliest action, a third of the observations, the teacher
+gives it 0.58 and the students 0.44 to 0.53. Whether this is why they clean less is <code>unknown</code>.</p>
+</li>
+<li>
+<p><strong>Sharpening doesn't fix it.</strong> Each of four students had its logits scaled by the k that gives
+it the teacher's entropy on the teacher's held-out observations, which is the same as scaling its
+logits layer. All four play further from the teacher, and score less. Their cleaners fire more
+beams but clear less dirt, and they zap less. The scaling also raises each one's KL, on the
+teacher's last 35,000 observations, for all four:</p>
+<table><thead><tr><th>student, its logits × k</th><th>k</th><th>measures that match, of 30</th><th>return</th><th>KL before, then after</th><th>dirt cleared a beam</th></tr></thead><tbody>
+<tr><td>t32-fresh</td><td>1.240</td><td>6</td><td>373.3</td><td>0.125, 0.137</td><td>0.208</td></tr>
+<tr><td>w8, DAgger, seed 0</td><td>1.224</td><td>4</td><td>429.9</td><td>0.107, 0.117</td><td>0.212</td></tr>
+<tr><td>w8-all-r4, DAgger, seed 0</td><td>1.422</td><td>3</td><td>304.9</td><td>0.187, 0.211</td><td>0.194</td></tr>
+<tr><td>w8-all-r4, integer, trained</td><td>1.372</td><td>5</td><td>299.0</td><td>0.177, 0.200</td><td>0.203</td></tr>
+</tbody></table>
+<p>The DAgger students trained on those observations, so their KLs are compared only before and
+after the scaling. new-melting-pot suggested checking the KL alongside the measures.</p>
+</li>
+<li>
+<p><strong>Beams fired stand for cleaning within one policy, not across policies.</strong> In the teacher's
+games, a game's beams and the dirt they cleared correlate at 0.79 and 0.77 on the two sets of
+seeds, with 0.244 dirt cleared a beam in both. The sharpened students clear 0.21 a beam. So the
+dirt removed is measured, not inferred from the beams.</p>
+</li>
+<li>
+<p><strong>The extra score came from playing another game.</strong> w8's DAgger students outscore the teacher,
+517 to 524 a game. At seed 0, players 2 to 7 eat more apples, and players 1 and 2 fire 18 and 19
+fewer beams. The calibrated integer student's 737 goes further. Every player eats more, and the
+cleaning moves from players 1 and 2 to players 3 to 7.</p>
+</li>
+<li>
+<p><strong>The integer form, trained, is no further from the teacher than its float start.</strong> Trained 20
+epochs, it matches 14 of 30. Its float start, the second training of w8-all-r4's DAgger student
+at seed 0, matches 11, and the first training 13. But that start wasn't faithful either.</p>
+</li>
+<li>
+<p><strong>KL on recorded games doesn't rank the students.</strong> On the same held-out observations, w16, at
+0.131, matches 6 measures, and dense-r4, at 0.149, matches 24.</p>
+</li>
+</ul>
+<p>How these are known: <code>unknown</code>. These are <code>rollouts.py</code>'s, <code>behaviour.py</code>'s and <code>distill.py</code>'s
+figures, one run each, and no test re-checks them. The entropies, the counts across students, the
+sharpened students and their KLs come from throwaway scripts. They are kept with the students' files
+in <code>D:\tentzhen-data\cleanup\scripts\</code>, outside the repo.</p>
+<p>What it means for the plan:</p>
+<ul>
+<li><strong>No student is chosen for the hardware yet.</strong> A hardwired layer's cost on the i9 follows from
+its shape and from its weights' values. How much from each is <code>unknown</code> until one is
+synthesized. So synthesizing w8-all-r4's shape, for nextpnr's LUTs and clock, can go ahead
+meanwhile: it measures exactly that.</li>
+<li><strong>Next, the recipe, on the teacher's own shape.</strong> Make a fresh t32 play as the teacher does, then
+shrink it ("A recipe that makes a faithful student", below). To try:
+<ul>
+<li>more of the teacher's games than 100;</li>
+<li>more rounds of DAgger;</li>
+<li>longer training;</li>
+<li>and, for new-melting-pot's question, whether the cleaners spend less time at the river or fire
+less while there.</li>
+</ul>
+</li>
+</ul>
+<h2 id="a-recipe-that-makes-a-faithful-student">A recipe that makes a faithful student</h2>
+<p>The next step was to fix the recipe on the teacher's own shape before shrinking it (Jon,
+2026-11-24). Each student below starts fresh and is scored on the behaviour bar on both sets of
+seeds. The scoring seeds stay apart from every training seed:</p>
+<ul>
+<li>the teacher's first 100 games, seeded 0 to 99;</li>
+<li>400 more, seeded 10,000 to 10,399, recorded for this;</li>
+<li>the DAgger games, seeded 200 to 299.</li>
+</ul>
+<p><code>distill.py</code> now keeps the recorded observations in the computer's memory and moves each batch to
+the GPU as it is used, since 500 games' are 8.2 GB. The change is meant to move only where the
+observations wait, not which batches are drawn or the arithmetic on them. Nothing checks that a
+run matches one from before it.</p>
+<p>The held-out KL is on the last 5 % of the training observations. With 500 games, that is the last
+25 of the teacher's first 100; with 100, the last 5.</p>
+<p>Every student trained at the same rate, 0.001, falling to 0 on a cosine, in batches of 4,096, from
+seed 0. The KLs are those of the last epoch.</p>
+<table><thead><tr><th>student</th><th>games trained on</th><th>epochs</th><th>a move computes</th><th>it holds</th><th>KL, training, then held out</th><th>same top action, held out</th><th>measures that match, seeds 1,000 on, then 3,000 on</th><th>return, both</th></tr></thead><tbody>
+<tr><td>t32-fresh</td><td>100</td><td>20</td><td>4,321,952 multiply-adds</td><td>286,112 weights</td><td>0.079, 0.125</td><td>83.7 %</td><td>27, not played</td><td>471.3</td></tr>
+<tr><td>t32-fresh</td><td>100</td><td>100</td><td>4,321,952 multiply-adds</td><td>286,112 weights</td><td>0.042, 0.101</td><td>86.6 %</td><td>30, 28</td><td>499.9, 494.0</td></tr>
+<tr><td>t32-fresh</td><td>500</td><td>20</td><td>4,321,952 multiply-adds</td><td>286,112 weights</td><td>0.052, 0.057</td><td>89.7 %</td><td>30, 30</td><td>492.8, 487.7</td></tr>
+<tr><td>w8</td><td>500</td><td>20</td><td>665,816 multiply-adds</td><td>71,576 weights</td><td>0.076, 0.081</td><td>87.7 %</td><td>30, 30</td><td>476.5, 468.4</td></tr>
+<tr><td>w4</td><td>500</td><td>20</td><td>300,396 multiply-adds</td><td>37,836 weights</td><td>0.092, 0.093</td><td>86.4 %</td><td>27, 26</td><td>475.3, 462.1</td></tr>
+<tr><td>w8-dense-r4</td><td>500</td><td>20</td><td>603,864 multiply-adds, 4,128 sign additions and 1,036 scalings</td><td>9,624 weights, 4,128 sign bits and 1,036 scales</td><td>0.106, 0.102</td><td>84.8 %</td><td>16, 19</td><td>463.1, 457.6</td></tr>
+<tr><td>w8-all-r8</td><td>500</td><td>20</td><td>576 multiply-adds, 631,704 sign additions and 81,883 scalings</td><td>576 weights, 14,424 sign bits and 1,843 scales</td><td>0.126, 0.114</td><td>83.5 %</td><td>3, 2</td><td>530.9, 535.4</td></tr>
+<tr><td>w8-all-r4</td><td>500</td><td>20</td><td>576 multiply-adds, 315,852 sign additions and 80,423 scalings</td><td>576 weights, 7,212 sign bits and 1,823 scales</td><td>0.139, 0.127</td><td>82.2 %</td><td>11, 10</td><td>483.8, 478.8</td></tr>
+</tbody></table>
+<p>The teacher's returns on the two sets of seeds are 485.5 and 480.0. w8-dense-r4 is w8 with
+LittleBit on the dense layer alone, which holds 61,952 of w8's 71,576 weights.</p>
+<p>What it showed:</p>
+<ul>
+<li><strong>More of the teacher's games made a faithful student.</strong>
+<ul>
+<li>Trained 100 epochs on the same 100 games, t32-fresh matches all 30 measures on the
+evaluation seeds. On the second set it matches 28: there it removes more dirt than the
+teacher (+7.7, against a tolerance of 6.6) and leaves less in the river. It learned those 100
+games better than the games it never saw: a KL of 0.042 on its training observations, against
+0.101 held out.</li>
+<li>Trained 20 epochs on 500 games, it matches all 30 on both sets of seeds. Its KL is 0.052 on its
+training observations and 0.057 held out.</li>
+</ul>
+</li>
+<li><strong>It still hedges, a little.</strong> On the last 35,000 observations of the teacher's first 100 games,
+which all three held out, the teacher's entropy is 0.80 nats. The 500-game student's is 0.87,
+the 100-epoch one's 0.90, and the first t32-fresh's 0.94. So the bar's 1,000 games can't see a
+difference that size.</li>
+<li><strong>8 wide is faithful, and 4 wide nearly.</strong> Trained on the 500 games, w8 matches all 30 measures
+on both sets of seeds, with 6.5 times less arithmetic than the teacher's shape. w4, with 14
+times less, matches 27 and 26. On both sets its player 1 fires fewer cleaning beams than the
+teacher's, 11.8 and 10.4 fewer, and it moves right less often.</li>
+<li><strong>No LittleBit student plays as the teacher does yet, and each misses differently.</strong>
+<ul>
+<li>w8-dense-r4 matches 16 and 19. Its player 1 eats 14.6 fewer apples and fires 12 to 14 fewer
+cleaning beams. Everyone zaps less, 6.0 and 5.6 fewer zaps a game.</li>
+<li>w8-all-r4 matches 11 and 10. Its player 1 fires 15 and 13 fewer cleaning beams, and players 3
+to 7 fire 16 to 33 more. It zaps 7.5 and 7.9 more, and has 4.34 and 4.40 cleaners, against
+the teacher's 4.02.</li>
+<li>w8-all-r8 matches 3 and 2, the same drift as w8-all-r4's but further. Players 2 to 7 fire 21 to
+53 more cleaning beams and eat more apples, and the river holds 6.1 and 8.3 less dirt a step.
+It scores 530.9 and 535.4, against the teacher's 485.5 and 480.0. As with w8's DAgger
+students ("Whether a student plays as the teacher does"), the higher score comes from playing
+another game.</li>
+</ul>
+</li>
+<li><strong>The LittleBit students aren't memorizing.</strong> Each one's KL on its training observations is no
+lower than held out: 0.139 and 0.127 for w8-all-r4. The 100-epoch t32-fresh's, on 100 games,
+were 0.042 and 0.101. In their last epochs, the LittleBit students' training KLs still fell, by
+up to 0.001 an epoch, as the rate went to 0. Their held-out KLs moved by up to 0.012 from one
+epoch to the next. Whether longer training, DAgger or another start would close the gap is
+<code>unknown</code>.</li>
+<li><strong>KL ranks the float students, not the LittleBit ones.</strong> All the 500-game students trained on
+the same files in the same order, so they are measured on the same held-out observations. The
+float students' KLs, 0.057, 0.081 and 0.093, rank them as their matches do: 60, 60 and 53 of 60.
+The LittleBit students' don't. w8-dense-r4, at 0.102, matches 35, w8-all-r8, at 0.114, matches
+5, and w8-all-r4, at 0.127, matches 21.</li>
+</ul>
+<p>How these are known: <code>unknown</code>. These are <code>distill.py</code>'s, <code>rollouts.py</code>'s and <code>behaviour.py</code>'s
+figures, one training run each, and no test re-checks them. The entropies and the table are
+throwaway scripts'. They are in <code>D:\tentzhen-data\cleanup\scripts\</code>, where <code>recipe_table.py</code> reads
+each student's <code>summary.json</code> and its behaviour records.</p>
+<p>What it means for the plan:</p>
+<ul>
+<li><strong>The cheapest faithful student is w8, in float.</strong> It is the shape to make LittleBit from.</li>
+<li><strong>Next: longer training, then DAgger, on the 500 games.</strong> The LittleBit students' training KLs
+were still falling when the rate reached 0. One round of DAgger lifted the two fully LittleBit
+students it was run on from 81–86 % to 98 % of the score ("How small the policy can get"),
+though not their play to the teacher's.</li>
+<li><strong>Not first: starting from w8's own weights.</strong> Dual-SVID of a trained network is how the
+teacher's own shape starts. But with every layer factorized, the network it gave began near
+random, at a KL of 1.77, and never recovered ("How small the policy can get"). Whether w8's
+weights would do better is <code>unknown</code>.</li>
+</ul>
+<h2 id="longer-training-and-one-step-of-dagger">Longer training, and one step of DAgger</h2>
+<p>The recipe's next step was to train the LittleBit students longer, then to run DAgger on the 500
+games. Each run below is the recipe above with one change:</p>
+<ul>
+<li><strong>Longer:</strong> 100 or 300 epochs, with the rate falling to 0 on a cosine over all of them.</li>
+<li><strong>DAgger:</strong> the student trained 100 epochs plays 100 games of its own, seeded 200 to 299, and
+the teacher labels every observation in them. A fresh student then trains 100 epochs on the
+teacher's 500 games and those 100.</li>
+</ul>
+<table><thead><tr><th>student</th><th>games trained on</th><th>epochs</th><th>KL, training, then held out</th><th>same top action, held out</th><th>measures that match, seeds 1,000 on, then 3,000 on</th><th>return, both</th></tr></thead><tbody>
+<tr><td>w8-dense-r4</td><td>500</td><td>20</td><td>0.106, 0.102</td><td>84.8 %</td><td>16, 19</td><td>463.1, 457.6</td></tr>
+<tr><td>w8-dense-r4</td><td>500</td><td>100</td><td>0.088, 0.086</td><td>86.7 %</td><td>30, 28</td><td>491.3, 473.6</td></tr>
+<tr><td>w8-dense-r4</td><td>500</td><td>300</td><td>0.081, 0.082</td><td>87.2 %</td><td>22, 23</td><td>482.1, 472.9</td></tr>
+<tr><td>w8-all-r4</td><td>500</td><td>20</td><td>0.139, 0.127</td><td>82.2 %</td><td>11, 10</td><td>483.8, 478.8</td></tr>
+<tr><td>w8-all-r4</td><td>500</td><td>100</td><td>0.134, 0.118</td><td>83.6 %</td><td>25, 22</td><td>471.9, 472.5</td></tr>
+<tr><td>w8-all-r4</td><td>500</td><td>300</td><td>0.120, 0.114</td><td>83.8 %</td><td>25, 24</td><td>486.2, 477.7</td></tr>
+<tr><td>w8-all-r4, DAgger</td><td>500, and 100 of its own</td><td>100</td><td>0.139, 0.201</td><td>75.4 %</td><td>16, 16</td><td>433.4, 424.4</td></tr>
+</tbody></table>
+<p>The 20-epoch rows are the recipe's, from the table above. The DAgger student's held-out
+observations are the last 30 of its own 100 games, states the student reached rather than the
+teacher. So its held-out KL can't be compared with the others'.</p>
+<p>What it showed:</p>
+<ul>
+<li>
+<p><strong>100 epochs helped both.</strong></p>
+<ul>
+<li>w8-dense-r4 went from 16 and 19 matches to 30 and 28. On the second set it misses two by a
+hair: player 6's apples, +2.70 against a tolerance of 2.69, and how often it moves left,
++0.0033 against 0.0030.</li>
+<li>w8-all-r4 went from 11 and 10 to 25 and 22.</li>
+</ul>
+</li>
+<li>
+<p><strong>300 epochs did not help more.</strong> w8-all-r4 matched 25 and 24. w8-dense-r4 fell to 22 and 23,
+though its KLs are the lowest of any LittleBit student here.</p>
+<ul>
+<li>
+<p><strong>The shift is systematic.</strong> The same seven measures fail on both sets of seeds:</p>
+<ul>
+<li>it fires 5.1 and 5.3 fewer zaps a game, of the teacher's 116, and is zapped less;</li>
+<li>it turns right, moves right, moves down, stays and zaps less often.</li>
+</ul>
+<p>On the first set it also moves up more: 0.022 more of its moves.</p>
+</li>
+<li>
+<p><strong>Only in its own games.</strong> It was checked on the last 35,000 observations of the teacher's
+games seeded 10,300 to 10,399, which every 500-game student trained on. There, each of its
+mean action probabilities is within 0.0015 of the teacher's, about as close as w8's. So the
+drift shows only in the states it reaches by itself. Why it grew with longer training is
+<code>unknown</code>.</p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>One step of DAgger made w8-all-r4 worse.</strong> It matches 16 and 16, and scores 433.4 and 424.4,
+89 % and 88 % of the teacher's.</p>
+<ul>
+<li>It drifts the way w8-dense-r4 did at 300 epochs, but further: 9.0 and 8.1 fewer zaps a game,
+more moves up, and fewer turns.</li>
+<li>Its player 1 eats about 30 fewer apples.</li>
+</ul>
+<p>The first round of DAgger, from students trained on 100 games, had lifted their scores ("How
+small the policy can get"). Why this one didn't is <code>unknown</code>.</p>
+</li>
+<li>
+<p><strong>A lower KL again did not mean closer play.</strong></p>
+</li>
+<li>
+<p><strong>Each row is one training run, from seed 0.</strong> How much the matches vary from one seed to the
+next hasn't been measured. So it is <code>unknown</code> whether 300 epochs is worse than 100, or whether 30
+and 28 was a lucky run. A second seed of w8-dense-r4 at 100 epochs was started, then stopped
+(next section).</p>
+</li>
+</ul>
+<p>How these are known: <code>unknown</code>. These are <code>distill.py</code>'s, <code>rollouts.py</code>'s and <code>behaviour.py</code>'s
+figures, one training run each, and no test re-checks them. The action probabilities on the
+teacher's states come from a throwaway script, <code>shares_on_teacher.py</code>. It is in
+<code>D:\tentzhen-data\cleanup\scripts\</code>, with <code>recipe_table.py</code>, which makes the table, and the runs'
+<code>recipe.sh</code> and <code>dagger.sh</code>.</p>
+<h2 id="the-training-needs-more-compute">The training needs more compute</h2>
+<p>Jon stopped the training here (2026-11-24). Doing it seriously takes a lot more compute than this
+one GPU, so the next step is getting that compute.</p>
+<p>What a run costs on this computer, by <code>distill.py</code>'s own clock, and <code>unknown</code>: no run's output is
+committed. The computer has one RTX 4070 Ti (12 GB), and 32 GB of memory.</p>
+<table><thead><tr><th>run</th><th>time</th></tr></thead><tbody>
+<tr><td>one student, 100 epochs on 500 games</td><td>1,083 and 1,158 seconds, about 19 minutes</td></tr>
+<tr><td>w8-dense-r4, 300 epochs</td><td>2,349 seconds</td></tr>
+<tr><td>w8-all-r4, 300 epochs</td><td>7,677 seconds</td></tr>
+<tr><td>DAgger's 600 games, 100 epochs</td><td>2,581 seconds</td></tr>
+<tr><td>scoring one student on 2,000 games, the same GPU through WSL</td><td>1 to 6 minutes</td></tr>
+</tbody></table>
+<p>At 300 epochs, w8-all-r4's epochs took 2.2 times as long as at 100. Other work ran on the computer
+at the same time, and why it slowed is <code>unknown</code>.</p>
+<p>What limits it:</p>
+<ul>
+<li><strong>One run at a time.</strong> Every answer above is one seed. Telling a recipe's effect from the spread
+between seeds takes several seeds of each recipe. For scale, five seeds of four recipes for three
+student shapes is 60 runs. That is about 19 to 43 hours here, one after another, before DAgger
+rounds add data.</li>
+<li><strong>Memory.</strong> <code>distill.py</code> holds every observation in the computer's memory: 100 games' are 1.6
+GB, so 500 games' are 8.2 GB. On 32 GB, shared with everything else, that sets the most it can
+train on at about 1,500 games, unless it reads them from disk as it goes.</li>
+<li><strong>The GPU is shared.</strong> Other work on this computer uses it too.</li>
+</ul>
+<p>Both limits are arithmetic on the times and sizes above.</p>
+<p>Where more compute could come from: GPUs rented by the hour, research-compute programs, or a
+bigger GPU here. None has been looked into yet, and spending on any of them is Jon's decision.
+Once there is more compute, <code>distill.py</code> would run several students side by side, and read the
+games from disk so the data can grow.</p>
+<p>The gateware does not wait for the training. conv2's and conv3's kernels take w8-all-r4's shape,
+and new weights change only their values.</p>
+<h2 id="what-w8-all-r4-costs-on-the-i9-as-the-engine-stands">What w8-all-r4 costs on the i9, as the engine stands</h2>
+<p>Each of w8-all-r4's five LittleBit layers was built as the MNIST layers' engine
+(<code>gateware/cores/littlebit.py</code>, "Hardware architecture"), with its own real signs and int8 scales,
+then sized by Yosys and nextpnr. It is the shape's cost, not a chosen student's: none plays as the
+teacher does yet. The student is w8-all-r4's integer form, trained 20 epochs.</p>
+<ul>
+<li><strong>How its integers were made.</strong> A throwaway script follows the MNIST exporter's rules where
+they apply (<code>crates/littlebit/src/export.rs</code>): g, l and h int8, each on its finest grid; the
+signs, the latents' signs; the latent shift, the smallest that saturates no latent on 2,000
+recorded observations; the output shift, from the activation exponents the student trained
+with. It is for sizing only. Nothing checks that these integers compute what the student does.
+The script and its output are in <code>D:\tentzhen-data\cleanup\scripts\</code> and
+<code>D:\tentzhen-build\synth-cleanup\</code>, outside the repo.</li>
+<li><strong>How each was built.</strong> Each engine alone, as r16's were sized ("What the engines cost"):
+<code>python -m gateware.cores.littlebit</code>, then Yosys's <code>synth_ecp5</code> and nextpnr-ecp5 for the
+LFE5U-45 in its CABGA381 package, speed 6, at 50 MHz, seed 1. The tools are OSS CAD Suite
+2026-11-21, and the gateware is the fork's main at 7356992 (YoungMoolahBaby/tentzhen).</li>
+</ul>
+<table><thead><tr><th>layer</th><th>in → out</th><th>r</th><th>Variant A: logic cells, flip-flops, multipliers</th><th>Fmax</th><th>Variant B: logic cells, block RAMs</th><th>Fmax</th><th>clocks a move</th></tr></thead><tbody>
+<tr><td>conv1</td><td>5 × 5 × 19 = 475 → 8</td><td>4</td><td>1,488, 332, 4</td><td>61.45 MHz</td><td>866, 5</td><td>62.69 MHz</td><td>59,048</td></tr>
+<tr><td>conv2</td><td>3 × 3 × 8 = 72 → 8</td><td>4</td><td>938, 326, 4</td><td>59.13 MHz</td><td>823, 5</td><td>58.46 MHz</td><td>10,285</td></tr>
+<tr><td>conv3</td><td>72 → 8</td><td>4</td><td>934, 325, 4</td><td>60.63 MHz</td><td>828, 5</td><td>55.41 MHz</td><td>10,285</td></tr>
+<tr><td>dense</td><td>11 × 11 × 8 = 968 → 64</td><td>4</td><td>2,260, 351, 4</td><td>57.48 MHz</td><td>888, 5</td><td>56.04 MHz</td><td>1,037</td></tr>
+<tr><td>actor</td><td>64 → 64</td><td>4</td><td>1,047, 330, 4</td><td>64.16 MHz</td><td>811, 5</td><td>61.10 MHz</td><td>133</td></tr>
+<tr><td>all five</td><td></td><td></td><td>6,667, 1,664, 20</td><td></td><td>4,216, 25</td><td></td><td>80,788</td></tr>
+</tbody></table>
+<p>The cells, flip-flops, multipliers, block RAMs and clock are nextpnr's figures, <code>trusted</code> with the
+toolchain (<code>trusted-base.toml</code>, <code>fpga-toolchain</code>). The clocks are the engine's: a vector takes
+inputs + rank + outputs + 1 clocks, given an input every clock. That is <code>tested</code> for MNIST's layers
+(<code>gateware/cores/tests/test_littlebit.py</code>), and here each conv layer runs it once at each of the
+grid's 121 positions. The 9 logits' layer, the windows fed to the convolutions, the sampler and
+the game are not counted.</p>
+<p>What it means:</p>
+<ul>
+<li><strong>Small, but slow.</strong> The whole policy's engines take 15 % of the i9's logic, so it fits many
+times over. But conv1 alone takes 59,048 clocks a move. With one engine a layer, each working on
+a later move than the one before, a move comes every 59,048 clocks. At 57.48 MHz, the slowest
+engine's clock, that is 973 moves a second, 139 game steps.</li>
+<li><strong>The multipliers run out first.</strong> Every engine uses 4 of the i9's 72 multipliers, so at most 18
+fit. Shared out by each layer's clocks, so that no engine waits, 72 multipliers make 12,807
+moves a second, 1,830 game steps. That is arithmetic on the figures above, not a design that was
+built, and it is the most this engine can give. It is about 97 times short of the GPU's 177,885
+("The goal").</li>
+<li><strong>A hardwired kernel is what would change it.</strong> The engine multiplies by a general multiplier
+because it reads each scale from a table. With each scale a constant of the circuit, a multiply
+by it becomes a few additions in logic, and a window's inputs could all be taken in one clock.
+What that costs in cells, and how fast it closes, is <code>unknown</code> until one is built. That is the
+next gateware step: conv1 as such a kernel, sized the same way ("A hardwired kernel for conv1",
+below).</li>
+</ul>
+<h2 id="a-hardwired-kernel-for-conv1">A hardwired kernel for conv1</h2>
+<p>The engine reads each scale from a table and multiplies by it, one input a clock. The hardwired
+kernel, <code>WindowKernel</code> (<code>gateware/cores/littlebit_kernel.py</code>), makes every integer of the layer a
+constant of the circuit and takes a whole window each clock. It computes what the golden model
+computes, as the engine does.</p>
+<ul>
+<li><strong>Each input bit is a constant to add.</strong> Input i's bit b stands for g_i × 2^b. Every 4 bits
+index a table of the 16 sums their constants make, so each bit of a sum is one of the ECP5's
+4-input LUTs.</li>
+<li><strong>Each bit is added once, not once a latent.</strong> An input's row of V is a pattern of 4 signs.
+Negating the row and g_i together where its first sign is −, the 475 rows fall into at most 8
+patterns. Each pattern's inputs are summed once, and each latent adds or subtracts the 8 sums.</li>
+<li><strong>Most of an observation is bits.</strong> Of a cell's 19 values, 17 are 0 or 1 by how SocialJax
+builds them, from one-hots and booleans. The other 2, the inventory counts, are int8s, taken
+here as bytes (<code>clean_up.py</code> at 18e2171, <code>_get_obs</code> and <code>combine_channels</code>). So conv1's window is
+425 bits and 50 bytes, 825 bits in all. In the first 50,000 recorded observations of the
+teacher's games, the 17 held only 0 and 1, and the inventory counts 0 to 34. That count is
+<code>unknown</code>, a throwaway script's, <code>obs_values.py</code> in <code>D:\tentzhen-data\cleanup\scripts\</code>.</li>
+<li><strong>No multipliers.</strong> The multiplies by ℓ and h are shifts and adds, by each constant's canonical
+signed digits.</li>
+<li><strong>A new window every clock.</strong> Its 8 outputs come out together, 21 clocks later with a register
+after every level of adds, or 12 with one after every 2.</li>
+</ul>
+<p>That it matches the golden model is <code>tested</code>
+(<code>littlebit_kernel_computes_each_window_of_clean_up_conv1_as_the_golden_model_does</code>). The test
+uses a new case of the test vectors, <code>clean-up-conv1</code> (<code>crates/littlebit/src/vectors.rs</code>): a
+made-up layer of conv1's shape on an 11 × 11 grid of an observation's values. Its 121 windows go in
+back to back, then with gaps. Every y and z must be the golden model's, at the kernel's latency,
+with registers after every level and after every 2. Another test checks that the kernel makes no
+multiply and no memory (<code>test_littlebit_kernel_multiplies_nothing</code>).</p>
+<p>Each build is the kernel in <code>Alone</code>, which loads a window a bit a clock through 825 flip-flops and
+shifts the outputs out through 64 more. Then Yosys's <code>synth_ecp5</code> and nextpnr-ecp5 size it, as the
+engines were, for the LFE5U-45 in its CABGA381 package, speed 6, at 50 MHz, seed 1, with OSS CAD
+Suite 2026-11-21. w8-all-r4's integers are the section above's, for sizing only. The made-up layer
+is <code>clean-up-conv1</code>, so its builds can be made again from the repo alone:
+<code>python -m gateware.cores.littlebit_kernel gateware/cores/tests/littlebit_vectors.json 3 &lt;out.v&gt; rows alone &lt;every&gt;</code>.</p>
+<table><thead><tr><th>conv1 as</th><th>adds between registers</th><th>latency</th><th>logic cells</th><th>flip-flops</th><th>multipliers</th><th>block RAMs</th><th>Fmax</th><th>clocks a move</th></tr></thead><tbody>
+<tr><td>the engine, Variant A, w8-all-r4's integers</td><td></td><td></td><td>1,488</td><td>332</td><td>4</td><td>0</td><td>61.45 MHz</td><td>59,048</td></tr>
+<tr><td>the kernel, w8-all-r4's integers</td><td>1</td><td>21</td><td>5,785</td><td>5,990</td><td>0</td><td>0</td><td>153.92 MHz</td><td>121</td></tr>
+<tr><td>the kernel, w8-all-r4's integers</td><td>2</td><td>12</td><td>6,011</td><td>3,814</td><td>0</td><td>0</td><td>117.73 MHz</td><td>121</td></tr>
+<tr><td>the kernel, the made-up layer</td><td>1</td><td>21</td><td>7,274</td><td>7,389</td><td>0</td><td>0</td><td>160.72 MHz</td><td>121</td></tr>
+<tr><td>the kernel, the made-up layer</td><td>2</td><td>12</td><td>7,748</td><td>4,684</td><td>0</td><td>0</td><td>105.22 MHz</td><td>121</td></tr>
+</tbody></table>
+<p>The cells, flip-flops, multipliers, block RAMs and clock are nextpnr's figures, <code>trusted</code> with the
+toolchain (<code>trusted-base.toml</code>, <code>fpga-toolchain</code>). The kernel's include <code>Alone</code>'s 889 flip-flops.
+Its clocks a move are its 121 windows, one a clock. The script that built them is
+<code>synth_kernel.sh</code>, in <code>D:\tentzhen-data\cleanup\scripts\</code>.</p>
+<p>What it means:</p>
+<ul>
+<li><strong>conv1 takes 488 times fewer clocks.</strong> It goes from 59,048 clocks a move to 121, for 3.9 times
+the engine's logic cells and none of the multipliers, which ran out first. It closes at 153.92
+MHz, not 61.45. At that clock, conv1 alone could take 1.27 million moves a second, 181,700 game
+steps, against the GPU's 177,885 for the whole policy ("The goal"). That is arithmetic on
+nextpnr's figures, not a policy built. The windows fed to the kernel, the four other layers,
+the logits, the sampler and the game are not counted.</li>
+<li><strong>A register after every level of adds is the better build.</strong> It is the faster, and the
+smaller in logic, for more flip-flops. The i9 has as many flip-flops as LUTs, 43,848.</li>
+<li><strong>The weights' values move the cost.</strong> w8-all-r4's conv1 takes 5,785 logic cells, and the
+made-up layer, its scales drawn across the whole of int8, 7,274.</li>
+<li><strong>Next: conv2 and conv3 as kernels.</strong> In the engine they now take the most clocks, 10,285 a move
+each. Their 72 inputs a window are uint8 activations, bytes, not bits. Then the gateware that
+makes each window from an observation, and the whole policy, checked against the golden model
+end to end before anything goes on the board.</li>
+</ul>
+<h2 id="open-questions">Open questions</h2>
+<ul>
+<li>Where the training's compute comes from: GPUs rented by the hour, research compute, or a bigger
+GPU here. That is Jon's decision, and any of them that costs money needs Jon's OK ("The training
+needs more compute").</li>
+<li>8-bit or 16-bit scales? Start with 8, and switch only if check 1 fails (Jon's spec). It passed
+with 8 at every rank run, r = 4 to 64 (Model, "The rest of the rank sweep").</li>
+<li>A simple MLP first, or straight to a small convolutional network? This step assumes the MLP.</li>
+<li>Where the toolchain runs before the pinned toolchain of <a href="../roadmap/index.html"><code>roadmap.md</code></a> Phase 0 exists: installed on
+the lab computer, or not until then.</li>
+<li>MNIST's terms of use, unread.</li>
+<li>Which part keeps the companion's keys and attests what it runs: OpenTitan, Jon's pick, or the
+TROPIC01 already on the roadmap; and whether one part serves the companion, the bench and the
+mesh.</li>
+</ul>
+<h2 id="stretch-goals">Stretch goals</h2>
+<ul>
+<li><strong>Fully unrolled layer:</strong> one small layer computed in a single clock, with no time-multiplexing,
+to find the throughput ceiling of hardwiring.</li>
+<li><strong>Tiny character model:</strong> a text predictor of a few hundred thousand parameters, using block RAM,
+as the closest thing to an LLM. ecp5-inference already runs one, <code>stories260K</code>, on an i9
+(<a href="../prior-art/index.html"><code>prior-art.md</code></a>, "Hardwired neural networks").</li>
+<li><strong>Tiny Tapeout:</strong> Phase 5's layer made on a real chip shuttle. SkyWater 130 nm shuttles (TTSKY26d
+and TTSKY26e) close 2026-11-30 and a GF180 one (TTGF26c; GF180 per the FAQ) 2026-12-07, with chips
+expected in May 2027, and runs are listed into 2028 (Tiny Tapeout's chips page, at ce1fff22). A
+tile costs money, so submitting one is Jon's decision; its price is on Tiny Tapeout's calculator,
+not here.</li>
+<li><strong>Write-up:</strong> the accuracy-vs-bits and LUTs-vs-bits plots, as a post or a workshop paper.</li>
+</ul>
+<h2 id="what-exists-already">What exists already</h2>
+<p>Searched 2026-11-21 (<a href="../prior-art/index.html"><code>prior-art.md</code></a>, "Hardwired neural networks"). Networks built into an FPGA's
+logic are well trodden on Xilinx parts with vendor tools. With open tools on an ECP5, the closest is
+pocket-bnn, a binary network with its weights as constants on an ECP5-85F. No project
+found puts LittleBit-style low-rank binary factors on an FPGA, and none compares one network's
+weights hardwired and in block RAM. On the i9 itself, ecp5-inference runs a small int8 language
+model from stored weights. In silicon, a logic-gate network on Tiny Tapeout classifies MNIST in
+"10K logic gates".</p>
+<p>For the goal of running simulations more cheaply than a GPU, searched 2026-11-23 (<a href="../prior-art/index.html"><code>prior-art.md</code></a>,
+"Simulations in hardware"): environments in HDL and whole single-agent games on FPGAs exist, and so
+does a JAX environment matched exactly outside JAX, in C++. A multi-agent social dilemma on one chip
+with its policy, matched bit for bit with JAX, was not found ("The goal", above).</p>
+</div>
+<p class="notice">Written in <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/littlebit.md">docs/littlebit.md</a>, on main; this page is made from it.</p>
+</main>
+
+<footer class="site-footer">
+  <div class="column">
+    <span>腾振 TENTZHEN · A VIA BALAENA PROJECT</span>
+    <span>MIT OR APACHE-2.0 · <a href="../../legal/index.html">LEGAL</a></span>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB.COM/VIA-BALAENA/TENTZHEN</a>
+  </div>
+</footer>
+
+</body>
+</html>

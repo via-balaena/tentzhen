@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture · Tentzhen</title>
+<link rel="icon" href="../../img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../style.css">
+</head>
+<body>
+
+<header class="column site-header">
+  <a class="brand" href="../../index.html" aria-label="Tentzhen home">
+    <img src="../../img/mark-black.svg" alt="">
+    <span class="wordmark">TENTZHEN</span>
+  </a>
+  <nav class="site-nav" aria-label="Main">
+    <a href="../../builds/index.html">BUILDS</a>
+    <a href="../../parts/index.html">PARTS</a>
+    <a href="../../docs/vision/index.html">VISION</a>
+    <div class="nav-menu">
+      <button type="button" class="nav-label">PROJECTS</button>
+      <div class="nav-items">
+        <a href="../../docs/scope/index.html">DIGITIZER AND GENERATOR</a>
+        <a href="../../docs/mesh/index.html">THE MESH</a>
+        <a href="../../docs/littlebit/index.html">HARDWIRED NEURAL NET</a>
+        <a href="../../fab/index.html">THE OPEN FAB</a>
+      </div>
+    </div>
+    <a href="../../docs/verification/index.html">VERIFICATION</a>
+    <a href="../../docs/roadmap/index.html">ROADMAP</a>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
+  </nav>
+</header>
+
+<main class="column spec">
+<p class="crumbs"><a href="../index.html">DOCS</a> / ARCHITECTURE</p>
+<div class="prose doc">
+<h1 id="architecture">Architecture</h1>
+<p>How Tentzhen's records, code and checks fit together, the rules that keep them honest, and the
+plan for what comes next. Every rule below names what holds it, and a rule nothing holds says so:
+the same grading <a href="../verification/index.html"><code>verification.md</code></a> asks of any claim.</p>
+<h2 id="layers">Layers</h2>
+<pre><code class="language-mermaid">flowchart LR
+  records["records&lt;br/&gt;parts/ builds/ lab/ fab/&lt;br/&gt;trusted-base.toml&lt;br/&gt;DISCLAIMER.md docs/"]
+  schemas["schemas and loaders&lt;br/&gt;crates/records&lt;br/&gt;crates/lab"]
+  warehouse["warehouse&lt;br/&gt;crates/warehouse&lt;br/&gt;bronze, silver, gold"]
+  site(["crates/site"])
+  enforcer(["firmware/enforcer&lt;br/&gt;limit logic, no firmware yet"])
+  host(["crates/tentzhen&lt;br/&gt;log append"])
+  records --&gt; schemas --&gt; warehouse -- gold only --&gt; site
+  schemas -. crates/lab alone .-&gt; enforcer
+  host -- the lab log --&gt; records
+</code></pre>
+<table><thead><tr><th>layer</th><th>where</th><th>what it is</th></tr></thead><tbody>
+<tr><td>records</td><td><code>parts/</code>, <code>builds/</code>, <code>lab/</code>, <code>fab/</code>, <code>trusted-base.toml</code>; and the site's documents, <code>DISCLAIMER.md</code> and <code>docs/</code></td><td>The system of record. Everything else is rebuilt from these.</td></tr>
+<tr><td>schemas and loaders</td><td><code>crates/records</code>, <code>crates/lab</code></td><td>Typed schemas that refuse what they don't know, and the checks the records' own rules call for.</td></tr>
+<tr><td>warehouse</td><td><code>crates/warehouse</code>, described in <a href="../data-catalogue/index.html"><code>docs/data-catalogue.md</code></a></td><td>Bronze holds each file as read, silver holds typed rows the database constrains, and gold holds views that answer questions. It can be deleted at any time.</td></tr>
+<tr><td>readers</td><td><code>crates/site</code> today</td><td>They read gold.</td></tr>
+<tr><td>firmware</td><td><code>firmware/enforcer</code></td><td>The supply enforcer's limit logic, with no standard library and nothing at run time. Its build script compiles the limits in through <code>crates/lab</code> alone, so the safety path never depends on the database. The Tock firmware that is to run it is not written.</td></tr>
+<tr><td>host tools</td><td><code>crates/tentzhen</code></td><td>Commands for the bench. <code>tentzhen log append</code> writes an entry to the lab log through <code>crates/records</code>, chained to the entry before it.</td></tr>
+</tbody></table>
+<h2 id="rules">Rules</h2>
+<table><thead><tr><th>rule</th><th>held by</th></tr></thead><tbody>
+<tr><td>Schema first: every file in <code>parts/</code>, <code>builds/</code>, <code>lab/</code> and <code>fab/</code> is loaded into the warehouse, and so are <code>trusted-base.toml</code>, <code>DISCLAIMER.md</code> and every file in <code>docs/</code>, or CI fails. A record is parsed by its schema on the way in; a drawing is kept as it is. A folder's README is not a record.</td><td><code>every_file_in_the_records_folders_is_loaded</code></td></tr>
+<tr><td>Every schema refuses a key it doesn't know.</td><td><code>every_table_refuses_a_key_it_does_not_know</code>, in <code>crates/records</code> and in <code>crates/lab</code>; for the lab log, the measurement records, the lab-target list, the lab's sourcing and the fab's stack, <code>a_log_entry_keeps_its_shape</code>, <code>a_measurement_record_keeps_its_shape</code>, <code>a_lab_target_keeps_its_shape</code>, <code>a_sourcing_line_keeps_its_shape</code> and <code>a_fab_row_keeps_its_shape</code>; for MNIST's pins and a training run's summary, <code>the_mnist_pins_name_its_four_files</code> and <code>a_run_summary_refuses_a_key_it_does_not_know</code> in <code>crates/littlebit</code>; for a run's integer export, <code>an_integer_network_refuses_what_does_not_fit</code></td></tr>
+<tr><td>A rule a record states in a comment is a check or a test.</td><td>the tests in <code>crates/lab</code> and <code>crates/records</code>, for <code>lab/limits.toml</code>, and for <code>lab/targets.toml</code> and <code>lab/sourcing.toml</code>, whose comments list what nothing holds. Nothing holds this for new files: <code>unknown</code>.</td></tr>
+<tr><td>Every file the warehouse loads is in bronze with its sha256, and every silver row traces to one.</td><td><code>every_row_traces_to_the_bytes_it_came_from</code>, for the eight silver tables with a <code>record</code> column; the rest reference one of those by foreign key, directly or through another table.</td></tr>
+<tr><td>Each lab-log entry names the sha256 of the line before it, so an entry edited, dropped or moved is refused. The chain cannot see a change to the last entry, entries cut from the end, or a chain rewritten from an edit on: the next rule covers those on <code>main</code>.</td><td><code>an_edited_dropped_or_moved_entry_breaks_the_chain</code> in <code>crates/records</code>, and the warehouse's keys on <code>silver.lab_log_entry</code> (<code>the_database_refuses_what_the_records_refuse</code>)</td></tr>
+<tr><td><code>main</code>'s lab log only grows: each of its files is the start of the same file in a PR.</td><td>the Quality Gate's step "The lab log only grows", which <code>the_lab_log_step_passes_only_an_append</code> runs against a scratch repo</td></tr>
+<tr><td>Two writers on one machine cannot chain to the same entry.</td><td><code>appends_from_many_threads_keep_one_chain</code></td></tr>
+<tr><td>A claim's <code>record</code> referent names a measurement record, <code>lab/records/&lt;id&gt;.toml</code>, which lists the claim's subject among the devices it measured.</td><td><code>a_record_referent_names_a_record_that_measured_its_subject</code> and <code>load_holds_claims_to_the_records_on_disk</code> in <code>crates/records</code>; the warehouse's foreign key to <code>silver.measurement</code> holds only that the record exists (<code>the_database_refuses_what_the_records_refuse</code>)</td></tr>
+<tr><td>A measurement record cites the lab-log entries it came from, first and last and in that order, by the sha256 of their lines, and its id starts with the first's UTC day. Each device and meter it names has a record, one that is a build version gives the firmware that version pins, and each meter's accuracy is a claim on the meter's own record.</td><td><code>a_record_names_what_the_catalogue_and_its_log_hold</code>. The warehouse's keys on <code>silver.measurement</code> and <code>silver.measurement_device</code> hold that the entries, devices and accuracy claims exist and that each accuracy is on its meter's record, not the order, the day or the firmware (<code>the_database_refuses_what_the_records_refuse</code>)</td></tr>
+<tr><td>A raw ADC code in a record's results (<code>input_codes</code>) sits beside the value converted from it (<code>input_volts</code>). Nothing holds the reverse, that a value read from an ADC keeps its code: <code>unknown</code>.</td><td><code>a_raw_code_sits_beside_its_converted_value</code></td></tr>
+<tr><td>A merged measurement record never changes.</td><td>the Quality Gate's step "A measurement record never changes", which <code>the_record_step_passes_only_a_new_record</code> runs against a scratch repo</td></tr>
+<tr><td>A lab target is one board: a part or a build version with a record, giving a serial no other target gives, naming a person as <code>approved_by</code>, and retired only after the day it was listed.</td><td><code>a_lab_target_keeps_its_shape</code> and <code>a_lab_target_names_a_board_the_catalogue_holds</code> in <code>crates/records</code>, and the warehouse's keys and checks on <code>silver.lab_target</code> (<code>the_database_refuses_what_the_records_refuse</code>)</td></tr>
+<tr><td>Each flash in the lab log, <code>firmware.flash</code>, names the target, the serial read from the board and the image's sha256. Unless its params name the person who approved it in the session (<code>approved_by</code>), as CLAUDE.md allows for a board that is not listed, the target is on the lab-target list that day, the serial is the target's, and the image is the firmware the target's build version pins if it pins one. So a target such a flash names stays on the list with the serial it gave. The log keeps a flash the list refuses, and the records stop loading.</td><td><code>a_flash_is_held_to_the_lab_target_list</code> and <code>load_holds_claims_to_the_records_on_disk</code> in <code>crates/records</code>. The warehouse has no key from a flash to its target.</td></tr>
+<tr><td>A build version that is never a lab target says why, and a lab target listed as it, or as a build that uses it, is refused. <code>builds/enforcer</code> says so.</td><td><code>a_build_that_is_never_a_lab_target_says_why</code> and <code>a_lab_target_names_a_board_the_catalogue_holds</code> in <code>crates/records</code>. The warehouse keeps the reason and refuses an empty one, not the target (<code>the_database_refuses_what_the_records_refuse</code>).</td></tr>
+<tr><td>A line of the lab's sourcing, <code>lab/sourcing.toml</code>, names a line some build version writes, word for word, and no other line of it names the same. A shop comes with its item number, in that shop's form (on AliExpress a number under 2^51, on Amazon an ASIN, on LCSC a C number); a store may stand alone, as a seller with no listing; <code>used</code> is <code>true</code> or left out; a part <code>salvaged_from</code> a device names no shop and is not also <code>used</code>; a stage up to <code>ordered</code> names them; a stage is a UTC day, or <code>true</code> for a day not given, and the days given run in the stages' order; and <code>passed_qa</code> names a measurement record from on or after each day the stages give, which lists its part among the devices it measured.</td><td><code>a_sourcing_line_keeps_its_shape</code> and <code>a_sourcing_line_names_a_line_a_build_writes</code> in <code>crates/records</code>. The warehouse's keys and checks on <code>silver.sourcing</code> hold the pairs, the shop, that a salvaged part has no shop and is not also <code>used</code>, that a stage's day comes with the stage, the days' order and that the part and the record exist; not the item's form, the record's day or devices, or that two lines name different things (<code>the_database_refuses_what_the_records_refuse</code>).</td></tr>
+<tr><td>The parts list buys for the newest version of each build once, counting a build that another build's newest version uses inside that one, and every line of the lab's sourcing is on it.</td><td><code>the_parts_list_counts_each_build_once</code>, <code>every_sourcing_line_is_on_the_parts_list</code></td></tr>
+<tr><td>A line's status is the last stage it has reached, never typed, with that stage's own day or none; with no stage reached, or no line, it is specced.</td><td><code>a_status_comes_from_its_stages</code></td></tr>
+<tr><td>A sourcing line for a part sold by authorized sellers only, or whose claims rest on <code>maker-datasheets</code>, says where the maker lists its seller (<code>authorized</code>) once it names a source or reaches a stage; <code>authorized</code> comes with a seller, for a part sold new.</td><td><code>a_part_that_assumes_an_authorized_seller_names_one</code> and <code>a_sourcing_line_keeps_its_shape</code> in <code>crates/records</code>; the warehouse's checks on <code>silver.sourcing</code> hold that <code>authorized</code> comes with a seller and not beside <code>used</code> or <code>salvaged_from</code> (<code>the_database_refuses_what_the_records_refuse</code>). That the seller is on the maker's list is the writer's word, and a build's own claims on <code>maker-datasheets</code> are not held to its parts' sources.</td></tr>
+<tr><td>The home page, written by hand, carries the nav every generated page does.</td><td><code>the_home_page_s_nav_is_the_generated_one</code></td></tr>
+<tr><td>Every doc in <code>docs/</code> is a page on the site (<code>site/docs/&lt;name&gt;/</code>), made from the warehouse's copy (<code>gold.doc</code>), and the nav links those pages, not GitHub. On a doc's page, a doc it names, in a link or in code, links to that doc's page; a link to another file of the repo goes to GitHub; its drawings come from <code>docs/img/</code>; its headings carry GitHub's anchors.</td><td><code>every_file_in_the_records_folders_is_loaded</code> in <code>crates/warehouse</code>, which counts <code>gold.doc</code> against <code>docs/</code>; <code>the_nav_sends_no_one_to_github_for_a_doc</code> and <code>a_doc_page_links_docs_drawings_and_the_repo</code> in <code>crates/site</code>. That a page matches its doc on main is held by the Quality Gate, which regenerates <code>site/</code> and fails on any difference.</td></tr>
+<tr><td>A build's line gives its thing's class, one of the letters <code>crates/records</code> lists (<code>Class</code>), and one thing, a part and its form or a commodity and its form, has one class in every build version that writes it.</td><td><code>a_line_gives_its_class_by_letter</code> and <code>one_thing_has_one_class</code> in <code>crates/records</code>. The warehouse's check on <code>silver.line</code> holds the letters, every one <code>crates/records</code> lists and no other (<code>the_database_refuses_what_the_records_refuse</code>), not that one thing has one class.</td></tr>
+<tr><td>The parts page shows each thing the bench needs once, grouped by class, and no price.</td><td><code>the_parts_page_lists_each_thing_once</code>. No price reaches it only as far as <code>lab/sourcing.toml</code> refuses a field it does not know: one written into a store's name, a form or a commodity would, and nothing holds that.</td></tr>
+<tr><td>The fab page, from <code>fab/stack.toml</code>, sets Hacker Fab's side of each row beside the industry's, each with its source, the source's own words and the day it was read. When both sides have a value in the row's unit, the gap is worked out from them, the way <code>better</code> says; otherwise the row says its gap in words, which carry no factor. A layer's rows sit together. A route is built in Rust or CortenForge, or says why not (CLAUDE.md, "Language policy").</td><td><code>a_row_with_two_values_has_its_gap_worked_out</code>, <code>a_row_with_words_says_its_gap</code>, <code>a_side_gives_a_value_or_words</code>, <code>a_value_has_a_unit_from_the_list</code>, <code>a_route_is_built_in_rust_or_cortenforge_or_says_why_not</code>, <code>a_side_names_its_source_and_the_day_it_was_read</code> and <code>a_layer_s_rows_sit_together_once_each</code> in <code>crates/records</code>; <code>the_fab_s_gap_is_worked_out_from_its_two_values</code> in <code>crates/warehouse</code>; <code>the_fab_page_sets_each_side_beside_its_source</code> and <code>a_value_is_written_with_its_si_prefix</code> in <code>crates/site</code>. Not held by anything: that a quote is its source's words, or that a value is what the quote says.</td></tr>
+<tr><td>An agent flashes only a listed board or one a person approved, and logs every load of code as a flash. The Pico enforcer is never a target, a listing never covers irreversible settings, and a serial names one board.</td><td>nothing: <code>unknown</code>. Nothing between an agent and a USB port reads the list. A target listed as a bare <code>RP2350</code> part cannot be told from the enforcer's. How each kind of board reports a serial is unknown until one arrives.</td></tr>
+<tr><td>The enforcer compiles in <code>lab/limits.toml</code>'s supply limits exactly, as whole millivolts and milliamps, with the file's sha256. A value between two millivolts or milliamps is refused, not rounded.</td><td><code>the_enforcer_s_limits_are_whole_millivolts_and_milliamps</code> in <code>crates/lab</code>, and <code>the_enforcer_compiles_in_the_limits_file</code></td></tr>
+<tr><td>The enforcer's rules, for any limits: a setpoint or current limit above <code>[supply.dps]</code>'s is refused, not clamped, and a refused input changes nothing; a reading above <code>[supply]</code>'s ceilings, a failed read, or a tick with no reading since the tick before trips the output, in any state; the output turns on only by <code>On</code>, from off, once a setpoint has been let through; a trip ends only by the button or, under <code>reenable = "agent"</code>, the host's clear, and either leaves the output off.</td><td>Kani, for one input from any state, reachable or not, so after every sequence of inputs, in the Quality Gate's step "Kani checks the enforcer's rules": <code>nothing_above_the_limits_reaches_the_dps</code>, <code>a_refused_input_changes_nothing</code>, <code>a_bad_reading_or_a_silent_tick_trips_the_output_at_once</code>, <code>the_output_turns_on_only_by_on_from_off_with_a_setpoint</code>, <code>only_the_button_or_an_agent_s_clear_ends_a_trip</code>; <code>every_function_in_proofs_is_a_kani_harness</code> holds that each is marked for Kani to run. On examples: <code>a_setpoint_above_the_limits_is_refused_not_clamped</code>, <code>a_bad_reading_or_a_silent_tick_trips_the_output</code>, <code>under_person_only_the_button_ends_a_trip</code>, <code>under_agent_a_clear_ends_a_trip_and_leaves_the_output_off</code></td></tr>
+<tr><td>The enforcer needs no standard library and nothing at run time, and reads the limits through <code>crates/lab</code> alone.</td><td>the Quality Gate's step "The enforcer builds for the RP2350, with no standard library", and <code>the_enforcer_depends_on_nothing_at_run_time</code></td></tr>
+<tr><td>The numbers the enforcer's hardware claims state follow from its parts' claims and <code>lab/limits.toml</code>, and its hardware cut stays under the RP2350's absolute maximum.</td><td><code>the_enforcer_s_numbers_follow_from_its_parts</code></td></tr>
+<tr><td>The enforcer holds the limits on the bench: it is given every input, and the output switch follows it.</td><td>nothing: <code>unknown</code>. It runs on no hardware. Its board (<code>builds/enforcer</code>) is a draft nobody has built, the Tock firmware that is to feed it is not written, and how long a trip takes and how far off its readings are have not been measured.</td></tr>
+<tr><td>A claim's <code>check</code> names a Kani harness that exists, at the Kani version the Quality Gate installs, with its bound; a <code>test</code> names a test that exists, a Rust test by its package or a cocotb test under <code>gateware/</code> as <code>gateware &lt;name&gt;</code>, and a <code>proof</code> a file.</td><td><code>a_code_referent_names_code_that_exists</code></td></tr>
+<tr><td>The UART carries every byte value back to back, holds each bit for its divisor of cycles and its stop bit a full bit, drops a byte whose stop bit is low, and ignores the line low for less than half a bit; the board's echo design sends back every byte at 115,200 baud, from 25 MHz and from 50 MHz.</td><td>cocotb on Verilator, in the Quality Gate's step "The gateware's cocotb tests, on Verilator from OSS CAD Suite 2026-11-21": <code>uart_carries_every_byte_back_to_back</code>, <code>uart_tx_holds_each_bit_a_divisor_and_its_stop_bit_a_full_bit</code>, <code>uart_rx_drops_a_byte_whose_stop_bit_is_low</code>, <code>uart_rx_ignores_a_glitch_shorter_than_half_a_bit</code>, <code>uart_echo_sends_back_every_byte_at_115200_baud</code> and <code>uart_echo_at_50_mhz_sends_back_every_byte_at_115200_baud</code>. On the board, the echo is <code>measured</code> at 25 MHz (<code>2026-11-22-i9-uart-echo</code>) and at 50 MHz from the PLL (<code>2026-11-23-i9-pll-echo</code>).</td></tr>
+<tr><td>The ECP5's PLL takes only dividers and frequencies inside the ranges Project Trellis's <code>ecppll</code> uses, and an output of whole hertz; the board's 50 MHz design elaborates with its PLL at 50 MHz; and each clock from 50 to 80 MHz that <code>gateware/bringup/pll_echo.py</code> has <code>ecppll</code>'s dividers for, which E12 builds at, comes out of them exactly.</td><td>pytest, in the same step: <code>test_ecppll_dividers_give_50_mhz_from_a_600_mhz_vco</code>, <code>test_each_clock_s_ecppll_dividers_give_it</code>, <code>test_pll_refuses_what_ecppll_would_not_use</code>, <code>test_pll_refuses_an_input_ecppll_would_not_take</code> and <code>test_the_pll_echo_elaborates_at_50_mhz</code> (<code>gateware/cores/tests/test_ecp5_pll.py</code>). That the PLL locks and the design runs near 50 MHz is <code>measured</code> (<code>2026-11-23-i9-pll-echo</code>); Verilator has no model of the PLL.</td></tr>
+<tr><td>A grade comes from its referents, never typed.</td><td><code>no_record_can_type_a_grade</code>, <code>grades_derive_from_referents</code>, <code>every_limit_gets_the_weakest_grade_of_its_claims</code></td></tr>
+<tr><td>A limit rests only on claims that exist, and a rule reads numbers only from the claims its value rests on, so its grade covers them.</td><td><code>a_value_rests_on_claims_that_exist</code> and <code>a_rule_reads_only_the_claims_its_value_rests_on</code> in <code>crates/lab</code>, <code>the_limits_are_held_to_the_claims_they_cite</code> in <code>crates/records</code>, and the warehouse's foreign key to <code>silver.claim</code> (<code>the_database_refuses_what_the_records_refuse</code>)</td></tr>
+<tr><td>A limit with an <code>at_most</code> is no more than the number it names, a value of a claim the limit rests on.</td><td><code>a_value_stays_at_most_the_number_it_names</code> in <code>crates/lab</code>, <code>the_limits_are_held_to_the_claims_they_cite</code> in <code>crates/records</code>, and the warehouse's foreign keys from <code>silver.lab_limit_at_most</code> (<code>the_database_refuses_what_the_records_refuse</code>)</td></tr>
+<tr><td>A limit's policy that cites CLAUDE.md quotes it word for word.</td><td><code>every_policy_quoting_claude_md_matches_it</code></td></tr>
+<tr><td>A claim's <code>trusted</code> referent names an entry in the trusted base.</td><td><code>a_trusted_referent_names_an_entry_in_the_trusted_base</code> in <code>crates/records</code>, and the warehouse's foreign keys to <code>silver.trusted_entry</code> (<code>the_database_refuses_what_the_records_refuse</code>)</td></tr>
+<tr><td>Readers of the warehouse read gold only.</td><td><code>the_site_reads_only_gold</code>; the site is the only one so far.</td></tr>
+<tr><td>Every table and view says what it is, and the catalogue is generated.</td><td><code>every_table_and_view_says_what_it_is</code>, <code>the_catalogue_is_current</code></td></tr>
+<tr><td>The lab crate needs only serde and toml.</td><td><code>the_lab_crate_needs_only_serde_and_toml</code></td></tr>
+<tr><td>Parsing records needs no database.</td><td><code>parsing_records_needs_no_database</code></td></tr>
+<tr><td>Every dependency is pinned to one version.</td><td><code>every_dependency_is_pinned</code>, for each crate's own; the rest by <code>Cargo.lock</code>, which CI builds with <code>--locked</code>; the compiler by <code>rust-toolchain.toml</code>. Kani by the version its step installs, which <code>a_code_referent_names_code_that_exists</code> reads. The workflows' actions by commit: <code>every_action_is_pinned_by_commit</code>. A Python project under <code>models/</code>: its own dependencies and its Python by <code>every_python_dependency_is_pinned</code>, the rest by its <code>uv.lock</code>, which nothing in the Quality Gate installs from yet.</td></tr>
+<tr><td>Every text file is LF in the repo and in every checkout, on any OS, so the bytes the lab log's chain, the Quality Gate's steps and the tests compare are the bytes committed (<code>.gitattributes</code>). Only the fonts' licenses are kept byte for byte as committed.</td><td><code>every_text_file_checks_out_with_lf</code>, in the checkout it runs in. The Quality Gate's is Linux, so a Windows checkout is held only where its own tests are run.</td></tr>
+<tr><td>A training run's committed weights are the ones its summary names, and get right the images it says, re-scored on MNIST that is refused unless each file is its pin (<code>models/littlebit/mnist.toml</code>). The Quality Gate fetches MNIST; it is never committed. A run is re-scored only with the pixel mapping and the activation grids its summary names.</td><td><code>e1_weights_are_the_ones_its_summary_names</code>, <code>e1_scores_what_its_summary_says</code>, <code>r16_weights_are_the_ones_its_summary_names</code>, <code>r16_scores_what_its_summary_says</code>, <code>e2_and_e3_weights_are_the_ones_their_summaries_name</code>, <code>e2_scores_what_its_summary_says</code>, <code>e3_scores_what_its_summary_says</code>, <code>the_sweep_s_weights_are_the_ones_their_summaries_name</code>, <code>the_sweep_scores_what_its_summaries_say</code>, <code>e10_weights_are_the_ones_their_summaries_name</code>, <code>e10_scores_what_its_summaries_say</code>, <code>mnist_refuses_a_changed_file</code> and <code>a_run_is_scored_only_as_its_summary_says</code> in <code>crates/littlebit</code>, for E1, r16, E2, E3, the sweep's r4, r8, r32 and r64, the ranks E11's search tried, 40, 42, 43, 44, 48 and 56, and E10 and its start: the runs so far. E10's hidden layers hold no more bits than E7's, and would at one rank more.</td></tr>
+<tr><td>A LittleBit run's integer export, <code>integer.json</code>, is what the exporter writes from the run's committed weights and the training images; its exponents add up along each layer; and the golden model runs it by the steps <code>crates/littlebit/src/integer.rs</code> gives: right shifts that round toward minus infinity, latents saturated to an int16, outputs clamped to 0..255, and an overflow an error.</td><td><code>r16_integer_json_is_what_the_exporter_writes</code>, <code>the_sweep_s_integer_json_is_what_the_exporter_writes</code>, <code>e10_integer_json_is_what_the_exporter_writes</code>, <code>an_integer_network_refuses_what_does_not_fit</code>, <code>a_littlebit_layer_computes_what_its_steps_say</code>, <code>int8_takes_the_finest_grid_that_holds_the_largest</code> and <code>r16_integer_saturates_no_latent_on_the_training_images</code>, in <code>crates/littlebit</code></td></tr>
+<tr><td>A baseline's integer network, E2's or E3's, is exported from the run's committed weights and not written out, since only the computer runs it. Its exponents add up along each layer, and a layer with a scale per output has only +1 and -1 for weights. The golden model runs it as <code>crates/littlebit/src/integer.rs</code> gives: z = W x + b, or h (S x) + b, then a right shift, outputs clamped to 0..255, and an overflow an error.</td><td><code>a_baseline_layer_computes_what_its_steps_say</code> and <code>a_baseline_network_refuses_what_does_not_fit</code>, in <code>crates/littlebit</code></td></tr>
+<tr><td>Check 1 (<a href="../littlebit/index.html"><code>docs/littlebit.md</code></a>, "Verification"): the integer golden model gets at most 0.5 points fewer of the 10,000 test images right than the float model it was exported from.</td><td><code>r16_integer_is_within_half_a_point_of_float</code>, at r = 16; <code>the_sweep_s_integer_is_within_half_a_point_of_float</code>, at every other rank run, 4 to 64, with no latent saturated on the training images; <code>e10_integer_is_within_half_a_point_of_float</code>, for E10, the wider network; and <code>e2_and_e3_integer_are_within_half_a_point_of_float</code>, for the baselines</td></tr>
+<tr><td><a href="../littlebit/index.html"><code>docs/littlebit.md</code></a>'s experiments table and its two plots: each run's bits per weight follow from the bit-accounting formula, at its own widths, and E10's rank is the largest whose hidden layers hold no more bits than E7's; each run's test accuracy is what its integer network gets on the 10,000 test images as the golden model scores it, and its float run's what its summary says; and the plots under <code>docs/img/</code> are what <code>crates/littlebit/src/plots.rs</code> draws from the table.</td><td><code>the_littlebit_bit_counts_follow_from_the_formula</code> in <code>crates/repo</code>; <code>the_experiments_table_s_accuracies_are_what_the_runs_get</code> and <code>the_plots_are_what_the_experiments_table_draws</code> in <code>crates/littlebit</code>. The table's LUTs, EBR blocks and Fmax are nextpnr's, <code>trusted</code> (<code>fpga-toolchain</code>), and no test holds them.</td></tr>
+<tr><td>A convolution's windows are the patch around each position of its grid, with zeros past the edge; the gateware's test vectors, <code>gateware/cores/tests/littlebit_vectors.json</code>, are what the golden model writes, load as their schema, and in every case saturate some latent and clamp some output at each end; Clean Up's conv1 case holds 0 or 1 in every channel but the two inventory counts, 0 to 255, and has a window all at its largest and one all 0.</td><td><code>windows_take_each_position_s_patch_with_zeros_past_the_edge</code> and <code>littlebit_vectors_are_what_the_golden_model_writes</code>, in <code>crates/littlebit</code></td></tr>
+<tr><td>r16's first layer behind the UART (<code>gateware/bringup/littlebit_layer.py</code>) answers each frame, 0xA5 and 784 inputs, with 0x5A and the golden model's y and z for all 256 outputs; drops bytes before a frame; and drops a frame left part way, answering the next as if alone. The computer's side reads an answer as its frame says, and says where one differs from the golden model.</td><td>cocotb on Verilator, in the Quality Gate's gateware step: <code>littlebit_layer_answers_each_frame_as_the_golden_model_does</code> and <code>littlebit_layer_drops_a_frame_left_part_way_and_answers_the_next</code> (<code>gateware/bringup/tests/test_littlebit_layer.py</code>), at a UART divisor of 8 and without the PLL; and <code>a_board_answer_is_read_as_its_frame_says</code> in <code>crates/littlebit</code>. On the board, at 50 MHz from the PLL, it answered 1,000 MNIST test images exactly as the golden model: <code>measured</code> (<code>2026-11-23-i9-littlebit-layer</code>).</td></tr>
+<tr><td>The LittleBit engine computes what the golden model does, every output's y and z, on r16's two hidden layers and on each window of a small convolution, given inputs back to back or with gaps, with its tables in logic (Variant A) and in block RAM (Variant B); a vector takes inputs + rank + outputs + 1 clocks in both; and its sign ROMs read back as <code>integer.json</code> has them.</td><td>cocotb on Verilator, in the Quality Gate's gateware step: <code>littlebit_engine_computes_r16_layer_1_as_the_golden_model_does</code>, <code>littlebit_engine_computes_r16_layer_2_as_the_golden_model_does</code>, <code>littlebit_engine_computes_each_window_of_a_convolution_as_the_golden_model_does</code> and <code>littlebit_sign_roms_read_back_r16_layer_1s_v_rows_and_u_columns</code> (<code>gateware/cores/tests/test_littlebit.py</code>). That it is logic and not block RAM, and its size and speed, are nextpnr's (<a href="../littlebit/index.html"><code>docs/littlebit.md</code></a>, "What the engines cost").</td></tr>
+<tr><td>The hardwired kernel computes what the golden model does, every output's y and z, on each of the 121 windows of a layer of Clean Up's conv1's shape, given windows back to back or with gaps, at its latency, with a register after every level of adds and after every 2; it makes no multiply and no memory; its canonical signed digits sum to every value from -128 to 128; and it refuses widths that don't fit and a layer whose a, s or z could pass an int32.</td><td>cocotb on Verilator, in the Quality Gate's gateware step: <code>littlebit_kernel_computes_each_window_of_clean_up_conv1_as_the_golden_model_does</code> (<code>gateware/cores/tests/test_littlebit_kernel.py</code>); and, by pytest in the same step, <code>test_littlebit_kernel_multiplies_nothing</code>, <code>test_csd_digits_sum_to_every_int8_and_its_negation</code>, <code>test_channel_widths_follow_the_windows_order</code>, <code>test_littlebit_kernel_refuses_a_layer_that_could_pass_an_int32</code> and <code>test_littlebit_kernel_refuses_widths_that_dont_fit</code>. Its size and speed are nextpnr's (<a href="../littlebit/index.html"><code>docs/littlebit.md</code></a>, "A hardwired kernel for conv1").</td></tr>
+<tr><td>The output layer computes the golden model's scores, int32 to both ends, and picks the first of the highest, as the golden model's argmax does; the whole network, r16, scores each image as the golden model does, every score and the digit, on its test vectors and on all 10,000 MNIST test images (check 2), in 1,219 clocks an image, as it counts them and as the test does; in Variant B, E9, so does r16 on its test vectors and on MNIST's first 1,000 test images, in the same clocks. The sweep's other networks, r4, r8, r32 and r64, and E11's r42, score their test vectors as their golden models do, in 1,187 + 2r clocks an image, and so does E10, the wider network, in 2,357. The output layer's and the networks' test vectors are what the golden model computes.</td><td>cocotb on Verilator, in the Quality Gate's gateware step: <code>littlebit_output_layer_scores_r16s_output_layer_as_the_golden_model_does</code>, <code>littlebit_output_layer_reaches_both_ends_of_an_int32_and_picks_the_first_of_a_tie</code>, <code>littlebit_network_scores_r16s_test_vectors_as_the_golden_model_does</code>, <code>littlebit_network_scores_mnist_test_images_as_the_golden_model_does</code> and <code>littlebit_network_scores_the_sweep_s_test_vectors_as_the_golden_model_does</code> (<code>gateware/cores/tests/test_littlebit_network.py</code>), the last on MNIST the gate fetches, scored by the golden model as the test runs; and <code>output_and_network_vectors_are_what_the_golden_model_computes</code> and <code>argmax_picks_the_first_of_the_highest</code>, in <code>crates/littlebit</code>.</td></tr>
+<tr><td>r16 behind the UART (<code>gateware/littlebit/network.py</code>) answers each frame, 0xA5 and 784 pixels, with 0x5A, the golden model's 10 scores and digit, and the clocks the network took, 1,219, which leave the serial link out; drops bytes before a frame; and drops a frame left part way, answering the next as if alone. The computer's side reads an answer as its frame says, and says where its scores or digit differ from the golden model's.</td><td>cocotb on Verilator, in the Quality Gate's gateware step: <code>littlebit_network_answers_each_frame_as_the_golden_model_does</code> and <code>littlebit_network_drops_a_frame_left_part_way_and_answers_the_next</code> (<code>gateware/littlebit/tests/test_network_over_uart.py</code>), at a UART divisor of 8 and without the PLL; and <code>a_network_answer_is_read_as_its_frame_says</code> in <code>crates/littlebit</code>. On the board, at 50 MHz from the PLL, it scored 1,000 MNIST test images exactly as the golden model, 1,219 clocks each (check 3): <code>measured</code> (<code>2026-11-23-i9-littlebit-network</code>).</td></tr>
+<tr><td>The Clean Up golden model draws JAX's random numbers bit for bit, as <code>jax.random</code> draws them at the JAX <code>models/cleanup/uv.lock</code> pins: Threefry-2x32 with 20 rounds, which gives Random123's known answers, in JAX's "partitionable" layout; <code>split</code>, <code>bits</code>, <code>uniform</code>, <code>randint</code> as int8, int16 and int32, and <code>permutation</code>, of 0 to n − 1 or of rows. The vectors it is checked on are what <code>models/cleanup/random_vectors.py</code> writes from JAX, are that JAX's, and load as their schema. A draw of n numbers begins with every smaller draw from its key, and a shuffle sorts once below 1,626 elements and twice from there.</td><td><code>threefry_gives_random123_s_known_answers</code>, <code>jax_s_random_numbers_are_these_bit_for_bit</code>, <code>the_random_vectors_refuse_a_key_they_do_not_know</code>, <code>a_draw_begins_with_every_smaller_draw_from_its_key</code> and <code>a_shuffle_sorts_once_below_1626_elements_and_twice_from_there</code>, in <code>crates/cleanup</code>. That the vectors are what JAX draws is <code>random_vectors.py --check</code>, run by hand: the Quality Gate has no JAX.</td></tr>
+<tr><td>What is generated is what its generator writes: build pages, mural SVGs, the catalogue. The site's images are <code>brand/</code>'s files, byte for byte.</td><td>the Quality Gate's steps, and <code>the_catalogue_is_current</code></td></tr>
+<tr><td>tentzhen.com serves <code>site/</code> as it is on main: published when main's Quality Gate passes on a push, from that commit, while it is still main's head, so an older commit's slower run never publishes over a newer one; never from a fork's branch named main; or by hand from main as it is.</td><td><code>the_pages_workflow_publishes_only_a_commit_main_s_gate_passed</code>, which reads the Pages workflow's guard. That GitHub runs it as written is assumed, as the ruleset is.</td></tr>
+<tr><td>On a pull request, the Quality Gate runs the gateware's cocotb tests only when the pull request changes something they read: <code>gateware/</code>, <code>crates/littlebit/</code>, <code>models/littlebit/</code>, <code>.github/</code>, a .cargo folder (there is none yet), the workspace's <code>Cargo.toml</code> and <code>Cargo.lock</code>, <code>rust-toolchain.toml</code>, <code>.gitattributes</code>, pytest's config files at the root, or a module or package at the root, which is on their import path (<code>gateware/conftest.py</code>). A file moved or removed counts. Every run on main, and every run started by hand, runs them; no other step depends on what changed.</td><td><code>the_gate_runs_cocotb_on_a_pull_request_only_when_it_changes_what_they_read</code>, which runs the step "Which steps this run needs" in a scratch repo, and <code>only_the_cocotb_steps_follow_the_plan</code>, in <code>crates/repo</code>. That the list holds everything the tests read is <code>unknown</code>: it is read from their code (paths they open, <code>cargo run -p tentzhen-littlebit</code>, the import path), and main's runs, which skip nothing, are the backstop.</td></tr>
+<tr><td>A published build version never changes.</td><td>the Quality Gate's step of that name</td></tr>
+<tr><td><code>main</code> changes only through a PR that passes the Quality Gate.</td><td>the <code>main-protection</code> ruleset on GitHub</td></tr>
+</tbody></table>
+<p>The tests that span crates live in <code>crates/repo</code>. One of them holds this doc to the code: every
+test and path it names up to the proposal below must exist.</p>
+<h2 id="what-the-introspection-shows">What the introspection shows</h2>
+<ul>
+<li><strong>One claim model.</strong> Parts and builds carry <code>[[claim]]</code>, landing in <code>silver.claim</code> and
+<code>silver.referent</code> and graded by <code>gold.claim_grades</code>. The lab's limits cite them
+(<code>silver.lab_limit_rests_on</code>), and <code>gold.limit_grades</code> takes their bench grade.</li>
+<li><strong>Only the lab's limits and a record's meters cite claims,</strong> through <code>rests_on</code> and
+<code>accuracy</code>. Claims have a citation (<code>&lt;part&gt;#&lt;id&gt;</code>, <code>&lt;build&gt;/v&lt;n&gt;#&lt;id&gt;</code>), but no other record has
+a field that cites one.</li>
+<li><strong>The trusted base is data,</strong> in <code>trusted-base.toml</code>: each entry has an id, and a <code>trusted</code>
+referent is that id, held by a foreign key.</li>
+<li><strong>A <code>record</code> referent is a key,</strong> into the measurement records, and none exist yet: nothing has
+touched hardware, so the lab log they cite has no entries either.</li>
+<li><strong>A measured grade does not look at the meter.</strong> <code>gold.claim_grades</code> gives <code>measured</code> to any
+claim with a <code>record</code> referent, whatever the grade of the claim that gives its meter's accuracy.</li>
+<li><strong>A lab-log entry, a measurement record or a lab target is only as trustworthy as the machine that
+wrote it.</strong> Every field is what its writer says, a log entry's <code>by</code> and a target's or a flash's
+<code>approved_by</code> included. So a <code>measured</code> grade says that a record and its log entries exist, not
+that anyone touched the bench, and <code>lab/limits.toml</code>'s "Raise it only on a measured claim" depends
+on someone reading the record. Commits are signed, but an agent that can commit there signs with
+the person's key: Claude's commits on this repo carry Jon's signature. What <code>main</code> adds is that
+neither can change once merged. Nothing checks that an entry's <code>limits_sha256</code> names a version of
+<code>lab/limits.toml</code>.</li>
+<li><strong>The enforcer's logic is <code>checked</code>, and enforces nothing yet.</strong> <code>firmware/enforcer</code> holds its
+rules for any limits, but no hardware runs it, so no limit in <code>lab/limits.toml</code> is enforced by
+anything. Its board, <code>builds/enforcer</code>, is a draft: its hardware claims are <code>trusted</code> from its
+parts' datasheets, with arithmetic a test holds, and none is measured. An agent may clear a trip
+(<code>reenable = "agent"</code>, Jon, 2026-09-30), and the enforcer cannot see whether the trip was logged.</li>
+<li><strong>Nothing is a lab target yet,</strong> so every flash needs a person's approval. The list binds the
+log, not the bench: nothing between an agent and a USB port reads <code>lab/targets.toml</code>.</li>
+<li><strong>The Pico voltage ceiling rests on the RP2350 alone</strong> (<code>RP2350#io-supply</code>), 230 mV under its
+rated and absolute maximum of 3.63 V. No claim covers another part on the supply, and
+<code>pico_3v3.max_amps</code> rests on nothing (<code>gold.limit_grades</code>).</li>
+<li><strong>Three gold views have no reader:</strong> <code>grade_coverage</code>, <code>where_used</code> and <code>limit_grades</code>
+(<a href="../data-catalogue/index.html"><code>docs/data-catalogue.md</code></a>).</li>
+<li><strong><code>main</code>'s Quality Gate did not run for the merge of #18,</strong> for an unknown cause. The tree was
+the one the PR's run had passed, and the run for #19's merge covered it. The workflow can now be
+started by hand (<code>workflow_dispatch</code>).</li>
+</ul>
+<h2 id="proposal-one-claim-model">Proposal: one claim model</h2>
+<p>Every graded statement becomes a claim on its subject, in one shape. Step 1 built it for parts and
+builds (<code>crates/records</code>, <code>Claim</code>), step 2 made the trusted base data, and step 3 moved the lab's
+facts onto the parts they are about.</p>
+<pre><code class="language-toml">[[claim]]
+id = "input-range"
+says = "Needs an input of 6-55 V, and at least 1.1 x its output"
+trusted = "dps5005"        # an entry in the trusted base
+# or any of: test = "...", check = "...", proof = "...", record = "..."
+values = { min_input_volts = 6.0, max_input_volts = 55.0, input_ratio = 1.1 }
+</code></pre>
+<ul>
+<li><strong>Claims live on their subject:</strong> <code>parts/&lt;part&gt;.toml</code>, or <code>builds/&lt;build&gt;/v&lt;n&gt;.toml</code> as now. Each
+is cited as <code>&lt;subject&gt;#&lt;id&gt;</code>, for example <code>DPS5005#input-range</code>.</li>
+<li><strong>The grade comes only from which referents are present.</strong> <code>proof</code>, <code>check</code> and <code>test</code> give
+proven, checked and tested; <code>record</code> gives measured; <code>trusted</code> gives trusted. There is no <code>grade</code>
+field.</li>
+<li><strong>The trusted base becomes data.</strong> Its entries get ids, so a <code>trusted</code> referent is a key, not a
+prefix of a bullet.</li>
+<li><strong>The warehouse gets one model.</strong> <code>silver.claim</code> and <code>silver.referent</code> cover every subject, with
+one <code>gold.claim_grades</code>, and <code>gold.limit_grades</code> reads claims.</li>
+<li><strong>The lab cites claims.</strong> <code>lab/limits.toml</code>'s <code>rests_on</code> names claims
+(<code>rests_on = ["DPS5005#input-range"]</code>), and its <code>[fact.*]</code> tables go away.</li>
+</ul>
+<p>Decided with Jon, 2026-09-29:</p>
+<ol>
+<li><strong>Numbers a rule reads,</strong> like the DPS5005's 6, 55 and 1.1: a claim's <code>values</code> table, whose keys
+end in their unit (<code>VALUE_UNITS</code> in <code>crates/records</code>), checked by the rule that reads them.</li>
+<li><strong>The bench supply</strong> gets a part record (<code>kind = "product"</code>), described by requirement like the
+site's other upstream components.</li>
+<li><strong>Two axes:</strong> simulation (tested, checked, proven) and the bench (trusted, measured) stay apart,
+as <code>gold.claim_grades</code> gives them. A limit's weakest grade is taken on the bench axis.</li>
+</ol>
+<h2 id="plan">Plan</h2>
+<p>Each step is one PR, done when its check passes:</p>
+<ol>
+<li><strong>One claim model</strong> in <code>crates/records</code> and the warehouse, with <code>debug-probe</code>'s claims migrated.
+Done when <code>gold.claim_grades</code> covers parts and builds, and no record can type a grade. Done:
+<code>a_part_s_claims_are_graded_like_a_build_s</code>, <code>no_record_can_type_a_grade</code>.</li>
+<li><strong>The trusted base as data.</strong> Done when every <code>trusted</code> referent is a foreign key. Done:
+<code>trusted-base.toml</code>, <code>silver.trusted_entry</code>,
+<code>a_trusted_referent_names_an_entry_in_the_trusted_base</code>.</li>
+<li><strong>Lab facts become claims on parts:</strong> <code>parts/dps5005.toml</code>, and a bench supply record. Done
+when <code>lab/limits.toml</code> has no <code>[fact.*]</code> and <code>gold.limit_grades</code> gives the same grades as
+before. Done: <code>parts/dps5005.toml</code>, <code>parts/bench-supply.toml</code>, and
+<code>every_limit_gets_the_weakest_grade_of_its_claims</code>, which holds every limit to the grade it had
+before.</li>
+<li><strong>A claim under the Pico ceiling:</strong> the RP2350's rated I/O supply range, as a claim on
+<code>parts/rp2350.toml</code>. Done when <code>pico_3v3.max_volts</code> rests on it. Done, and bounded by it:
+<code>RP2350#io-supply</code>, <code>at_most</code>, <code>a_value_stays_at_most_the_number_it_names</code>.</li>
+<li><strong>Measurement records</strong> with the lab log (<a href="../roadmap/index.html"><code>roadmap.md</code></a>, Phase 0). Done when a <code>record</code> referent
+is a foreign key. Two PRs, the log first, since a record cites the entries it came from:
+<ul>
+<li><strong>5a. The lab log:</strong> one JSON line per hardware action in <code>lab/log/&lt;yyyy-mm-dd&gt;.jsonl</code>, each
+naming the sha256 of the line before it, written by <code>tentzhen log append</code>. Done when an entry
+edited, dropped or moved is refused, and so is a change to <code>main</code>'s log that is not an
+append. Done: <code>an_edited_dropped_or_moved_entry_breaks_the_chain</code>,
+<code>the_lab_log_step_passes_only_an_append</code>.</li>
+<li><strong>5b. Measurement records:</strong> one file per experiment, <code>lab/records/&lt;id&gt;.toml</code>, each citing
+the log entries it came from. Done when a claim's <code>record</code> names a record that measured its
+subject, and a merged record cannot change. Done:
+<code>a_record_referent_names_a_record_that_measured_its_subject</code>, the warehouse's key from
+<code>silver.referent</code> to <code>silver.measurement</code>, <code>the_record_step_passes_only_a_new_record</code>.</li>
+</ul>
+</li>
+<li><strong>The lab-target list</strong> (<a href="../roadmap/index.html"><code>roadmap.md</code></a>, Phase 0): the boards an agent may flash without asking,
+one entry per physical board, in <code>lab/targets.toml</code>, with nothing listed yet. A board listed as
+a build version takes only the firmware that version pins; one listed as a part takes any
+image. A flash of a board that is not listed loads only when it names the person who approved
+it. Done when an unapproved flash naming a board that is not listed is refused, and each rule is
+held by a test or written as <code>unknown</code>. Done: <code>a_lab_target_keeps_its_shape</code>,
+<code>a_lab_target_names_a_board_the_catalogue_holds</code>, <code>a_flash_is_held_to_the_lab_target_list</code>.</li>
+<li><strong>The enforcer's limit logic, <code>checked</code></strong> (<a href="../roadmap/index.html"><code>roadmap.md</code></a>, "Parallel tracks"): <code>firmware/enforcer</code>,
+a <code>no_std</code> crate with the supply's limits compiled in through <code>crates/lab</code>. A trip ends by the
+button, or by the host's clear where <code>reenable = "agent"</code>. Done when Kani checks its rules in the
+Quality Gate. Done: <code>nothing_above_the_limits_reaches_the_dps</code>,
+<code>a_refused_input_changes_nothing</code>, <code>a_bad_reading_or_a_silent_tick_trips_the_output_at_once</code>,
+<code>the_output_turns_on_only_by_on_from_off_with_a_setpoint</code>,
+<code>only_the_button_or_an_agent_s_clear_ends_a_trip</code>, <code>the_enforcer_compiles_in_the_limits_file</code>.</li>
+<li><strong>The supply build, draft:</strong> <code>builds/supply/v1.toml</code>, using <code>builds/enforcer/v1.toml</code>.
+<code>[supply.upstream]</code> says the DPS5005 can fail above the ceiling and only the enforcer is to hold
+it, so the enforcer measures the output itself and drives a switch that is open unless it holds
+it closed, and a comparator opens the switch whatever the firmware does (Jon, 2026-09-30). The
+button is wired to nothing an agent drives. Its claims cite step 7's harnesses, and the enforcer
+is never a lab target. Done when a claim's <code>check</code> that names no harness is refused, and so is a
+lab target that is the enforcer. Done: <code>a_code_referent_names_code_that_exists</code>,
+<code>a_build_that_is_never_a_lab_target_says_why</code>, <code>a_lab_target_names_a_board_the_catalogue_holds</code>,
+<code>the_enforcer_s_numbers_follow_from_its_parts</code>.</li>
+<li><strong>The enforcer firmware on Tock:</strong> the logic in a kernel capsule, behind Tock's process isolation
+(<a href="../verification/index.html"><code>verification.md</code></a>, "Tock"). How to stop a reflash over USB or SWD is decided first, with a
+person: it may take RP2350 OTP settings, which cannot be undone, and it bears on where a key an
+agent cannot use is kept (<a href="../roadmap/index.html"><code>roadmap.md</code></a>, TROPIC01). What finishes it is set in its proposal.</li>
+<li><strong>The bench:</strong> the first cart, which a person orders; OpenDPS on the DPS5005, which changes its
+flash protection and so needs a person's approval in the session; and measurement records for
+what is unknown: the DPS5005's own draw, the enforcer's measuring error, and how long a trip
+takes. What finishes it is set in its proposal.</li>
+</ol>
+</div>
+<p class="notice">Written in <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/architecture.md">docs/architecture.md</a>, on main; this page is made from it.</p>
+</main>
+
+<footer class="site-footer">
+  <div class="column">
+    <span>腾振 TENTZHEN · A VIA BALAENA PROJECT</span>
+    <span>MIT OR APACHE-2.0 · <a href="../../legal/index.html">LEGAL</a></span>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB.COM/VIA-BALAENA/TENTZHEN</a>
+  </div>
+</footer>
+
+</body>
+</html>
