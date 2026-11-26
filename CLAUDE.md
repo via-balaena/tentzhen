@@ -123,3 +123,7 @@ that only reads their outputs is not in it.
 - Docs are written for someone following along on a budget.
 - A proposal says what already exists for the piece it builds (`docs/prior-art.md`, and a new
   search, with its date), and uses an existing building block where it is not the point.
+- When a bought part or tool is what stops the next stage of closing a gap, engineering and
+  making our own, at a fraction of the cost and meeting every safety mark, is raised with Jon
+  (Jon, 2026-11-26). For a tool on mains that would change the mains rule above, which holds
+  until Jon decides.

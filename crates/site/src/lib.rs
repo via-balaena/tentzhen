@@ -765,7 +765,8 @@ pub fn render_fab(conn: &Connection) -> duckdb::Result<String> {
          not part of Hacker Fab, and it has not reviewed this page. Safety comes first: tools on \
          mains are bought, listed and legal, and every step runs under its own safety plan \
          (<a href=\"https://github.com/via-balaena/tentzhen/blob/main/docs/fab.md\">fab.md</a>, \
-         \"Safety first\").</p>\n\
+         \"Safety first\"). Where a bought tool is what stops the next stage, making our own, at \
+         a fraction of the cost and meeting every safety mark, is weighed.</p>\n\
          <table class=\"spec-table fab-gap\">\n\
          <thead><tr><th>MEASURE</th><th>HACKER FAB</th><th>INDUSTRY</th><th>GAP</th>\
          <th class=\"ours\">OUR ROUTE</th></tr></thead>\n<tbody>\n",
@@ -1153,6 +1154,7 @@ mod tests {
             "<li id=\"s4\">“q &lt;b&gt;”",
             "HACKER FAB ADJACENT",
             "it has not reviewed this page",
+            "meeting every safety mark",
         ] {
             assert!(page.contains(want), "the page lacks {want:?}:\n{page}");
         }

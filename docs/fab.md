@@ -42,6 +42,10 @@ chemicals, heat, high voltage, vacuum or pressure starts outside them.
    Hacker Fab's first goal is to "Make a DIY version of every nanofabrication tool". Here the
    tools on mains are bought instead (Jon, 2026-11-24: "id say its ok as long as its legal";
    CLAUDE.md).
+
+   When a bought tool is what stops the next stage of closing a gap, it is raised with Jon:
+   whether to engineer and make a version of our own, "a fraction of the cost and meets every
+   safety mark as well" (Jon, 2026-11-26). Until Jon decides, this rule holds as written.
 4. **Never here:**
    - toxic and pyrophoric gases: silane, phosphine, arsine, diborane and chlorine;
    - chlorosilanes;
