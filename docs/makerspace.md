@@ -11,10 +11,10 @@ Nothing is built or ordered, and what each piece would do is `unknown` until it 
 - **Where it sits.** The town's centre is to be the fab, "together with what made Shenzhen: a
   parts market, PCB fabrication and assembly, a machine shop, and the bench's test gear" (`fab.md`,
   "The town"). The stores are a first piece of that parts market.
-- **What the repo already keeps,** for every part a build needs: what it is and what it claims
-  (`parts/`); where it came from and how far it has got, through incoming QA
-  (`lab/sourcing.toml`, `sourcing.md`); measurement records (`lab/records/`); and the append-only
-  log of hardware actions (`lab/log/`).
+- **What the repo already keeps,** for the things its builds need: a part's claims (`parts/`);
+  where a thing came from and how far it has got, through incoming QA (`lab/sourcing.toml`,
+  `sourcing.md`); measurement records (`lab/records/`); and the append-only log of hardware
+  actions (`lab/log/`).
 
 ## What already exists
 
