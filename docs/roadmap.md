@@ -110,5 +110,5 @@ Ultrasonic sonar: transmit a chirp, capture the echo, compute range.
   materials. No step that handles chemicals, heat, high voltage, vacuum or pressure starts until
   Jon has approved that step's own safety plan, under the safety rules Jon approved on 2026-11-24.
   Nothing is bought.
-- A makerspace's stores, project #5 (`makerspace.md`): bins and a live inventory first, then a
-  wired pick-to-light of our own, then reels and moisture tracking. Nothing is bought.
+- A makerspace's stores, project #5 (`makerspace.md`): bins, a live inventory on WLEDger, a wired
+  pick-to-light of our own, and moisture floor life per reel. Nothing is bought.

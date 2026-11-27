@@ -467,7 +467,7 @@ measured against. No web search was made.
 
 Searched 2026-11-26, for project #5 (`makerspace.md`): open pick-to-light and bin locators,
 inventory software for electronics, moisture floor life, the wired bus, and the records a small fab
-keeps. One agent ran about 120 GitHub repository searches and 17 code searches, searched Gitee,
+keeps. One agent ran over 100 GitHub repository searches and 15 code searches, searched Gitee,
 OSHWHub and Bilibili in Chinese, ran nine web searches, and read about 40 READMEs and pages.
 GitHub's repository search matches names, descriptions and topics, not READMEs. Rows marked
 **re-read** were read again in their own text, from GitHub's API or the PDF; the rest are as the
@@ -608,7 +608,7 @@ Each is a candidate, to be proposed where it lands:
 | Raspberry Pi debugprobe | the debug probe's firmware, on a Pico 2 (v1) or on Raspberry Pi's Debug Probe (v2) | `builds/debug-probe/v1.toml`, `builds/debug-probe/v2.toml` |
 | jlcparts | part data without an LCSC key | `roadmap.md` (planned) |
 | Red Pitaya's equalizer and decimation, Haasoscope Pro's FIR calibration, ngscopeclient's de-embed filter | equalizing and averaging each unit | `scope.md` (planned) |
-| WLED's JSON API; WLEDger or InvenTree | the parts wall's gateway answers the API; the store drives it | `makerspace.md` (planned) |
+| WLED's JSON API; WLEDger, or InvenTree if WLEDger fails a measure | the parts wall's gateway answers the API; the store drives it | `makerspace.md` (planned) |
 
 ## People worth writing to
 

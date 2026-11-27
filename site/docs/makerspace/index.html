@@ -61,9 +61,10 @@ actions (<code>lab/log/</code>).</li>
 WLEDger (AGPL-3.0) lights bins through several WLED controllers on the network, and already
 does BOM kitting: its "Pick Mode" lights every bin a project needs at once. It also has roles
 and "full audit logging". Part-DB has users and groups, and Binner keeps a part's moisture
-sensitivity level as text. InvenTree, Part-DB and Binner light no bins in their own code, and
-none of the four counts down a part's floor life (WLEDger's README names no moisture level).</li>
-<li><strong>A wired wall exists off the shelf:</strong> WLED builds for 17 ESP32 boards with Ethernet.</li>
+sensitivity level as text. A code search finds no bin lighting in InvenTree's, Part-DB's or
+Binner's own code, and none of the four counts down a part's floor life (WLEDger's README names
+no moisture level).</li>
+<li><strong>A wired wall exists off the shelf:</strong> WLED builds for 17 Ethernet board types.</li>
 <li><strong>So does pick confirmation, apart.</strong> CAN nodes on PIC18 chips light a location and send an
 acknowledgement back: "Operator picks item / Client sends ACK back to server / Server confirms
 completion" (SakthiArumugam642/Pick_To_Light, with no licence). Pick2Light (2017, no licence)
@@ -82,8 +83,8 @@ part built here. The store, the kitting and the LEDs' API are used as they are, 
 <ul>
 <li><strong>Bins:</strong> dividers or Gridfinity for small bags and cut tape; larger ESD bins for modules and
 dev boards; a sealed box with desiccant for moisture-sensitive chips.</li>
-<li><strong>Intake:</strong> a label of our own, printed as each thing arrives. It carries our identifiers,
-never a listing's content (CLAUDE.md, "LCSC, JLCPCB and shop data").</li>
+<li><strong>Intake:</strong> a label of our own, printed as each thing arrives, with our own identifiers.
+Whatever of it goes in the repo follows CLAUDE.md's rules on shop data.</li>
 <li><strong>A search kiosk</strong> anyone can use, on the lab network ("Safety", below).</li>
 <li><strong>Low-stock alerts.</strong></li>
 <li><strong>Members put things back in the wrong bin,</strong> and the session asks for lights that tolerate it.
@@ -101,19 +102,24 @@ identity from the repo, so that the two never name one part two ways.</li>
 <p><code>lab/sourcing.toml</code> holds only what a build needs (its header says so), and a makerspace stocks
 much that no build names. That stock's records would be a new file, with its schema and loader
 written before anything reads it (CLAUDE.md, "Conventions"). It is not designed.</p>
-<p>Which live store is an open decision (below). Both candidates already exist; neither is the point
-of the project.</p>
+<p><strong>The live store is WLEDger, and InvenTree if WLEDger fails a measure</strong> (Jon, 2026-11-26, taking
+the recommendation). The measures, named before it is tried: it takes each part's identity and QA
+result from the repo, with no listing content; it runs on the lab network with no internet; it
+drives the gateway through WLED's API; and it takes a pick confirmation back through its own API.
+Neither store is the point of the project. WLEDger is AGPL-3.0, under which a modified copy "must
+prominently offer all users interacting with it remotely through a computer network ... an
+opportunity to receive the Corresponding Source" (its LICENSE, section 13).</p>
 <h2 id="the-parts-wall">The parts wall</h2>
 <h3 id="a-gateway-that-speaks-wleds-api">A gateway that speaks WLED's API</h3>
-<p>Both locators that light bins today drive their LEDs through WLED's JSON API:</p>
+<p>The two locators made for InvenTree and WLEDger drive their LEDs through WLED's JSON API:</p>
 <ul>
 <li>inventree-wled-locator POSTs each LED's colour to <code>/json/state</code> (<code>WledPlugin.py</code> at 12c499ff);</li>
 <li>WLEDger reads <code>/json/info</code> and <code>/json</code>, and POSTs to <code>/json/state</code> (<code>internal/wled/client.go</code>
 at 9ca719eb).</li>
 </ul>
 <p>So the gateway answers those calls on Ethernet, as WLED controllers do, and drives the shelves
-behind it. Either store would then drive the wall unchanged, with no code of ours in Python or Go
-(CLAUDE.md, "Language policy"), and the wall would not tie the choice of store. Whether a gateway
+behind it. WLEDger, or InvenTree if it comes to that, would then drive the wall unchanged, with no
+code of ours in Python or Go (CLAUDE.md, "Language policy"). Whether a gateway
 that answers only those calls satisfies both is <code>unknown</code> until a test runs their calls against
 it.</p>
 <p>A pick confirmation travels the other way, from the wall to the store, and WLED's API has no call
@@ -136,8 +142,10 @@ plugged in", at power levels "unlikely to damage devices not designed for PoE" (
 data sheet, which says its account is no substitute for IEEE 802.3at). So the bus either uses a
 connector that cannot mate with an Ethernet port, or powers a port only once it detects a node.
 Which is not designed.</li>
-<li><strong>Power:</strong> 24 V from a bought supply, listed by a recognised testing lab and used as sold
-(CLAUDE.md, "Mains"). How each shelf's share is fused is not designed.</li>
+<li><strong>Power:</strong> 24 V from a bought supply on mains. CLAUDE.md's mains rule: bought mains equipment
+"listed by a recognised testing lab may be used as sold, where it is legal to use there, under
+its step's safety plan". The stores are not one of <a href="../fab/index.html"><code>fab.md</code></a>'s steps, so whether they need a
+written plan is open (below). How each shelf's share is fused is not designed.</li>
 </ul>
 <h3 id="the-nodes">The nodes</h3>
 <p>Every shelf has the same node: a microcontroller, a CAN transceiver, a buck converter from 24 V,
@@ -156,8 +164,8 @@ and has supported "rp2350 chips" since v1.7.0. It is C, and of the three error s
 specification defines, it "will not automatically enter a 'bus off' state" (<code>docs/Features.md</code>
 at 2988d4f1). A node on it would carry GPL-3.0 code, and whether Tock can host it is <code>unknown</code>.
 A microcontroller with a CAN controller of its own is the other route.</li>
-<li><strong>Flashing</strong> a node is a hardware action: logged, and only to a lab target
-(<code>lab/targets.toml</code>, CLAUDE.md).</li>
+<li><strong>Flashing</strong> a node is a hardware action, and logged. Flashing one not listed in
+<code>lab/targets.toml</code> needs a person's approval (CLAUDE.md).</li>
 </ul>
 <h2 id="picking-kitting-reels-and-moisture">Picking, kitting, reels and moisture</h2>
 <table><thead><tr><th>feature</th><th>where it exists</th><th>here</th></tr></thead><tbody>
@@ -181,29 +189,24 @@ material should not be baked above 40°C". Espressif bakes parts once they are "
 tape".</p>
 <h2 id="safety">Safety</h2>
 <ul>
-<li><strong>Power:</strong> 24 V DC from a bought, listed supply, used as sold. The project designs and wires no
-mains equipment (CLAUDE.md).</li>
-<li><strong>Network:</strong> the store, the kiosk and the gateway run on the isolated lab network, with nothing
-exposed beyond it (CLAUDE.md).</li>
-<li><strong>Flashing:</strong> the nodes and the gateway are flashed only as lab targets, and each flash is
-logged (CLAUDE.md).</li>
+<li><strong>Power:</strong> 24 V DC from a bought supply on mains, under CLAUDE.md's mains rule ("The bus",
+above). The project designs and wires no mains equipment (CLAUDE.md).</li>
+<li><strong>Network:</strong> the store, the kiosk and the gateway run on the isolated lab network. Exposing any
+of them beyond it needs approval (CLAUDE.md).</li>
+<li><strong>Flashing:</strong> a node or the gateway not listed as a lab target is flashed only with a person's
+approval, and each flash is logged (CLAUDE.md).</li>
 <li><strong>Members:</strong> a log of who took what is a record about people. What it keeps, and for how long,
 is open (below).</li>
-<li><strong>Baking parts dry</strong> is heat, from an oven on mains, which is bought, listed and used as sold
-(CLAUDE.md). Whether a bake needs a written safety plan, as a fab step does, is open (below).</li>
+<li><strong>Baking parts dry</strong> is heat, from an oven on mains, under the same mains rule.</li>
 </ul>
 <h2 id="open-decisions-jons">Open decisions, Jon's</h2>
 <ol>
-<li><strong>The live store: InvenTree or WLEDger.</strong> The measures, named before either is tried: it takes
-each part's identity and QA result from the repo, with no listing content; it runs on the lab
-network with no internet; it drives the gateway through WLED's API; and it takes a pick
-confirmation back through its own API. Recommended: try WLEDger first, since kitting, roles
-and an audit log are already in it, and InvenTree if WLEDger fails a measure.</li>
 <li><strong>The shelf node's row in CLAUDE.md's language table:</strong> Rust on Tock, and Embassy where Tock
 doesn't fit, as the Pico's row says.</li>
 <li><strong>What the pick log keeps about members,</strong> and for how long.</li>
-<li><strong>Whether baking parts dry needs a written safety plan,</strong> as a fab step does (<a href="../fab/index.html"><code>fab.md</code></a>, "Safety
-first").</li>
+<li><strong>Whether the stores' mains equipment needs a written safety plan:</strong> the 24 V supply, and an
+oven for baking parts dry. CLAUDE.md's mains rule uses bought mains equipment "under its step's
+safety plan", and the stores are not a fab step.</li>
 </ol>
 <h2 id="where-this-came-from">Where this came from</h2>
 <p>Jon's Claude session of 2026-11-26, whose summary Jon brought the same day. It set out a
@@ -232,8 +235,8 @@ between hobby fabs and industry is operational discipline, not equipment, and mo
 cheap".</li>
 </ul>
 <h2 id="what-was-searched">What was searched</h2>
-<p>On 2026-11-26, one search agent and my own reads. Searched: GitHub through its API (about 120
-repository searches and 17 code searches), Gitee, OSHWHub and Bilibili in Chinese, and nine web
+<p>On 2026-11-26, one search agent and my own reads. Searched: GitHub through its API (over 100
+repository searches and 15 code searches in the agent's log), Gitee, OSHWHub and Bilibili in Chinese, and nine web
 searches. About 40 READMEs and pages were read. The rows that <a href="../prior-art/index.html"><code>prior-art.md</code></a> marks <strong>re-read</strong>
 were read again in their own text. Not seen: J-STD-033, CiA 303-1 and IEEE 802.3, which are
 paywalled or behind a login; Hackaday.io's project pages, which need a browser; NEMO's plugins;
