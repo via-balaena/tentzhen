@@ -63,11 +63,17 @@ of record. Each part exists on its own, and several were built in 2026.
   crucible-grade quartz, has a known substitute, synthetic silica, already used on crucibles'
   inner faces. No purity was found for making it from sand by the water-glass route.
 - **A makerspace's stores** (project #5): open software already lights bins and kits a BOM
-  (WLEDger), and keeps stock (InvenTree, Part-DB). CAN nodes that acknowledge a pick, and buttons
-  on the shelf, exist apart, mostly without a licence, and none feeds an inventory system others
-  use. One open design that carries power and the bus to every shelf, sends picks back to such a
-  system and counts down each reel's floor life is in nothing we found. For a small fab's records, NIST's NEMO runs tools,
-  interlocks and consumables, with no lots.
+  (WLEDger), and keeps stock (InvenTree, Part-DB). CAN nodes that acknowledge a pick, and buttons on
+  the shelf, exist apart, mostly without a licence, and none feeds an inventory system others use.
+  One open design that carries power and the bus to every shelf, sends picks back to such a system
+  and counts down each reel's floor life is in nothing we found. For a small fab's records, NIST's
+  NEMO runs tools, interlocks and consumables, with no lots.
+- **p-bits** (project #6) are well trodden on Xilinx FPGAs with Vivado, and as invertible logic
+  that factors. Extropic and Normal Computing publish thermodynamic computing, mostly simulated
+  or with pseudo-random noise; ferrotherm does it in Rust software, and WobblyBits puts 6 p-bits on
+  a Tiny Tapeout tile, with RTL results so far. p-bits on an ECP5 with open tools, checked bit for
+  bit against a Rust model and fed by a health-tested on-chip entropy source, are in nothing we
+  found.
 - **In Chinese,** there are many more open instruments, supplies and loads, several with one unit's
   accuracy measured and published, and agents on instruments from RIGOL and others. The pattern is
   the same: at most one unit's measurements behind some of the numbers, and every limit read in
@@ -538,6 +544,65 @@ confirmation back to an inventory system others use, such as InvenTree or WLEDge
 a colour, and counts down each reel's floor life, in one open design. Each piece exists apart. No
 open run-card tool for a small fab turned up beyond Hacker Fab's database.
 
+## p-bits and thermodynamic computing
+
+Searched 2026-11-27, for project #6 (`pbits.md`): p-bits on FPGAs, invertible logic,
+thermodynamic computing's companies and code, physical p-bits and Tiny Tapeout, true random
+numbers on FPGAs, and the applications. One agent ran 156 queries (68 GitHub repository searches,
+44 on arXiv, 10 GitHub code searches, 14 on Gitee, 14 on OSHWHub, 5 on Bilibili, 1 on Crossref),
+45 of them empty, and no web searches. arXiv's search matches abstracts; GitHub's repository
+search matches names, descriptions and topics. Rows marked **re-read** were read again in their own
+text; the rest are as the agent read them. Not seen: full Nature texts, IEEE and ACM papers, code
+that is not public (pc-COP's, the sparse Ising machine's, 2611.14744's), Extropic's pages for X0,
+XTR-0 and Z1 (404; its hardware page was read), and silicon results from any Tiny Tapeout chip.
+
+**p-bits on FPGAs, and invertible logic**
+
+| work | closest part | different | source |
+|---|---|---|---|
+| The sparse Ising machine (Aadit et al., Nature Electronics 2022) | graph-coloured parallel Gibbs; "32-bit linear-feedback shift registers (LFSRs) with taps [32, 22, 2, 1]" for randomness, chosen "after extensive experiments" with Xoshiro128+ and the Mersenne Twister; "a lookup table (LUT) maps the tanh"; "a comparator is used to trigger the flip"; "143.8 flips/ns" at 4,793 p-bits | a Xilinx VCU118; its code "available from the corresponding author upon reasonable request" | arXiv 2110.02481, its HTML, **re-read** |
+| pc-COP (Magar, Bharathan, Banerjee, HPEC 2024) | 2,048 fully connected p-bits; a "21-bit Fibonacci-style LFSR" and a comparator; sequential Gibbs with "speculate-and-select"; G-set max-cut | a ZCU104, Vivado; no code | arXiv 2504.04543 |
+| Nikhar et al., sparse and higher-order Ising machines | graph and hypergraph colouring; random numbers "generated using Xoshiro" | its repository, OPUSLab/XORSATwithpbits (GPL-3.0), holds the CPU code, not the RTL | arXiv 2312.08748 |
+| quantinfo/Simple-sparse-Ising-machine (MIT), for "An improved update rule for probabilistic computers" | open Verilog; a 32-bit semiprime factored | "Vivado version: 2023.2 Enterprise (enterprise required for this FPGA)", an RFSoC 4x2 | at 12338ded, README, **re-read**; arXiv 2504.00818 |
+| Feng, Fan, Chen, learned Hamiltonians for invertible arithmetic | an FPGA colour-sweep core "(bit-exact with software)" | a Kria KR260; its code "will be released as an open-source repository once the paper has been submitted" | arXiv 2611.14744, its HTML, **re-read** |
+| Camsari, Faria, Sutton, Datta, "Stochastic p-bits for Invertible Logic" | "a 4-bit multiplier which in inverted mode functions as a factorizer"; "p-bits need not be magnet-based: any three-terminal tunable random bit generator should be suitable" | simulation | Phys. Rev. X 7, 031014 (2017); arXiv 1610.00377, abstract, **re-read** |
+| Borders et al., "Integer factorization using stochastic magnetic tunnel junctions" | factoring with p-bits made from magnetic tunnel junctions | a magnetic process | Nature 573, 390–393 (2019), Crossref, **re-read**; its abstract as the agent read it |
+| ferrotherm (dcharlot-physicalai-bmi, Rust, Apache-2.0) | thermodynamic computing in Rust; an invertible multiplier, "shipped, verified" by full enumeration (4×4: "176 spins, 548 couplings"); layers that emit bitstreams for the iCE40-HX8K and Artix-7; a rule, "software model == emulator == emitted configuration" | no ECP5 layer; "Still not done: binding a p-bit fabric's LUTs to SLICE site pins" | at 3c474719, README and `silicon/README.md`, **re-read** |
+
+**Thermodynamic computing: companies and code**
+
+| work | closest part | different | source |
+|---|---|---|---|
+| Extropic, "An efficient probabilistic hardware architecture for diffusion-like models" | measured: an all-transistor random-bit cell at about 10 MHz, using about 350 aJ per bit (the paper writes both in math notation) | "the experiments presented in this paper were done using simulations of thermodynamic hardware"; parity with GPUs "using approximately 10,000 times less energy" is a projection | arXiv 2510.23972, its HTML, **re-read** |
+| Extropic's code: thrml, torx (Apache-2.0) | thrml: block Gibbs on GPUs, "Thermodynamic Hypergraphical Model Library in JAX" | software | extropic-ai/thrml at 429577c7, extropic-ai/torx at 189b7cb5 |
+| Extropic's hardware page | X0, a "Silicon Prototype", Q1 2025; planned: Z1 boards of "over half a million pbits" and "over 4 million pbits", "early access 2027" | plans | extropic.ai/hardware |
+| Normal Computing's stochastic processing unit | 8 RLC unit cells on a circuit board, coupled through switched capacitors, sampling Gaussians | its noise is "pseudo-random Gaussian currents from a Field-Programmable Gate Array" | arXiv 2312.04836 |
+| Normal Computing's CN101 | a fabricated "digital thermodynamic computing chip"; a "65-bit LFSR + nonlinear output stage" | its process node not found; its open code (thermox) is software | arXiv 2608.00754 |
+
+**Physical p-bits, and Tiny Tapeout**
+
+| work | closest part | different | source |
+|---|---|---|---|
+| WobblyBits (rats2012, Apache-2.0, Tiny Tapeout TTSKY26a, SKY130) | "6 p-bits (probabilistic bits) driven by hardware randomness from a bunch of on-chip ring oscillators" ("I pretty much used neoTRNG but ported to verilog"); round-robin Gibbs, "approximated as a threshold comparison against the random byte"; a J matrix of 8-bit weights loaded over SPI | "These were the RTL results": K3,3's ground state 44.5 % of 1,000 samples; no health tests | at 9bf45c34, README and `docs/info.md`, **re-read** |
+| ThomasPluck/tt04-biased-trng (Apache-2.0) | "Generates a random bit with a given probability with a special ring oscillator": an analog p-bit cell | "Simulate the analog, hope for the best" | at e192163e, `info.yaml` |
+| Other Tiny Tapeout designs | Ryan-hasi/tt-ising-machine: "Eight coupled ring oscillators that solve MAX-CUT"; svd321/tt02-Ising: a 4-spin Metropolis chain | of 4,937 projects in the index, a regex for p-bits, Ising and stochastic matched 34; WobblyBits is the only p-bit array | TinyTapeout/tinytapeout-index at dfa8764c |
+| p-bits from magnetic tunnel junctions and RRAM | MTJs beside FPGAs and on 130 nm CMOS; a p-computing chip on "180 nm CMOS technology and BEOL HfO2 RRAM", the oldest node found | magnetic or RRAM processes | arXiv 2304.05949, 2506.14590, 2604.14446, 2503.20254 |
+
+**True random numbers on FPGAs**
+
+| work | closest part | different | source |
+|---|---|---|---|
+| stnolting/neoTRNG (BSD-3-Clause) | ring oscillators; "implemented on an AMD Artix-7 (`xc7a35ticsg324-1L`)" | "no tampering detection mechanism or online health monitoring available"; "**no guarantee at all**" | at c688149f, README, **re-read** |
+| controlpaths/cryptoliteICE (Apache-2.0) | an iCE40UP5K's "32 parallel ring oscillators", read by an RP2040 that "applies SP 800-90B health tests" | the health tests run on the microcontroller, not the FPGA | at 8fcca45b, README, **re-read** |
+| krishkc5/trng-ring-oscillator | "8 ring oscillators (3-11 inverters each)" for the ULX3S, a Lattice ECP5 board | no licence | at 446dcd05, README, **re-read** |
+| NIST SP 800-90B (January 2018) | health tests "shall include both continuous and start-up tests"; start-up tests over "at least 1024" samples; "on-demand testing"; tests on the noise "before any conditioning is done"; on a persistent failure, "the entropy source shall not produce any outputs" | a recommendation for entropy sources, with its own estimators | nvlpubs.nist.gov, NIST.SP.800-90B.pdf, sha256 `9b0dd77131ad…`, §4.3–4.4, **re-read** |
+
+Nothing we found puts p-bits on an ECP5, writes them in Amaranth or builds them with Yosys,
+nextpnr and Trellis, checks a p-bit core bit for bit against an open Rust model, or feeds p-bits
+from an on-chip entropy source whose SP 800-90B health tests run in the same gateware. No p-bit
+chip was found in a process older than 180 nm, or from an open fab, and no Wave Function Collapse
+on p-bits or Ising machines.
+
 ## What we take from it
 
 Each is a candidate, to be proposed where it lands:
@@ -591,6 +656,12 @@ Each is a candidate, to be proposed where it lands:
 22. **Read NEMO before writing the fab's records of tools and chemicals,** and take its models
     where they fit (`fab.md`, "Running the fab").
 23. **Try u-analytics for the fab's control charts** before writing any.
+24. **Check project #6's p-bits against `cortenforge-sim-thermostat`'s `exact_distribution`,** a
+    published crate, as an end user (`pbits.md`).
+25. **Port neoTRNG's ring oscillators to the ECP5,** with SP 800-90B's health tests beside them in
+    gateware, as WobblyBits ported them to SKY130 without the tests.
+26. **Compare our p-bit core with ferrotherm's,** whose rule, "software model == emulator ==
+    emitted configuration", is the one project #6 follows.
 
 ## Building blocks we use
 
@@ -609,6 +680,7 @@ Each is a candidate, to be proposed where it lands:
 | jlcparts | part data without an LCSC key | `roadmap.md` (planned) |
 | Red Pitaya's equalizer and decimation, Haasoscope Pro's FIR calibration, ngscopeclient's de-embed filter | equalizing and averaging each unit | `scope.md` (planned) |
 | WLED's JSON API; WLEDger, or InvenTree if WLEDger fails a measure | the parts wall's gateway answers the API; the store drives it | `makerspace.md` (planned) |
+| `cortenforge-sim-thermostat` 0.9.0; neoTRNG (BSD-3-Clause) | the p-bits' exact distribution; ring oscillators for true randomness | `pbits.md` (planned) |
 
 ## People worth writing to
 
@@ -625,5 +697,7 @@ port, who matched a JAX environment exactly outside JAX.
 For project #4: Hacker Fab's contributors, the authors of its stepper paper, SputterOS's author,
 and the impedance matcher's authors.
 For project #5: WLEDger's author, inventree-wled-locator's author, and NEMO's team at NIST.
+For project #6: ferrotherm's author, WobblyBits' author, neoTRNG's author, and the authors of the
+sparse Ising machine and of quantinfo's open Verilog.
 Kazumoto Kojima, whose i5ether carries no license, so we could build on it only once it has one. And
 the projects we build on, upstream first when we find a bug.

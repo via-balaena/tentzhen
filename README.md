@@ -23,6 +23,7 @@ trusted, or unknown.
   toward a chip that runs SocialJax and Concordia
 - [The open fab](docs/fab.md) — project #4, an open-source fab and the town around it
 - [A makerspace's stores](docs/makerspace.md) — project #5, with a wired pick-to-light of our own
+- [p-bits](docs/pbits.md) — project #6, a small thermodynamic computer, on the i9 first
 - [Brand](brand/README.md) — the peregrine mark and the 腾振 lockup
 - [Disclaimer](DISCLAIMER.md) — as is, at your own risk, not certified test equipment
 
