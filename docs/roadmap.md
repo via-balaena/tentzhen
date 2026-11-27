@@ -112,3 +112,6 @@ Ultrasonic sonar: transmit a chirp, capture the echo, compute range.
   Nothing is bought.
 - A makerspace's stores, project #5 (`makerspace.md`): bins, a live inventory on WLEDger, a wired
   pick-to-light of our own, and moisture floor life per reel. Nothing is bought.
+- p-bits, project #6 (`pbits.md`): a golden model in Rust, a p-bit core in Amaranth, a run on the
+  i9, true randomness with health tests, then a chip. Its first four steps need nothing bought:
+  the i9 and its extension board are on the bench.

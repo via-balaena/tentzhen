@@ -89,6 +89,8 @@ So the fab builds two kinds of chip, for two purposes:
   home-made chip with a trained network built in. They run at kilohertz, so they aren't the cost
   goal.
 
+A p-bit chip, project #6's last step, would be made on the silicon track too (`pbits.md`).
+
 ## The steps
 
 ### Silicon
