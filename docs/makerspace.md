@@ -215,10 +215,10 @@ fab"). Changed here:
 ## What was searched
 
 On 2026-11-26, one search agent and my own reads. Searched: GitHub through its API (over 100
-repository searches and 15 code searches in the agent's log), Gitee, OSHWHub and Bilibili in Chinese, and nine web
-searches. About 40 READMEs and pages were read. The rows that `prior-art.md` marks **re-read**
-were read again in their own text. Not seen: J-STD-033, CiA 303-1 and IEEE 802.3, which are
-paywalled or behind a login; Hackaday.io's project pages, which need a browser; NEMO's plugins;
-Coral's source; and commercial pick-to-light systems beyond a search's snippets. GitHub's
-repository search matches names, descriptions and topics, not READMEs, so this shows what was
-found, not that nothing closer exists. The tables are in `prior-art.md`, "A makerspace's stores".
+repository searches and 15 code searches in the agent's log), Gitee, OSHWHub and Bilibili in
+Chinese, and nine web searches. About 40 READMEs and pages were read. The rows that `prior-art.md`
+marks **re-read** were read again in their own text. Not seen: J-STD-033, CiA 303-1 and IEEE 802.3,
+which are paywalled or behind a login; Hackaday.io's project pages, which need a browser; NEMO's
+plugins; Coral's source; and commercial pick-to-light systems beyond a search's snippets. GitHub's
+repository search matches names, descriptions and topics, not READMEs, so this shows what was found,
+not that nothing closer exists. The tables are in `prior-art.md`, "A makerspace's stores".
