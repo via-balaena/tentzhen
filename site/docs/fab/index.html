@@ -25,6 +25,7 @@
         <a href="../../docs/mesh/index.html">THE MESH</a>
         <a href="../../docs/littlebit/index.html">HARDWIRED NEURAL NET</a>
         <a href="../../fab/index.html">THE OPEN FAB</a>
+        <a href="../../docs/makerspace/index.html">MAKERSPACE STORES</a>
       </div>
     </div>
     <a href="../../docs/verification/index.html">VERIFICATION</a>
@@ -509,6 +510,43 @@ until it is built.</li>
 <li>the tube furnace's controller code;</li>
 <li>SputterOS's own code.</li>
 </ul>
+<h2 id="running-the-fab-lots-recipes-and-tools">Running the fab: lots, recipes and tools</h2>
+<p>Read 2026-11-26. Jon's Claude session of 2026-11-26 listed the records an industrial fab keeps
+beside its tools, to be checked against what Hacker Fab already has (<a href="../makerspace/index.html"><code>makerspace.md</code></a>, "Where this
+came from"). Its route: read Hacker Fab's GitBook, join its Discord, map what exists against the
+list, and lead with one small working tool rather than a critique. Hacker Fab's README says "We
+communicate over Discord"; joining is a step on Jon's own account.</p>
+<p><strong>Hacker Fab's process database comes first.</strong> Its GitBook (<code>fab-toolkit/database-build/README.md</code>
+at bd1eef57) describes db.hackerfab.org, a Django site hosted on AWS. Its code is
+hacker-fab/data-management (MPL-2.0, last commit 2025-05-04, ae5436a3).</p>
+<ul>
+<li><strong>Built, as the page tells it:</strong> "chip pages" that "show every process done to a chip", and
+input forms with "prefilled default values for standardized parameters in our primary NMOS
+process".</li>
+<li><strong>Planned, in the page's future tense:</strong> a "chip profile" that the chip creation page "will
+also have". A job queue on AWS, from which a Raspberry Pi beside each tool, the spin coater
+first, "will pull jobs" (<code>machine-integration.md</code>).</li>
+<li><strong>In its <code>models.py</code>:</strong> a chip is a number, with an owner, a university, a creation time, a
+starting material, notes and its I-V curves. Each process is a table of its parameters and the
+step's time. No field is named for a lot, a batch, a recipe, a version, a yield or a wafer (a
+case-insensitive search of the file).</li>
+</ul>
+<table><thead><tr><th>practice</th><th>Hacker Fab, as read</th><th>Tentzhen's records today</th></tr></thead><tbody>
+<tr><td>a run card: every step a chip went through, with its parameters</td><td>its chip pages, and a table per process</td><td>a measurement record names the hardware revision, the gateware and firmware hashes and the toolchain versions (<code>lab/records/</code>)</td></tr>
+<tr><td>lots: chips that move through the steps together</td><td>no lot field</td><td>none</td></tr>
+<tr><td>recipes under version control</td><td>NMOS defaults in its input forms</td><td>the repo is in git; no fab step has a recipe file yet</td></tr>
+<tr><td>statistical process control</td><td>not read</td><td>none</td></tr>
+<tr><td>test structures and yield</td><td>94 % yield in its March 2026 update ("The steps", above); how yield is tracked, not read</td><td>none</td></tr>
+<tr><td>the same process at every site</td><td>ten Hacker Fabs share one GitBook; whether their processes are matched, not read</td><td>none</td></tr>
+<tr><td>tool qualification and maintenance logs</td><td>a tube-furnace malfunction log, dated by hand (<code>fab-toolkit/tube-furnace/malfunction-log.md</code>)</td><td>the append-only lab log of hardware actions (<code>lab/log/</code>)</td></tr>
+<tr><td>root-cause analysis</td><td>not read</td><td>none</td></tr>
+<tr><td>chemicals and consumables by lot</td><td>a page per material (<code>fab-toolkit/chemicals-materials/</code>); whether lots are kept, not read</td><td>none</td></tr>
+</tbody></table>
+<p>"Not read" leaves Hacker Fab's side <code>unknown</code>, not absent. The small working tool is the
+makerspace's stores (<a href="../makerspace/index.html"><code>makerspace.md</code></a>): they keep parts by bin first, then chemicals by lot, then
+wafers by lot. Each is a proposal, <code>unknown</code> until it earns a grade. Wafer lots would be built
+where Hacker Fab's database can take them, written to it or beside it, once its code has been
+read.</p>
 <h2 id="later-a-gradiometer-engineered-with-cortenforge">Later: a gradiometer, engineered with CortenForge</h2>
 <p>Jon, 2026-11-25: "the gradiometer is from cortenforge. its a goal of mine to use cortenforge to
 engineer one in the future."</p>

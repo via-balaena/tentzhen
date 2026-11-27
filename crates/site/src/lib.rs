@@ -59,6 +59,7 @@ fn page(up: &str, title: &str, body: &str) -> String {
         <a href="{up}docs/mesh/index.html">THE MESH</a>
         <a href="{up}docs/littlebit/index.html">HARDWIRED NEURAL NET</a>
         <a href="{up}fab/index.html">THE OPEN FAB</a>
+        <a href="{up}docs/makerspace/index.html">MAKERSPACE STORES</a>
       </div>
     </div>
     <a href="{up}docs/verification/index.html">VERIFICATION</a>
@@ -1564,6 +1565,7 @@ mod tests {
             "scope",
             "mesh",
             "littlebit",
+            "makerspace",
             "verification",
             "roadmap",
         ] {

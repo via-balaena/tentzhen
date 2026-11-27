@@ -25,6 +25,7 @@
         <a href="../../docs/mesh/index.html">THE MESH</a>
         <a href="../../docs/littlebit/index.html">HARDWIRED NEURAL NET</a>
         <a href="../../fab/index.html">THE OPEN FAB</a>
+        <a href="../../docs/makerspace/index.html">MAKERSPACE STORES</a>
       </div>
     </div>
     <a href="../../docs/verification/index.html">VERIFICATION</a>
@@ -97,6 +98,12 @@ universities, on open tools. One team of eight students at CMU made NMOS chips o
 transistors with 5 µm gates (Hacker Fab's March 2026 update). The scarcest input,
 crucible-grade quartz, has a known substitute, synthetic silica, already used on crucibles'
 inner faces. No purity was found for making it from sand by the water-glass route.</li>
+<li><strong>A makerspace's stores</strong> (project #5): open software already lights bins and kits a BOM
+(WLEDger), and keeps stock (InvenTree, Part-DB). CAN nodes that acknowledge a pick, and buttons
+on the shelf, exist apart, mostly without a licence, and none feeds an inventory system others
+use. One open design that carries power and the bus to every shelf, sends picks back to such a
+system and counts down each reel's floor life is in nothing we found. For a small fab's records, NIST's NEMO runs tools,
+interlocks and consumables, with no lots.</li>
 <li><strong>In Chinese,</strong> there are many more open instruments, supplies and loads, several with one unit's
 accuracy measured and published, and agents on instruments from RIGOL and others. The pattern is
 the same: at most one unit's measurements behind some of the numbers, and every limit read in
@@ -454,6 +461,68 @@ measured against. No web search was made.</p>
 <tr><td>Klipper's input shaping (Klipper3d/klipper, GPL-3.0)</td><td>"Input Shaping - a technique that can be used to reduce ringing", where "Ringing is caused by mechanical vibrations in the printer due to quick changes of the printing direction"; resonances measured with "ADXL345, MPU-9250, LIS2DW and LIS3DH compatible accelerometers"</td><td>for 3D printers in motion, not a stepper that settles before each exposure. GPL-3.0, so its method is taken, not its code</td><td>Klipper3d/klipper at 7558e8c2, <code>docs/Resonance_Compensation.md</code> and <code>docs/Measuring_Resonances.md</code>, their first lines, <strong>re-read</strong></td></tr>
 <tr><td>CortenForge's gradiometer study</td><td>a "room-temperature MEMS gravity gradiometer": "Conditional GO for the large-anomaly / void niche", "No code written yet". "The bet": "Matching by construction (sub-ppm) + self-gravity from CAD". Out of scope: "etch-process physics, circuit synthesis, DAQ firmware"</td><td>a study, not a device; Jon's goal for later (<a href="../fab/index.html"><code>fab.md</code></a>)</td><td>via-balaena/CortenForge at 520da08f, <code>docs/studies/gradiometer/src/00-context.md</code>, its status table, <strong>re-read</strong></td></tr>
 </tbody></table>
+<h2 id="a-makerspaces-stores">A makerspace's stores</h2>
+<p>Searched 2026-11-26, for project #5 (<a href="../makerspace/index.html"><code>makerspace.md</code></a>): open pick-to-light and bin locators,
+inventory software for electronics, moisture floor life, the wired bus, and the records a small fab
+keeps. One agent ran over 100 GitHub repository searches and 15 code searches, searched Gitee,
+OSHWHub and Bilibili in Chinese, ran nine web searches, and read about 40 READMEs and pages.
+GitHub's repository search matches names, descriptions and topics, not READMEs. Rows marked
+<strong>re-read</strong> were read again in their own text, from GitHub's API or the PDF; the rest are as the
+agent read them. Not seen: J-STD-033, CiA 303-1 and IEEE 802.3, which are paywalled or behind a
+login; Hackaday.io's project pages, which need a browser; NEMO's plugins; Coral's source; and
+commercial pick-to-light systems, beyond search snippets.</p>
+<p><strong>Lighting bins, and confirming picks</strong></p>
+<table><thead><tr><th>work</th><th>closest part</th><th>different</th><th>source</th></tr></thead><tbody>
+<tr><td>WLEDger (tuxedocurly/wledger, AGPL-3.0, Go)</td><td>lights bins through several WLED controllers. A BOM "Pick Mode" that lights "every bin needed for a project simultaneously", with KiCad and CSV BOM import and shortages for N boards. Roles, "full audit logging", "Stock-Health Locate Colors", and LCSC, DigiKey and Mouser label scanning</td><td>no pick confirmation and no moisture level in its README; its colours show stock health, not who is picking</td><td>at 9ca719eb, README and <code>internal/wled/client.go</code>, <strong>re-read</strong></td></tr>
+<tr><td>inventree-wled-locator (invenhost, MIT)</td><td>an InvenTree locate plugin that POSTs LED colours to one WLED's <code>/json/state</code></td><td>one WLED address and an LED count</td><td>at 12c499ff, README and <code>WledPlugin.py</code>, <strong>re-read</strong></td></tr>
+<tr><td>nemccarthy/inventree-visual-stock-bins (MIT)</td><td>an on-screen drawing of the bins, where Locate "flashes its bin on any open drawing"; a refill list and a bin-by-bin count</td><td>no lights</td><td>at 12d3a715</td></tr>
+<tr><td>CAN nodes on PIC18 chips: SakthiArumugam642/Pick_To_Light, power-t-team1/PICK_TO_LIGHT, and others of the same design</td><td>CAN nodes with displays: "Operator picks item / Client sends ACK back to server / Server confirms completion", through an MCP2551 transceiver. power-t-team1's node sends values it stores back over CAN on a key press</td><td>no licence; no host software in power-t-team1's</td><td>SakthiArumugam642 at c15bc6e3, README, <strong>re-read</strong>; power-t-team1 at 63eb27bd, <code>Pick_to_Light_client/main.c</code>, <strong>re-read</strong>; the others by their names and descriptions</td></tr>
+<tr><td>anthonylamme/Pick2Light (2017)</td><td>"182 LEDs, 182 Buttons and 182 7 Segement displays": a Raspberry Pi driving 8 Arduinos over I2C, with orders as JSON from a website</td><td>no licence; no BOM, users or moisture</td><td>at 17db7094, <code>Notes</code>, <strong>re-read</strong></td></tr>
+<tr><td>irvan2004juanda-bit/Pick-To-Light (MIT)</td><td>8 modules on 2 ESP32s over Wi-Fi and MQTT, each with an OLED, a two-colour LED and a confirmation button ("Konfirmasi pengambilan")</td><td>no BOM, reels or moisture</td><td>at f0715a6e, README, <strong>re-read</strong></td></tr>
+<tr><td>DmitryMuravyev/Smart-Bins (MIT)</td><td>one ESP32 on Wi-Fi, with SQLite on the board; up to 64 × 64 bins, "on one or two data lines"</td><td>quantities change with "+ / −" buttons on a web page, not on the shelf; "Not every feature has been tested on real hardware yet"</td><td>at 5c982a06, README, <strong>re-read</strong></td></tr>
+<tr><td>More locators: HarryXin0919/FindItem, olemlong/SmartParts, lcdporto/warehouse-locator, oiLAINio/protoshelf-beta, Svenson-Maximus/SmartTray, levixflow-com/physical-workflow-bridge, armanruet/PLC_PTL_MQTT</td><td>LEDs over Wi-Fi, MQTT or BLE. SmartTray's plus and minus buttons send quantities back over BLE; PLC_PTL_MQTT drives four Banner PTL110 touch lights from a Turck controller</td><td>physical-workflow-bridge's bench "was never built"</td><td>their READMEs at their heads</td></tr>
+<tr><td>Gitee: XiaoZhu-Senior/rk3566--warehouse--server</td><td>ESP32 and WS2812 lights over Wi-Fi and MQTT; picks confirmed by card scans, "刷托盘 → 刷取样盒 → 完成任务" (scan the tray, scan the sample box, finish the task)</td><td>no licence; no moisture or reels</td><td>Gitee's API, README, pushed 2026-10-22</td></tr>
+<tr><td>OSHWHub: zhaotongsuo/project_czoputzd</td><td>BLE and SK9822 LEDs, with a "确认取料" (confirm pick) button in its software</td><td>"软件设计（不开源）" (its software is not open source)</td><td>OSHWHub's API, 2026-09-27</td></tr>
+</tbody></table>
+<p><strong>Inventory software</strong></p>
+<table><thead><tr><th>work</th><th>closest part</th><th>different</th><th>source</th></tr></thead><tbody>
+<tr><td>InvenTree (MIT)</td><td><code>LocateMixin</code>, for plugins that "locate" stock items or locations, with "an audio-visual indicator (e.g. RGB LED and buzzer)" as its example; packaging as free text, "reel" among its examples</td><td>no lights in its own code; code search finds no "moisture" in it</td><td><code>docs/docs/plugins/mixins/locate.md</code>, <strong>re-read</strong>; <code>stock/models.py</code> at 6ec28a09</td></tr>
+<tr><td>Part-DB (AGPL-3.0)</td><td>users, groups and permissions; a reel calculator</td><td>no LED locate; a moisture level only as a field one distributor's API fills</td><td>at 04aeda78, v2.21.2</td></tr>
+<tr><td>Binner (GPL-3.0)</td><td><code>MoistureSensitivityLevel</code>, a string on a part</td><td>no floor-life clock, no lights</td><td><code>Binner/Data/Binner.Data.Model/Part.cs</code> at 8539e073, <strong>re-read</strong></td></tr>
+<tr><td>PartKeepr</td><td>—</td><td>archived; last release 1.4.0, 2018</td><td>GitHub's API</td></tr>
+</tbody></table>
+<p><strong>Moisture floor life</strong></p>
+<table><thead><tr><th>work</th><th>closest part</th><th>different</th><th>source</th></tr></thead><tbody>
+<tr><td>TI SPRABY1B, "MSL Ratings and Reflow Profiles" (revised November 2026)</td><td>Table 2-1, floor life per level at 30 °C. It points to J-STD-033C's drying table, and "Tape and Reel material should not be baked above 40°C"</td><td>a maker's note; the standard is paywalled</td><td>ti.com/lit/pdf/spraby1, sha256 <code>b95844ccb38b…</code>, <strong>re-read</strong></td></tr>
+<tr><td>Bourns, "Multifuse® PPTC Resettable Fuses - MSL Classification"</td><td>the same table, and a level 2a part's four weeks "from the date the bag was opened"</td><td>for its own fuses, as is its re-bake, "40 °C / 5 % RH"</td><td>bourns.com/docs/RoHS-MSL/msl_mf.pdf, sha256 <code>8fee0094f735…</code>, <strong>re-read</strong></td></tr>
+<tr><td>Espressif, "Dry Packing Requirement"</td><td>floor life counted from "removal from a moisture barrier bag, dry storage or dry bake"; a bake when the humidity card "reads &gt; 10%"</td><td>for its own chips</td><td>docs.espressif.com, esp-packaging, <code>02-dry-packing</code>, <strong>re-read</strong></td></tr>
+<tr><td>samartha-hm/experimind-labs-inventory</td><td>a lot's <code>floor_life_seconds_remaining</code>, <code>msl_open_timestamp</code> and bake history, and reels split into cut tape (<code>parent_lot_id</code>)</td><td>a data model with no lights; no licence</td><td><code>src/entity/StockLot.ts</code> at b5f081de, <strong>re-read</strong></td></tr>
+<tr><td>wanfengfengii-ctrl/component-floor-life-gate</td><td>a service that subtracts time in the dry cabinet and starts again after a bake</td><td>no licence. Its README gives each level's "允许有效暴露分钟" (allowed exposure, in minutes) as "MSL2=525600、MSL3=168": a year in minutes, then TI's 168 hours</td><td>README at cbeb4227, <strong>re-read</strong></td></tr>
+<tr><td>Gitee: erzhongxmu/jeemes (GPL-3.0)</td><td>"湿敏零件管理" (managing moisture-sensitive parts), in its warehouse module</td><td>a feature list; its code unread</td><td>Gitee's API</td></tr>
+</tbody></table>
+<p><strong>The wired bus</strong></p>
+<table><thead><tr><th>work</th><th>closest part</th><th>different</th><th>source</th></tr></thead><tbody>
+<tr><td>CiA 303-1, as HMS Networks relays it</td><td>CAN on RJ45: 1 CAN_H, 2 CAN_L, 3 and 7 CAN_GND, 6 an optional shield, 8 an optional supply, CAN_V+</td><td>CiA's own text is behind a login</td><td>hms-networks.com, KB article "CAN-Steckerbelegung", 09 Mai 2025, <strong>re-read</strong></td></tr>
+<tr><td>Ethernet Alliance, "The Hazards of Passive PoE"</td><td>an always-powered port plugged into a product not built for power: "Usually, you let the 'magic smoke' out of some termination components"</td><td>a consortium's blog, not IEEE 802.3</td><td>ethernetalliance.org, 2018-02-06, <strong>re-read</strong></td></tr>
+<tr><td>TI TPS2378 data sheet</td><td>a PoE supply "periodically looks to see if something has been plugged in", at power levels "unlikely to damage devices not designed for PoE"</td><td>"not as a substitute for" IEEE 802.3at, which is unread</td><td>SLVSB99C, sha256 <code>17777f924476…</code>, <strong>re-read</strong></td></tr>
+<tr><td>can2040 (KevinOConnor, GPL-3.0)</td><td>CAN in the PIO of the RP2040 and, since v1.7.0, the RP2350</td><td>C; it "will not automatically enter a 'bus off' state"</td><td>at 2988d4f1: README, <code>docs/Releases.md</code>, <code>docs/Features.md</code>, <strong>re-read</strong></td></tr>
+<tr><td>atomi-ai/can2040-rust (GPL-3.0)</td><td>a Rust port of can2040</td><td>its README names the RP2040 only; last commit 2024-04-30</td><td>at aebf72cc</td></tr>
+<tr><td>Tock's CAN</td><td>a CAN interface, a capsule and an STM32F4 driver; of five STM32 boards read, only <code>nucleo_f429zi</code> wires it up</td><td>—</td><td>tock/tock at b89939e0, <strong>re-read</strong></td></tr>
+<tr><td>WLED's Ethernet boards</td><td>17 board types, <code>WLED_ETH_*</code></td><td>—</td><td>wled/WLED at 5e852a84, <code>wled00/const.h</code>, <strong>re-read</strong></td></tr>
+</tbody></table>
+<p><strong>A small fab's records</strong></p>
+<table><thead><tr><th>work</th><th>closest part</th><th>different</th><th>source</th></tr></thead><tbody>
+<tr><td>NEMO (usnistgov/NEMO, 8.2.1)</td><td>NIST's lab management: reservations, interlocks, qualifications, maintenance tasks, consumables and each withdrawal, usage events and safety issues. At NIST's CNST NanoFab it replaced OpenCoral</td><td>its <code>Chemical</code> holds a name, hazards, a document, a URL and keywords, and no field in <code>models.py</code> is named for a lot</td><td>at aa5ac6e2, <code>NEMO/models.py</code>, <strong>re-read</strong>; its licence: "not subject to copyright protection within the United States", <strong>re-read</strong>; NIST's news, 2013-11</td></tr>
+<tr><td>Hacker Fab's process database</td><td>chip pages with every process done to a chip; NMOS defaults in its forms; a job queue, designed</td><td>no lot field</td><td><a href="../fab/index.html"><code>fab.md</code></a>, "Running the fab"</td></tr>
+<tr><td>SENAITE (GPL-2.0)</td><td>a lab information system: samples, batches, instruments with calibration and maintenance; reference samples with lot numbers and expiry dates</td><td>for analytical labs</td><td>senaite.core at 4ba33292</td></tr>
+<tr><td>Mes-Open/OpenMes (AGPL-3.0); CLR-Technologies-Inc/foames (Apache-2.0)</td><td>open MES; foames' queue never dispatches an entry "past its maximum wait", such as "a floor life or an out-time"</td><td>OpenMes is for "woodworking, metal fabrication, plastics and assembly shops"; nothing for wafers</td><td>faccc52a; <code>foames_mes/material.py</code> at 3fcd5a8d</td></tr>
+<tr><td>MIT's labnetwork list, 2016</td><td>a cleanroom user "did not find any suitable software package/web app that would allow me to track my wafer activities in and out of the cleanroom", and wanted SPC</td><td>a request, not a tool</td><td>mtl.mit.edu/pipermail/labnetwork/2016-October/002382.html, <strong>re-read</strong></td></tr>
+<tr><td>u-analytics (iyulab, Rust, MIT)</td><td>SPC: X̄-R, X̄-S and I-MR charts, "Shewhart/Western Electric/Nelson" run rules, Cp and Cpk</td><td>a library</td><td>at e8e87eff, README, <strong>re-read</strong></td></tr>
+</tbody></table>
+<p>Nothing we found puts power and the bus in one cable to identical shelf nodes, sends a pick
+confirmation back to an inventory system others use, such as InvenTree or WLEDger, gives each member
+a colour, and counts down each reel's floor life, in one open design. Each piece exists apart. No
+open run-card tool for a small fab turned up beyond Hacker Fab's database.</p>
 <h2 id="what-we-take-from-it">What we take from it</h2>
 <p>Each is a candidate, to be proposed where it lands:</p>
 <ol>
@@ -501,6 +570,11 @@ plans are written (<a href="../fab/index.html"><code>fab.md</code></a>, "Safety 
 <li><strong>Compare a Rust version of the sputter station with SputterOS</strong> on the same simulated
 chamber, on measures named first (<a href="../fab/index.html"><code>fab.md</code></a>, "Hacker Fab's other tools").</li>
 <li><strong>Take input shaping from Klipper's docs,</strong> not its GPL-3.0 code, for the stepper's moves.</li>
+<li><strong>Drive the parts wall through WLED's JSON API,</strong> so that InvenTree's and WLEDger's locators
+drive it unchanged (<a href="../makerspace/index.html"><code>makerspace.md</code></a>).</li>
+<li><strong>Read NEMO before writing the fab's records of tools and chemicals,</strong> and take its models
+where they fit (<a href="../fab/index.html"><code>fab.md</code></a>, "Running the fab").</li>
+<li><strong>Try u-analytics for the fab's control charts</strong> before writing any.</li>
 </ol>
 <h2 id="building-blocks-we-use">Building blocks we use</h2>
 <table><thead><tr><th>project</th><th>for</th><th>where</th></tr></thead><tbody>
@@ -516,6 +590,7 @@ chamber, on measures named first (<a href="../fab/index.html"><code>fab.md</code
 <tr><td>Raspberry Pi debugprobe</td><td>the debug probe's firmware, on a Pico 2 (v1) or on Raspberry Pi's Debug Probe (v2)</td><td><code>builds/debug-probe/v1.toml</code>, <code>builds/debug-probe/v2.toml</code></td></tr>
 <tr><td>jlcparts</td><td>part data without an LCSC key</td><td><a href="../roadmap/index.html"><code>roadmap.md</code></a> (planned)</td></tr>
 <tr><td>Red Pitaya's equalizer and decimation, Haasoscope Pro's FIR calibration, ngscopeclient's de-embed filter</td><td>equalizing and averaging each unit</td><td><a href="../scope/index.html"><code>scope.md</code></a> (planned)</td></tr>
+<tr><td>WLED's JSON API; WLEDger, or InvenTree if WLEDger fails a measure</td><td>the parts wall's gateway answers the API; the store drives it</td><td><a href="../makerspace/index.html"><code>makerspace.md</code></a> (planned)</td></tr>
 </tbody></table>
 <h2 id="people-worth-writing-to">People worth writing to</h2>
 <p>The authors of the closest work: agentic-hil and LabMCP (agents on benches), Duke's ARTIQ group and
@@ -530,6 +605,7 @@ tiles; FPGA-Gym's authors, whose environments run in Verilog; and the authors of
 port, who matched a JAX environment exactly outside JAX.
 For project #4: Hacker Fab's contributors, the authors of its stepper paper, SputterOS's author,
 and the impedance matcher's authors.
+For project #5: WLEDger's author, inventree-wled-locator's author, and NEMO's team at NIST.
 Kazumoto Kojima, whose i5ether carries no license, so we could build on it only once it has one. And
 the projects we build on, upstream first when we find a bug.</p>
 </div>

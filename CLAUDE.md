@@ -7,17 +7,20 @@ its instrument #1 is a Red Pitaya-class two-channel digitizer and signal generat
 a LoRa mesh (`docs/mesh.md`). Project #3 is LittleBit × Taalas, a small neural network with its
 weights hardwired into the i9, a first step toward a chip that runs SocialJax and Concordia
 (`docs/littlebit.md`). Project #4 is an open-source fab, and the town around it, to make those
-chips; the town's safety comes first (`docs/fab.md`). Over time Tentzhen is to become "its own
-simulated shenzhen like city", this repo "slowly building towards a fully open source planned out
-city of the future" (Jon, 2026-11-25; `docs/vision.md`). Pronounced "TENT-zhen" (like "tension").
+chips; the town's safety comes first (`docs/fab.md`). Project #5 is a makerspace's stores, with a
+wired pick-to-light of our own, growing toward the fab's lot records (`docs/makerspace.md`). Over
+time Tentzhen is to become "its own simulated shenzhen like city", this repo "slowly building
+towards a fully open source planned out city of the future" (Jon, 2026-11-25; `docs/vision.md`).
+Pronounced "TENT-zhen" (like "tension").
 
 Read before planning anything: `docs/vision.md` (why and for whom), `docs/roadmap.md` (phases and
 acceptance criteria), `docs/verification.md` (how every claim is graded), `docs/sourcing.md` (LCSC,
 JLCPCB, incoming QA), `docs/scope.md` (instrument #1), `docs/mesh.md` (project #2, the mesh),
 `docs/littlebit.md` (project #3, LittleBit × Taalas), `docs/fab.md` (project #4, the open fab and
-its town), `docs/architecture.md` (how records, code
-and checks fit, and the rules each test holds), `docs/prior-art.md` (what already exists, and who
-built it). The warehouse is described in `docs/data-catalogue.md`, which is generated.
+its town), `docs/makerspace.md` (project #5, a makerspace's stores), `docs/architecture.md` (how
+records, code and checks fit, and the rules each test holds), `docs/prior-art.md` (what already
+exists, and who built it). The warehouse is described in `docs/data-catalogue.md`, which is
+generated.
 
 ## Every claim carries its grade
 

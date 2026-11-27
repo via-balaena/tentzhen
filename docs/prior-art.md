@@ -62,6 +62,12 @@ of record. Each part exists on its own, and several were built in 2026.
   transistors with 5 µm gates (Hacker Fab's March 2026 update). The scarcest input,
   crucible-grade quartz, has a known substitute, synthetic silica, already used on crucibles'
   inner faces. No purity was found for making it from sand by the water-glass route.
+- **A makerspace's stores** (project #5): open software already lights bins and kits a BOM
+  (WLEDger), and keeps stock (InvenTree, Part-DB). CAN nodes that acknowledge a pick, and buttons
+  on the shelf, exist apart, mostly without a licence, and none feeds an inventory system others
+  use. One open design that carries power and the bus to every shelf, sends picks back to such a
+  system and counts down each reel's floor life is in nothing we found. For a small fab's records, NIST's NEMO runs tools,
+  interlocks and consumables, with no lots.
 - **In Chinese,** there are many more open instruments, supplies and loads, several with one unit's
   accuracy measured and published, and agents on instruments from RIGOL and others. The pattern is
   the same: at most one unit's measurements behind some of the numbers, and every limit read in
@@ -457,6 +463,81 @@ measured against. No web search was made.
 | Klipper's input shaping (Klipper3d/klipper, GPL-3.0) | "Input Shaping - a technique that can be used to reduce ringing", where "Ringing is caused by mechanical vibrations in the printer due to quick changes of the printing direction"; resonances measured with "ADXL345, MPU-9250, LIS2DW and LIS3DH compatible accelerometers" | for 3D printers in motion, not a stepper that settles before each exposure. GPL-3.0, so its method is taken, not its code | Klipper3d/klipper at 7558e8c2, `docs/Resonance_Compensation.md` and `docs/Measuring_Resonances.md`, their first lines, **re-read** |
 | CortenForge's gradiometer study | a "room-temperature MEMS gravity gradiometer": "Conditional GO for the large-anomaly / void niche", "No code written yet". "The bet": "Matching by construction (sub-ppm) + self-gravity from CAD". Out of scope: "etch-process physics, circuit synthesis, DAQ firmware" | a study, not a device; Jon's goal for later (`fab.md`) | via-balaena/CortenForge at 520da08f, `docs/studies/gradiometer/src/00-context.md`, its status table, **re-read** |
 
+## A makerspace's stores
+
+Searched 2026-11-26, for project #5 (`makerspace.md`): open pick-to-light and bin locators,
+inventory software for electronics, moisture floor life, the wired bus, and the records a small fab
+keeps. One agent ran over 100 GitHub repository searches and 15 code searches, searched Gitee,
+OSHWHub and Bilibili in Chinese, ran nine web searches, and read about 40 READMEs and pages.
+GitHub's repository search matches names, descriptions and topics, not READMEs. Rows marked
+**re-read** were read again in their own text, from GitHub's API or the PDF; the rest are as the
+agent read them. Not seen: J-STD-033, CiA 303-1 and IEEE 802.3, which are paywalled or behind a
+login; Hackaday.io's project pages, which need a browser; NEMO's plugins; Coral's source; and
+commercial pick-to-light systems, beyond search snippets.
+
+**Lighting bins, and confirming picks**
+
+| work | closest part | different | source |
+|---|---|---|---|
+| WLEDger (tuxedocurly/wledger, AGPL-3.0, Go) | lights bins through several WLED controllers. A BOM "Pick Mode" that lights "every bin needed for a project simultaneously", with KiCad and CSV BOM import and shortages for N boards. Roles, "full audit logging", "Stock-Health Locate Colors", and LCSC, DigiKey and Mouser label scanning | no pick confirmation and no moisture level in its README; its colours show stock health, not who is picking | at 9ca719eb, README and `internal/wled/client.go`, **re-read** |
+| inventree-wled-locator (invenhost, MIT) | an InvenTree locate plugin that POSTs LED colours to one WLED's `/json/state` | one WLED address and an LED count | at 12c499ff, README and `WledPlugin.py`, **re-read** |
+| nemccarthy/inventree-visual-stock-bins (MIT) | an on-screen drawing of the bins, where Locate "flashes its bin on any open drawing"; a refill list and a bin-by-bin count | no lights | at 12d3a715 |
+| CAN nodes on PIC18 chips: SakthiArumugam642/Pick_To_Light, power-t-team1/PICK_TO_LIGHT, and others of the same design | CAN nodes with displays: "Operator picks item / Client sends ACK back to server / Server confirms completion", through an MCP2551 transceiver. power-t-team1's node sends values it stores back over CAN on a key press | no licence; no host software in power-t-team1's | SakthiArumugam642 at c15bc6e3, README, **re-read**; power-t-team1 at 63eb27bd, `Pick_to_Light_client/main.c`, **re-read**; the others by their names and descriptions |
+| anthonylamme/Pick2Light (2017) | "182 LEDs, 182 Buttons and 182 7 Segement displays": a Raspberry Pi driving 8 Arduinos over I2C, with orders as JSON from a website | no licence; no BOM, users or moisture | at 17db7094, `Notes`, **re-read** |
+| irvan2004juanda-bit/Pick-To-Light (MIT) | 8 modules on 2 ESP32s over Wi-Fi and MQTT, each with an OLED, a two-colour LED and a confirmation button ("Konfirmasi pengambilan") | no BOM, reels or moisture | at f0715a6e, README, **re-read** |
+| DmitryMuravyev/Smart-Bins (MIT) | one ESP32 on Wi-Fi, with SQLite on the board; up to 64 × 64 bins, "on one or two data lines" | quantities change with "+ / −" buttons on a web page, not on the shelf; "Not every feature has been tested on real hardware yet" | at 5c982a06, README, **re-read** |
+| More locators: HarryXin0919/FindItem, olemlong/SmartParts, lcdporto/warehouse-locator, oiLAINio/protoshelf-beta, Svenson-Maximus/SmartTray, levixflow-com/physical-workflow-bridge, armanruet/PLC_PTL_MQTT | LEDs over Wi-Fi, MQTT or BLE. SmartTray's plus and minus buttons send quantities back over BLE; PLC_PTL_MQTT drives four Banner PTL110 touch lights from a Turck controller | physical-workflow-bridge's bench "was never built" | their READMEs at their heads |
+| Gitee: XiaoZhu-Senior/rk3566--warehouse--server | ESP32 and WS2812 lights over Wi-Fi and MQTT; picks confirmed by card scans, "刷托盘 → 刷取样盒 → 完成任务" (scan the tray, scan the sample box, finish the task) | no licence; no moisture or reels | Gitee's API, README, pushed 2026-10-22 |
+| OSHWHub: zhaotongsuo/project_czoputzd | BLE and SK9822 LEDs, with a "确认取料" (confirm pick) button in its software | "软件设计（不开源）" (its software is not open source) | OSHWHub's API, 2026-09-27 |
+
+**Inventory software**
+
+| work | closest part | different | source |
+|---|---|---|---|
+| InvenTree (MIT) | `LocateMixin`, for plugins that "locate" stock items or locations, with "an audio-visual indicator (e.g. RGB LED and buzzer)" as its example; packaging as free text, "reel" among its examples | no lights in its own code; code search finds no "moisture" in it | `docs/docs/plugins/mixins/locate.md`, **re-read**; `stock/models.py` at 6ec28a09 |
+| Part-DB (AGPL-3.0) | users, groups and permissions; a reel calculator | no LED locate; a moisture level only as a field one distributor's API fills | at 04aeda78, v2.21.2 |
+| Binner (GPL-3.0) | `MoistureSensitivityLevel`, a string on a part | no floor-life clock, no lights | `Binner/Data/Binner.Data.Model/Part.cs` at 8539e073, **re-read** |
+| PartKeepr | — | archived; last release 1.4.0, 2018 | GitHub's API |
+
+**Moisture floor life**
+
+| work | closest part | different | source |
+|---|---|---|---|
+| TI SPRABY1B, "MSL Ratings and Reflow Profiles" (revised November 2026) | Table 2-1, floor life per level at 30 °C. It points to J-STD-033C's drying table, and "Tape and Reel material should not be baked above 40°C" | a maker's note; the standard is paywalled | ti.com/lit/pdf/spraby1, sha256 `b95844ccb38b…`, **re-read** |
+| Bourns, "Multifuse® PPTC Resettable Fuses - MSL Classification" | the same table, and a level 2a part's four weeks "from the date the bag was opened" | for its own fuses, as is its re-bake, "40 °C / 5 % RH" | bourns.com/docs/RoHS-MSL/msl_mf.pdf, sha256 `8fee0094f735…`, **re-read** |
+| Espressif, "Dry Packing Requirement" | floor life counted from "removal from a moisture barrier bag, dry storage or dry bake"; a bake when the humidity card "reads > 10%" | for its own chips | docs.espressif.com, esp-packaging, `02-dry-packing`, **re-read** |
+| samartha-hm/experimind-labs-inventory | a lot's `floor_life_seconds_remaining`, `msl_open_timestamp` and bake history, and reels split into cut tape (`parent_lot_id`) | a data model with no lights; no licence | `src/entity/StockLot.ts` at b5f081de, **re-read** |
+| wanfengfengii-ctrl/component-floor-life-gate | a service that subtracts time in the dry cabinet and starts again after a bake | no licence. Its README gives each level's "允许有效暴露分钟" (allowed exposure, in minutes) as "MSL2=525600、MSL3=168": a year in minutes, then TI's 168 hours | README at cbeb4227, **re-read** |
+| Gitee: erzhongxmu/jeemes (GPL-3.0) | "湿敏零件管理" (managing moisture-sensitive parts), in its warehouse module | a feature list; its code unread | Gitee's API |
+
+**The wired bus**
+
+| work | closest part | different | source |
+|---|---|---|---|
+| CiA 303-1, as HMS Networks relays it | CAN on RJ45: 1 CAN_H, 2 CAN_L, 3 and 7 CAN_GND, 6 an optional shield, 8 an optional supply, CAN_V+ | CiA's own text is behind a login | hms-networks.com, KB article "CAN-Steckerbelegung", 09 Mai 2025, **re-read** |
+| Ethernet Alliance, "The Hazards of Passive PoE" | an always-powered port plugged into a product not built for power: "Usually, you let the 'magic smoke' out of some termination components" | a consortium's blog, not IEEE 802.3 | ethernetalliance.org, 2018-02-06, **re-read** |
+| TI TPS2378 data sheet | a PoE supply "periodically looks to see if something has been plugged in", at power levels "unlikely to damage devices not designed for PoE" | "not as a substitute for" IEEE 802.3at, which is unread | SLVSB99C, sha256 `17777f924476…`, **re-read** |
+| can2040 (KevinOConnor, GPL-3.0) | CAN in the PIO of the RP2040 and, since v1.7.0, the RP2350 | C; it "will not automatically enter a 'bus off' state" | at 2988d4f1: README, `docs/Releases.md`, `docs/Features.md`, **re-read** |
+| atomi-ai/can2040-rust (GPL-3.0) | a Rust port of can2040 | its README names the RP2040 only; last commit 2024-04-30 | at aebf72cc |
+| Tock's CAN | a CAN interface, a capsule and an STM32F4 driver; of five STM32 boards read, only `nucleo_f429zi` wires it up | — | tock/tock at b89939e0, **re-read** |
+| WLED's Ethernet boards | 17 board types, `WLED_ETH_*` | — | wled/WLED at 5e852a84, `wled00/const.h`, **re-read** |
+
+**A small fab's records**
+
+| work | closest part | different | source |
+|---|---|---|---|
+| NEMO (usnistgov/NEMO, 8.2.1) | NIST's lab management: reservations, interlocks, qualifications, maintenance tasks, consumables and each withdrawal, usage events and safety issues. At NIST's CNST NanoFab it replaced OpenCoral | its `Chemical` holds a name, hazards, a document, a URL and keywords, and no field in `models.py` is named for a lot | at aa5ac6e2, `NEMO/models.py`, **re-read**; its licence: "not subject to copyright protection within the United States", **re-read**; NIST's news, 2013-11 |
+| Hacker Fab's process database | chip pages with every process done to a chip; NMOS defaults in its forms; a job queue, designed | no lot field | `fab.md`, "Running the fab" |
+| SENAITE (GPL-2.0) | a lab information system: samples, batches, instruments with calibration and maintenance; reference samples with lot numbers and expiry dates | for analytical labs | senaite.core at 4ba33292 |
+| Mes-Open/OpenMes (AGPL-3.0); CLR-Technologies-Inc/foames (Apache-2.0) | open MES; foames' queue never dispatches an entry "past its maximum wait", such as "a floor life or an out-time" | OpenMes is for "woodworking, metal fabrication, plastics and assembly shops"; nothing for wafers | faccc52a; `foames_mes/material.py` at 3fcd5a8d |
+| MIT's labnetwork list, 2016 | a cleanroom user "did not find any suitable software package/web app that would allow me to track my wafer activities in and out of the cleanroom", and wanted SPC | a request, not a tool | mtl.mit.edu/pipermail/labnetwork/2016-October/002382.html, **re-read** |
+| u-analytics (iyulab, Rust, MIT) | SPC: X̄-R, X̄-S and I-MR charts, "Shewhart/Western Electric/Nelson" run rules, Cp and Cpk | a library | at e8e87eff, README, **re-read** |
+
+Nothing we found puts power and the bus in one cable to identical shelf nodes, sends a pick
+confirmation back to an inventory system others use, such as InvenTree or WLEDger, gives each member
+a colour, and counts down each reel's floor life, in one open design. Each piece exists apart. No
+open run-card tool for a small fab turned up beyond Hacker Fab's database.
+
 ## What we take from it
 
 Each is a candidate, to be proposed where it lands:
@@ -505,6 +586,11 @@ Each is a candidate, to be proposed where it lands:
 19. **Compare a Rust version of the sputter station with SputterOS** on the same simulated
     chamber, on measures named first (`fab.md`, "Hacker Fab's other tools").
 20. **Take input shaping from Klipper's docs,** not its GPL-3.0 code, for the stepper's moves.
+21. **Drive the parts wall through WLED's JSON API,** so that InvenTree's and WLEDger's locators
+    drive it unchanged (`makerspace.md`).
+22. **Read NEMO before writing the fab's records of tools and chemicals,** and take its models
+    where they fit (`fab.md`, "Running the fab").
+23. **Try u-analytics for the fab's control charts** before writing any.
 
 ## Building blocks we use
 
@@ -522,6 +608,7 @@ Each is a candidate, to be proposed where it lands:
 | Raspberry Pi debugprobe | the debug probe's firmware, on a Pico 2 (v1) or on Raspberry Pi's Debug Probe (v2) | `builds/debug-probe/v1.toml`, `builds/debug-probe/v2.toml` |
 | jlcparts | part data without an LCSC key | `roadmap.md` (planned) |
 | Red Pitaya's equalizer and decimation, Haasoscope Pro's FIR calibration, ngscopeclient's de-embed filter | equalizing and averaging each unit | `scope.md` (planned) |
+| WLED's JSON API; WLEDger, or InvenTree if WLEDger fails a measure | the parts wall's gateway answers the API; the store drives it | `makerspace.md` (planned) |
 
 ## People worth writing to
 
@@ -537,5 +624,6 @@ tiles; FPGA-Gym's authors, whose environments run in Verilog; and the authors of
 port, who matched a JAX environment exactly outside JAX.
 For project #4: Hacker Fab's contributors, the authors of its stepper paper, SputterOS's author,
 and the impedance matcher's authors.
+For project #5: WLEDger's author, inventree-wled-locator's author, and NEMO's team at NIST.
 Kazumoto Kojima, whose i5ether carries no license, so we could build on it only once it has one. And
 the projects we build on, upstream first when we find a bug.
