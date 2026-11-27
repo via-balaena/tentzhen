@@ -63,11 +63,11 @@ of record. Each part exists on its own, and several were built in 2026.
   crucible-grade quartz, has a known substitute, synthetic silica, already used on crucibles'
   inner faces. No purity was found for making it from sand by the water-glass route.
 - **A makerspace's stores** (project #5): open software already lights bins and kits a BOM
-  (WLEDger), and keeps stock (InvenTree, Part-DB). CAN nodes that acknowledge a pick, and buttons
-  on the shelf, exist apart, mostly without a licence, and none feeds an inventory system others
-  use. One open design that carries power and the bus to every shelf, sends picks back to such a
-  system and counts down each reel's floor life is in nothing we found. For a small fab's records, NIST's NEMO runs tools,
-  interlocks and consumables, with no lots.
+  (WLEDger), and keeps stock (InvenTree, Part-DB). CAN nodes that acknowledge a pick, and buttons on
+  the shelf, exist apart, mostly without a licence, and none feeds an inventory system others use.
+  One open design that carries power and the bus to every shelf, sends picks back to such a system
+  and counts down each reel's floor life is in nothing we found. For a small fab's records, NIST's
+  NEMO runs tools, interlocks and consumables, with no lots.
 - **p-bits** (project #6) are well trodden on Xilinx FPGAs with Vivado, and as invertible logic
   that factors. Extropic and Normal Computing publish thermodynamic computing, mostly simulated
   or with pseudo-random noise; ferrotherm does it in Rust software, and WobblyBits puts 6 p-bits on
@@ -553,8 +553,8 @@ numbers on FPGAs, and the applications. One agent ran 156 queries (68 GitHub rep
 45 of them empty, and no web searches. arXiv's search matches abstracts; GitHub's repository
 search matches names, descriptions and topics. Rows marked **re-read** were read again in their own
 text; the rest are as the agent read them. Not seen: full Nature texts, IEEE and ACM papers, code
-that is not public (pc-COP's, the sparse Ising machine's, 2611.14744's), Extropic's product pages
-(404), and silicon results from any Tiny Tapeout chip.
+that is not public (pc-COP's, the sparse Ising machine's, 2611.14744's), Extropic's pages for X0,
+XTR-0 and Z1 (404; its hardware page was read), and silicon results from any Tiny Tapeout chip.
 
 **p-bits on FPGAs, and invertible logic**
 
@@ -573,7 +573,7 @@ that is not public (pc-COP's, the sparse Ising machine's, 2611.14744's), Extropi
 
 | work | closest part | different | source |
 |---|---|---|---|
-| Extropic, "An efficient probabilistic hardware architecture for diffusion-like models" | measured: an all-transistor random-bit cell at "≈10 MHz using ~350 aJ of energy per bit" | "the experiments presented in this paper were done using simulations of thermodynamic hardware"; parity with GPUs "using approximately 10,000 times less energy" is a projection | arXiv 2510.23972, its HTML, **re-read** |
+| Extropic, "An efficient probabilistic hardware architecture for diffusion-like models" | measured: an all-transistor random-bit cell at about 10 MHz, using about 350 aJ per bit (the paper writes both in math notation) | "the experiments presented in this paper were done using simulations of thermodynamic hardware"; parity with GPUs "using approximately 10,000 times less energy" is a projection | arXiv 2510.23972, its HTML, **re-read** |
 | Extropic's code: thrml, torx (Apache-2.0) | thrml: block Gibbs on GPUs, "Thermodynamic Hypergraphical Model Library in JAX" | software | extropic-ai/thrml at 429577c7, extropic-ai/torx at 189b7cb5 |
 | Extropic's hardware page | X0, a "Silicon Prototype", Q1 2025; planned: Z1 boards of "over half a million pbits" and "over 4 million pbits", "early access 2027" | plans | extropic.ai/hardware |
 | Normal Computing's stochastic processing unit | 8 RLC unit cells on a circuit board, coupled through switched capacitors, sampling Gaussians | its noise is "pseudo-random Gaussian currents from a Field-Programmable Gate Array" | arXiv 2312.04836 |

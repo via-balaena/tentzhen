@@ -67,8 +67,8 @@ since "Extropic builds p-bits out of transistors because they have a fab. Corten
 cf-design and a 3D printer." Its physical p-bit, "D4", a spring-steel cantilever on a shaker read
 by Hall sensors, stays there.</li>
 <li><strong>Tentzhen builds the electronics:</strong> p-bits in logic on the i9, then in transistors, on an
-open-PDK shuttle or in our own process (<a href="../fab/index.html"><code>fab.md</code></a>, "The steps"). Tentzhen uses CortenForge as an end
-user, through its published crates (CLAUDE.md).</li>
+open-PDK shuttle or in our own process (<a href="../fab/index.html"><code>fab.md</code></a>, "The steps"). Tentzhen uses CortenForge as an
+end user, through its published crates (CLAUDE.md).</li>
 <li><strong>The i9 is on the bench already</strong> (<code>lab/sourcing.toml</code>), so the first steps need nothing
 bought.</li>
 </ul>
@@ -80,36 +80,35 @@ bought.</li>
 one's randomness with "32-bit linear-feedback shift registers", maps tanh with "a lookup table",
 and flips with "a comparator", reaching "143.8 flips/ns" at 4,793 p-bits. pc-COP puts 2,048
 fully connected p-bits on a ZCU104. Every FPGA p-bit design read that names its part is on a
-Xilinx or AMD FPGA, and the one open set of Verilog found, quantinfo's (MIT), needs "Vivado
-version: 2023.2 Enterprise".</li>
+Xilinx or AMD FPGA, and quantinfo's open Verilog (MIT) needs "Vivado version: 2023.2
+Enterprise".</li>
 <li><strong>Invertible logic is the classic demonstration.</strong> Camsari et al. (Phys. Rev. X 7, 031014,
 2017) show "a 4-bit multiplier which in inverted mode functions as a factorizer", and that "p-bits
 need not be magnet-based". Borders et al. (Nature 573, 390, 2019) factored integers with p-bits
 made from magnetic tunnel junctions.</li>
-<li><strong>In Rust,</strong> ferrotherm (Apache-2.0) does thermodynamic computing in software, with an
-invertible multiplier its README calls "shipped, verified", and has layers of its own that emit
-FPGA bitstreams for the iCE40-HX8K and Artix-7. It has no ECP5 layer, and "Still not done: binding a p-bit
-fabric's LUTs to SLICE site pins".</li>
+<li><strong>In Rust,</strong> ferrotherm (Apache-2.0) does thermodynamic computing in software, with an invertible
+multiplier its README calls "shipped, verified", and has layers of its own that emit FPGA
+bitstreams for the iCE40-HX8K and Artix-7. It has no ECP5 layer, and "Still not done: binding a
+p-bit fabric's LUTs to SLICE site pins".</li>
 <li><strong>On a shuttle,</strong> WobblyBits (Apache-2.0, Tiny Tapeout, SKY130) is "6 p-bits ... driven by
 hardware randomness from a bunch of on-chip ring oscillators", taken from neoTRNG. Its results
 so far are "the RTL results".</li>
-<li><strong>Thermodynamic computing companies:</strong> Extropic measured a transistor random-bit cell at "≈10
-MHz using ~350 aJ of energy per bit"; the rest of its paper was "done using simulations of
+<li><strong>Thermodynamic computing companies:</strong> Extropic measured a transistor random-bit cell at about
+10 MHz, using about 350 aJ per bit; the rest of its paper was "done using simulations of
 thermodynamic hardware". Its code, thrml, is Apache-2.0.</li>
 <li><strong>True random numbers from ring oscillators</strong> are open too: neoTRNG (BSD-3-Clause, implemented
 on an Artix-7, with no "online health monitoring"); a ring-oscillator TRNG for the ULX3S's ECP5,
 with no licence; and cryptoliteICE, whose RP2040 runs "SP 800-90B
 health tests" on an iCE40's ring oscillators.</li>
 </ul>
-<p><strong>What nothing we found does:</strong> p-bits on an ECP5, written in Amaranth and built with Yosys,
-nextpnr and Trellis; a p-bit core checked bit for bit against an open Rust model, with its
-samples checked against a physics library's exact distribution; and p-bits fed by an on-chip
-entropy source that runs SP 800-90B's health tests in the same gateware. That is the part built
-here. A p-bit made in a process older than 180 nm, or in an open fab, also turned up nowhere.</p>
+<p><strong>What nothing we found does:</strong> p-bits on an ECP5, written in Amaranth and built with Yosys, nextpnr
+and Trellis; a p-bit core checked bit for bit against an open Rust model; and p-bits fed by an
+on-chip entropy source that runs SP 800-90B's health tests in the same gateware. That is the part
+built here. A p-bit made in a process older than 180 nm, or in an open fab, also turned up nowhere.</p>
 <h2 id="the-steps">The steps</h2>
 <p>Each is a proposal, <code>unknown</code> until it earns a grade.</p>
 <table><thead><tr><th>step</th><th>what</th><th>passes when</th></tr></thead><tbody>
-<tr><td>1</td><td><strong>A golden model,</strong> in Rust: p-bits in integer arithmetic, with the random-number generator and the sigmoid's table or threshold that the gateware will use</td><td>on networks of up to 20 spins, its samples' histogram is within a stated distance of <code>exact_distribution</code> from <code>cortenforge-sim-thermostat</code> 0.9.0 (<code>tested</code>)</td></tr>
+<tr><td>1</td><td><strong>A golden model,</strong> in Rust: p-bits in integer arithmetic, with the random-number generator and the sigmoid's table or threshold that the gateware will use</td><td>on networks of up to 20 spins, its samples' histogram is within a distance of <code>exact_distribution</code> from <code>cortenforge-sim-thermostat</code> 0.9.0, the distance and the sample count set in the test before it first runs (<code>tested</code>)</td></tr>
 <tr><td>2</td><td><strong>A p-bit core</strong> in Amaranth</td><td>in simulation it draws exactly the golden model's samples, from the same seed (<code>tested</code>)</td></tr>
 <tr><td>3</td><td><strong>p-bits on the i9</strong></td><td>a board run's histogram matches <code>exact_distribution</code> within the same distance, recorded as a measurement (<code>measured</code>)</td></tr>
 <tr><td>4</td><td><strong>True randomness:</strong> ring oscillators on the ECP5, with SP 800-90B's health tests in the gateware, feeding the p-bits</td><td>the health tests run on the board and the p-bits' histogram still matches (<code>measured</code>); what the source's entropy is stays <code>unknown</code> until it is estimated</td></tr>
@@ -165,15 +164,15 @@ not Tentzhen's. The resistor scanner fits project #5's intake as a parts sorter,
 exist.</li>
 </ul>
 <h2 id="what-was-searched">What was searched</h2>
-<p>On 2026-11-27, one search agent and my own reads. Searched: 156 queries in the agent's log
-(68 GitHub repository searches, 44 on arXiv, 10 GitHub code searches, 14 on Gitee, 14 on OSHWHub,
-5 on Bilibili and 1 on Crossref), 45 of them empty, and no web searches. Read: method sections of
-five FPGA papers and of Extropic's, Normal Computing's and CN101's papers, about 30 READMEs, NIST
-SP 800-90B, and Tiny Tapeout's project index. The rows that <a href="../prior-art/index.html"><code>prior-art.md</code></a> marks <strong>re-read</strong> were
-read again in their own text. Not seen: full Nature texts, IEEE and ACM papers, any FPGA p-bit
-code that is not public, and Hacker Fab's sources, which were not searched for p-bits. arXiv's
-search matches abstracts and GitHub's repository search matches names, descriptions and topics,
-so this shows what was found, not that nothing closer exists.</p>
+<p>On 2026-11-27, one search agent and my own reads. Searched: 156 queries in the agent's log (68
+GitHub repository searches, 44 on arXiv, 10 GitHub code searches, 14 on Gitee, 14 on OSHWHub, 5 on
+Bilibili and 1 on Crossref), 45 of them empty, and no web searches. Read: method sections of five
+FPGA papers, of Extropic's paper and of Normal Computing's two (its stochastic processing unit and
+CN101), about 30 READMEs, NIST SP 800-90B, and Tiny Tapeout's project index. The rows that
+<a href="../prior-art/index.html"><code>prior-art.md</code></a> marks <strong>re-read</strong> were read again in their own text. Not seen: full Nature texts,
+IEEE and ACM papers, any FPGA p-bit code that is not public, and Hacker Fab's sources, which were
+not searched for p-bits. arXiv's search matches abstracts and GitHub's repository search matches
+names, descriptions and topics, so this shows what was found, not that nothing closer exists.</p>
 </div>
 <p class="notice">Written in <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/pbits.md">docs/pbits.md</a>, on main; this page is made from it.</p>
 </main>
