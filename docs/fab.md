@@ -415,6 +415,46 @@ Tentzhen's route across it. Where both sides have a number, the warehouse works 
 - the tube furnace's controller code;
 - SputterOS's own code.
 
+## Running the fab: lots, recipes and tools
+
+Read 2026-11-26. Jon's Claude session of 2026-11-26 listed the records an industrial fab keeps
+beside its tools, to be checked against what Hacker Fab already has (`makerspace.md`, "Where this
+came from"). Its route: read Hacker Fab's GitBook, join its Discord, map what exists against the
+list, and lead with one small working tool rather than a critique. Hacker Fab's README says "We
+communicate over Discord"; joining is a step on Jon's own account.
+
+**Hacker Fab's process database comes first.** Its GitBook (`fab-toolkit/database-build/README.md`
+at bd1eef57) describes db.hackerfab.org, a Django site hosted on AWS. Its code is
+hacker-fab/data-management (MPL-2.0, last commit 2025-05-04, ae5436a3).
+- **Built, as the page tells it:** "chip pages" that "show every process done to a chip", and
+  input forms with "prefilled default values for standardized parameters in our primary NMOS
+  process".
+- **Planned, in the page's future tense:** a "chip profile" that the chip creation page "will
+  also have". A job queue on AWS, from which a Raspberry Pi beside each tool, the spin coater
+  first, "will pull jobs" (`machine-integration.md`).
+- **In its `models.py`:** a chip is a number, with an owner, a university, a creation time, a
+  starting material, notes and its I-V curves. Each process is a table of its parameters and the
+  step's time. No field is named for a lot, a batch, a recipe, a version, a yield or a wafer (a
+  case-insensitive search of the file).
+
+| practice | Hacker Fab, as read | Tentzhen's records today |
+|---|---|---|
+| a run card: every step a chip went through, with its parameters | its chip pages, and a table per process | a measurement record names the hardware revision, the gateware and firmware hashes and the toolchain versions (`lab/records/`) |
+| lots: chips that move through the steps together | no lot field | none |
+| recipes under version control | NMOS defaults in its input forms | the repo is in git; no fab step has a recipe file yet |
+| statistical process control | not read | none |
+| test structures and yield | 94 % yield in its March 2026 update ("The steps", above); how yield is tracked, not read | none |
+| the same process at every site | ten Hacker Fabs share one GitBook; whether their processes are matched, not read | none |
+| tool qualification and maintenance logs | a tube-furnace malfunction log, dated by hand (`fab-toolkit/tube-furnace/malfunction-log.md`) | the append-only lab log of hardware actions (`lab/log/`) |
+| root-cause analysis | not read | none |
+| chemicals and consumables by lot | a page per material (`fab-toolkit/chemicals-materials/`); whether lots are kept, not read | none |
+
+"Not read" leaves Hacker Fab's side `unknown`, not absent. The small working tool is the
+makerspace's stores (`makerspace.md`): they keep parts by bin first, then chemicals by lot, then
+wafers by lot. Each is a proposal, `unknown` until it earns a grade. Wafer lots would be built
+where Hacker Fab's database can take them, written to it or beside it, once its code has been
+read.
+
 ## Later: a gradiometer, engineered with CortenForge
 
 Jon, 2026-11-25: "the gradiometer is from cortenforge. its a goal of mine to use cortenforge to

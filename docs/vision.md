@@ -4,7 +4,7 @@ Tentzhen is a site for economical electronics projects that take advantage of th
 surplus, to help people survive, and eventually thrive, in the AI economic transition happening
 now (Jon, 2026-10-08). The bench below is project #1; the mesh (`mesh.md`) is project #2;
 LittleBit × Taalas (`littlebit.md`) is project #3; the open fab and the town around it (`fab.md`)
-is project #4.
+is project #4; a makerspace's stores (`makerspace.md`) are project #5.
 
 Where it is going, in Jon's words (2026-11-25): "I'd like to turn tentzhen into its own simulated
 shenzhen like city in a way, and that's what this repo would be. slowly building towards a fully
@@ -115,3 +115,10 @@ project #3 points to: chips that simulate conflict so it can be resolved before 
   approved.
 - **The steps:** they start with what already exists: Hacker Fab's open stepper and transistor
   process, and the open process kits of project #3's shuttles.
+
+## A makerspace's stores
+
+Project #5 is a makerspace's parts stores, stocked from the surplus, with a wired pick-to-light of
+our own that lights the bins a build needs (`makerspace.md`). The stores are a first piece of the
+town's parts market (`fab.md`, "The town"), and grow toward the fab's records: chemicals by lot,
+then wafers by lot (`fab.md`, "Running the fab").

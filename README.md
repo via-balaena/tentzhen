@@ -21,6 +21,8 @@ trusted, or unknown.
 - [The mesh](docs/mesh.md) — project #2, a LoRa mesh on UMSH, with a port to Tock
 - [LittleBit × Taalas](docs/littlebit.md) — project #3, a neural network hardwired into the i9,
   toward a chip that runs SocialJax and Concordia
+- [The open fab](docs/fab.md) — project #4, an open-source fab and the town around it
+- [A makerspace's stores](docs/makerspace.md) — project #5, with a wired pick-to-light of our own
 - [Brand](brand/README.md) — the peregrine mark and the 腾振 lockup
 - [Disclaimer](DISCLAIMER.md) — as is, at your own risk, not certified test equipment
 

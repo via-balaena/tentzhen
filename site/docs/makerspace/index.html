@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project #5: a makerspace's stores · Tentzhen</title>
+<link rel="icon" href="../../img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../style.css">
+</head>
+<body>
+
+<header class="column site-header">
+  <a class="brand" href="../../index.html" aria-label="Tentzhen home">
+    <img src="../../img/mark-black.svg" alt="">
+    <span class="wordmark">TENTZHEN</span>
+  </a>
+  <nav class="site-nav" aria-label="Main">
+    <a href="../../builds/index.html">BUILDS</a>
+    <a href="../../parts/index.html">PARTS</a>
+    <a href="../../docs/vision/index.html">VISION</a>
+    <div class="nav-menu">
+      <button type="button" class="nav-label">PROJECTS</button>
+      <div class="nav-items">
+        <a href="../../docs/scope/index.html">DIGITIZER AND GENERATOR</a>
+        <a href="../../docs/mesh/index.html">THE MESH</a>
+        <a href="../../docs/littlebit/index.html">HARDWIRED NEURAL NET</a>
+        <a href="../../fab/index.html">THE OPEN FAB</a>
+      </div>
+    </div>
+    <a href="../../docs/verification/index.html">VERIFICATION</a>
+    <a href="../../docs/roadmap/index.html">ROADMAP</a>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB</a>
+  </nav>
+</header>
+
+<main class="column spec">
+<p class="crumbs"><a href="../index.html">DOCS</a> / MAKERSPACE</p>
+<div class="prose doc">
+<h1 id="project-5-a-makerspaces-stores">Project #5: a makerspace's stores</h1>
+<p>Research date for everything below: 2026-11-26, unless a line says otherwise.</p>
+<p>A makerspace's parts stores, stocked from AliExpress and the rest of the surplus, and a wired
+pick-to-light of our own that lights the bins a build needs. From there the stores grow toward the
+records a fab keeps: chemicals by lot, then wafers by lot, for project #4 (<a href="../fab/index.html"><code>fab.md</code></a>, "Running the
+fab"). The plan came from Jon's Claude session of 2026-11-26 ("Where this came from", below).
+Nothing is built or ordered, and what each piece would do is <code>unknown</code> until it earns a grade.</p>
+<ul>
+<li><strong>Where it sits.</strong> The town's centre is to be the fab, "together with what made Shenzhen: a
+parts market, PCB fabrication and assembly, a machine shop, and the bench's test gear" (<a href="../fab/index.html"><code>fab.md</code></a>,
+"The town"). The stores are a first piece of that parts market.</li>
+<li><strong>What the repo already keeps,</strong> for every part a build needs: what it is and what it claims
+(<code>parts/</code>); where it came from and how far it has got, through incoming QA
+(<code>lab/sourcing.toml</code>, <a href="../sourcing/index.html"><code>sourcing.md</code></a>); measurement records (<code>lab/records/</code>); and the append-only
+log of hardware actions (<code>lab/log/</code>).</li>
+</ul>
+<h2 id="what-already-exists">What already exists</h2>
+<p>The sources are in <a href="../prior-art/index.html"><code>prior-art.md</code></a>, "A makerspace's stores".</p>
+<ul>
+<li><strong>Inventory software with a locate button.</strong> InvenTree (MIT) has a plugin interface for it,
+<code>LocateMixin</code>, and inventree-wled-locator (MIT) uses it to light one WLED controller's LEDs.
+WLEDger (AGPL-3.0) lights bins through several WLED controllers on the network, and already
+does BOM kitting: its "Pick Mode" lights every bin a project needs at once. It also has roles
+and "full audit logging". Part-DB has users and groups, and Binner keeps a part's moisture
+sensitivity level as text. InvenTree, Part-DB and Binner light no bins in their own code, and
+none of the four counts down a part's floor life (WLEDger's README names no moisture level).</li>
+<li><strong>A wired wall exists off the shelf:</strong> WLED builds for 17 ESP32 boards with Ethernet.</li>
+<li><strong>So does pick confirmation, apart.</strong> CAN nodes on PIC18 chips light a location and send an
+acknowledgement back: "Operator picks item / Client sends ACK back to server / Server confirms
+completion" (SakthiArumugam642/Pick_To_Light, with no licence). Pick2Light (2017, no licence)
+wires "182 LEDs, 182 Buttons" to Arduinos on I2C. irvan2004juanda-bit/Pick-To-Light (MIT)
+gives each of its 8 modules a confirmation button ("Konfirmasi pengambilan"), over Wi-Fi and
+MQTT.</li>
+<li><strong>A floor-life clock per lot, apart:</strong> an unlicensed inventory data model keeps
+<code>floor_life_seconds_remaining</code>, a bake history and reels split into cut tape, with no lights.</li>
+</ul>
+<p><strong>What no project we found does:</strong> carry power and the bus in one cable to identical shelf nodes,
+send a pick confirmation back to an inventory system others use, such as InvenTree or WLEDger, give
+each member their own colour, and count down each reel's floor life, in one open design. That is the
+part built here. The store, the kitting and the LEDs' API are used as they are, and credited.</p>
+<h2 id="the-stores">The stores</h2>
+<p>As the session laid them out, to be checked before anything is bought:</p>
+<ul>
+<li><strong>Bins:</strong> dividers or Gridfinity for small bags and cut tape; larger ESD bins for modules and
+dev boards; a sealed box with desiccant for moisture-sensitive chips.</li>
+<li><strong>Intake:</strong> a label of our own, printed as each thing arrives. It carries our identifiers,
+never a listing's content (CLAUDE.md, "LCSC, JLCPCB and shop data").</li>
+<li><strong>A search kiosk</strong> anyone can use, on the lab network ("Safety", below).</li>
+<li><strong>Low-stock alerts.</strong></li>
+<li><strong>Members put things back in the wrong bin,</strong> and the session asks for lights that tolerate it.
+How the wall finds a part in the wrong bin is not designed.</li>
+</ul>
+<h2 id="two-kinds-of-record">Two kinds of record</h2>
+<p>The repo records what a part is, where it came from and whether it passed incoming QA. A store's
+counts and bins change at every pick, and a commit for each would put every pick in the repo's
+history. So:</p>
+<ul>
+<li><strong>the repo</strong> keeps what a part is and whether it passed incoming QA;</li>
+<li><strong>a live store,</strong> on the lab network, keeps counts, bins and picks, and takes each part's
+identity from the repo, so that the two never name one part two ways.</li>
+</ul>
+<p><code>lab/sourcing.toml</code> holds only what a build needs (its header says so), and a makerspace stocks
+much that no build names. That stock's records would be a new file, with its schema and loader
+written before anything reads it (CLAUDE.md, "Conventions"). It is not designed.</p>
+<p>Which live store is an open decision (below). Both candidates already exist; neither is the point
+of the project.</p>
+<h2 id="the-parts-wall">The parts wall</h2>
+<h3 id="a-gateway-that-speaks-wleds-api">A gateway that speaks WLED's API</h3>
+<p>Both locators that light bins today drive their LEDs through WLED's JSON API:</p>
+<ul>
+<li>inventree-wled-locator POSTs each LED's colour to <code>/json/state</code> (<code>WledPlugin.py</code> at 12c499ff);</li>
+<li>WLEDger reads <code>/json/info</code> and <code>/json</code>, and POSTs to <code>/json/state</code> (<code>internal/wled/client.go</code>
+at 9ca719eb).</li>
+</ul>
+<p>So the gateway answers those calls on Ethernet, as WLED controllers do, and drives the shelves
+behind it. Either store would then drive the wall unchanged, with no code of ours in Python or Go
+(CLAUDE.md, "Language policy"), and the wall would not tie the choice of store. Whether a gateway
+that answers only those calls satisfies both is <code>unknown</code> until a test runs their calls against
+it.</p>
+<p>A pick confirmation travels the other way, from the wall to the store, and WLED's API has no call
+for it. It goes through the store's own API, which calls is <code>unknown</code>: InvenTree's, or WLEDger's
+<code>/api/v1</code>, whose README lists "stock adjustments".</p>
+<p>The gateway is host software, so it would be written in Rust (CLAUDE.md).</p>
+<h3 id="the-bus">The bus</h3>
+<p>The session's design: CAN over Cat5 or Cat6 patch cables, carrying 24 V from the gateway to every
+shelf.</p>
+<ul>
+<li><strong>The pinout:</strong> CiA 303-1's RJ45 assignment, as HMS Networks relays it: 1 CAN_H, 2 CAN_L,
+3 and 7 CAN_GND, 6 an optional shield, and 8 an optional "external voltage supply". CiA's own
+text is behind a login. The pinout gives power one pin, 8; whether one conductor of a patch
+cable carries a shelf run's current is <code>unknown</code> until the run's current is worked out.</li>
+<li><strong>A cable that fits a laptop.</strong> A shelf cable with RJ45 plugs also fits an Ethernet port. On
+plugging an always-powered "Passive PoE" port into a product not built for power, the Ethernet
+Alliance writes: "Usually, you let the 'magic smoke' out of some termination components". A PoE
+supply keeps its port unpowered while it "periodically looks to see if something has been
+plugged in", at power levels "unlikely to damage devices not designed for PoE" (TI's TPS2378
+data sheet, which says its account is no substitute for IEEE 802.3at). So the bus either uses a
+connector that cannot mate with an Ethernet port, or powers a port only once it detects a node.
+Which is not designed.</li>
+<li><strong>Power:</strong> 24 V from a bought supply, listed by a recognised testing lab and used as sold
+(CLAUDE.md, "Mains"). How each shelf's share is fused is not designed.</li>
+</ul>
+<h3 id="the-nodes">The nodes</h3>
+<p>Every shelf has the same node: a microcontroller, a CAN transceiver, a buck converter from 24 V,
+and addressable LEDs, all running the same firmware.</p>
+<ul>
+<li><strong>Language:</strong> CLAUDE.md's table has no row for a shelf node. The proposal is the Pico's row:
+Rust on Tock, and Embassy where Tock doesn't fit, with the reason beside it (an open decision,
+below).</li>
+<li><strong>CAN in Tock:</strong> at b89939e0, tock/tock has a CAN interface (<code>kernel/src/hil/can.rs</code>), a
+capsule for it (<code>capsules/extra/src/can.rs</code>) and a driver for STM32F4 chips
+(<code>chips/stm32f4xx/src/can.rs</code>). Of the five STM32 boards read (<code>nucleo_f429zi</code>,
+<code>nucleo_f446re</code>, <code>stm32f429idiscovery</code>, <code>stm32f412gdiscovery</code>, <code>weact_f401ccu6</code>), only
+<code>nucleo_f429zi</code> wires it up.</li>
+<li><strong>CAN on the RP2350,</strong> which the lab already has: can2040 (GPL-3.0) runs CAN in the chip's PIO
+and has supported "rp2350 chips" since v1.7.0. It is C, and of the three error states the CAN
+specification defines, it "will not automatically enter a 'bus off' state" (<code>docs/Features.md</code>
+at 2988d4f1). A node on it would carry GPL-3.0 code, and whether Tock can host it is <code>unknown</code>.
+A microcontroller with a CAN controller of its own is the other route.</li>
+<li><strong>Flashing</strong> a node is a hardware action: logged, and only to a lab target
+(<code>lab/targets.toml</code>, CLAUDE.md).</li>
+</ul>
+<h2 id="picking-kitting-reels-and-moisture">Picking, kitting, reels and moisture</h2>
+<table><thead><tr><th>feature</th><th>where it exists</th><th>here</th></tr></thead><tbody>
+<tr><td>BOM kitting: every bin for a build, lit at once</td><td>WLEDger's "Pick Mode"</td><td>used as it is</td></tr>
+<tr><td>an audit log</td><td>WLEDger's "full audit logging"; NEMO's record of each consumable withdrawn</td><td>the store's</td></tr>
+<tr><td>low-stock alerts</td><td>WLEDger's stock-health colours and its API's "low-stock checks"</td><td>the store's</td></tr>
+<tr><td>pick confirmation, on the shelf</td><td>the PIC18 CAN nodes; Pick2Light's buttons; irvan2004juanda-bit's buttons</td><td>ours, sent back to the store</td></tr>
+<tr><td>a colour per member, at once</td><td>none found</td><td>ours</td></tr>
+<tr><td>reels on ESD racks, a dry cabinet</td><td>sold as products</td><td>bought</td></tr>
+<tr><td>moisture floor life, per reel</td><td>an unlicensed data model; nothing that lights bins</td><td>ours</td></tr>
+</tbody></table>
+<p><strong>Floor life,</strong> as TI's note gives it (SPRABY1B, Table 2-1, "Factory Floor Life @ 30°C"): level 1
+unlimited, at 85 % RH; at 60 % RH, level 2 one year, 2a four weeks, 3 168 hours, 4 72 hours, 5 48
+hours, 5a 24 hours; level 6 "Bake before use and reflow within time on label". Bourns' table
+(<code>msl_mf.pdf</code>, for its Multifuse parts) gives the same, at ≤ 30 °C, and counts a level 2a part's
+four weeks "from the date the bag was opened". Espressif counts floor life from "removal from a
+moisture barrier bag, dry storage or dry bake". What time back in a dry cabinet does to the clock
+is in J-STD-033, which is paywalled and unread here.</p>
+<p><strong>Baking,</strong> past floor life: TI points to J-STD-033C's drying table and says "Tape and Reel
+material should not be baked above 40°C". Espressif bakes parts once they are "taken out of the
+tape".</p>
+<h2 id="safety">Safety</h2>
+<ul>
+<li><strong>Power:</strong> 24 V DC from a bought, listed supply, used as sold. The project designs and wires no
+mains equipment (CLAUDE.md).</li>
+<li><strong>Network:</strong> the store, the kiosk and the gateway run on the isolated lab network, with nothing
+exposed beyond it (CLAUDE.md).</li>
+<li><strong>Flashing:</strong> the nodes and the gateway are flashed only as lab targets, and each flash is
+logged (CLAUDE.md).</li>
+<li><strong>Members:</strong> a log of who took what is a record about people. What it keeps, and for how long,
+is open (below).</li>
+<li><strong>Baking parts dry</strong> is heat, from an oven on mains, which is bought, listed and used as sold
+(CLAUDE.md). Whether a bake needs a written safety plan, as a fab step does, is open (below).</li>
+</ul>
+<h2 id="open-decisions-jons">Open decisions, Jon's</h2>
+<ol>
+<li><strong>The live store: InvenTree or WLEDger.</strong> The measures, named before either is tried: it takes
+each part's identity and QA result from the repo, with no listing content; it runs on the lab
+network with no internet; it drives the gateway through WLED's API; and it takes a pick
+confirmation back through its own API. Recommended: try WLEDger first, since kitting, roles
+and an audit log are already in it, and InvenTree if WLEDger fails a measure.</li>
+<li><strong>The shelf node's row in CLAUDE.md's language table:</strong> Rust on Tock, and Embassy where Tock
+doesn't fit, as the Pico's row says.</li>
+<li><strong>What the pick log keeps about members,</strong> and for how long.</li>
+<li><strong>Whether baking parts dry needs a written safety plan,</strong> as a fab step does (<a href="../fab/index.html"><code>fab.md</code></a>, "Safety
+first").</li>
+</ol>
+<h2 id="where-this-came-from">Where this came from</h2>
+<p>Jon's Claude session of 2026-11-26, whose summary Jon brought the same day. It set out a
+makerspace's stores, a wired pick-to-light as the open-source contribution, a growth path, and a
+bridge from Hacker Fab toward the industry. Kept: the storage, the must-haves, the bus and the
+nodes, the growth path, and the fab's list of practices with its route (<a href="../fab/index.html"><code>fab.md</code></a>, "Running the
+fab"). Changed here:</p>
+<ul>
+<li><strong>"None do a wired bus, pick confirmation, BOM kitting, or reels/MSL":</strong> each exists on its
+own. WLEDger does BOM kitting; WLED runs on Ethernet boards; the PIC18 CAN nodes and Pick2Light
+confirm picks; an unlicensed data model counts down floor life. What none does is all of them in
+one open design ("What already exists", above).</li>
+<li><strong>"All are single-strip Wi-Fi 'find one bin' projects":</strong> WLEDger drives several WLED
+controllers, and WLED runs on Ethernet boards too.</li>
+<li><strong>An InvenTree plugin talking MQTT to the gateway</strong> became a gateway that speaks WLED's API, so
+either store can drive the wall and no code of ours is in Python or Go (CLAUDE.md, "Language
+policy").</li>
+<li><strong>"The hard, truly industrial parts are pick confirmation and MSL tracking. The LEDs are the
+easy part":</strong> not kept, since no source for which parts are hard was found. Both are among the
+parts built here.</li>
+<li><strong>The bridge to the fab</strong> starts from Hacker Fab's own process database, read in <a href="../fab/index.html"><code>fab.md</code></a>,
+"Running the fab". The session's list of practices is there.</li>
+<li><strong>Left out, with no source found:</strong> "AliExpress bags lack useful barcodes"; "Pick'n'Light" and
+"Arduino Storage Cart", not found on GitHub by name; "the Shenzhen-lab model"; and "The main gap
+between hobby fabs and industry is operational discipline, not equipment, and most of it is
+cheap".</li>
+</ul>
+<h2 id="what-was-searched">What was searched</h2>
+<p>On 2026-11-26, one search agent and my own reads. Searched: GitHub through its API (about 120
+repository searches and 17 code searches), Gitee, OSHWHub and Bilibili in Chinese, and nine web
+searches. About 40 READMEs and pages were read. The rows that <a href="../prior-art/index.html"><code>prior-art.md</code></a> marks <strong>re-read</strong>
+were read again in their own text. Not seen: J-STD-033, CiA 303-1 and IEEE 802.3, which are
+paywalled or behind a login; Hackaday.io's project pages, which need a browser; NEMO's plugins;
+Coral's source; and commercial pick-to-light systems beyond a search's snippets. GitHub's
+repository search matches names, descriptions and topics, not READMEs, so this shows what was
+found, not that nothing closer exists. The tables are in <a href="../prior-art/index.html"><code>prior-art.md</code></a>, "A makerspace's stores".</p>
+</div>
+<p class="notice">Written in <a href="https://github.com/via-balaena/tentzhen/blob/main/docs/makerspace.md">docs/makerspace.md</a>, on main; this page is made from it.</p>
+</main>
+
+<footer class="site-footer">
+  <div class="column">
+    <span>腾振 TENTZHEN · A VIA BALAENA PROJECT</span>
+    <span>MIT OR APACHE-2.0 · <a href="../../legal/index.html">LEGAL</a></span>
+    <a href="https://github.com/via-balaena/tentzhen">GITHUB.COM/VIA-BALAENA/TENTZHEN</a>
+  </div>
+</footer>
+
+</body>
+</html>
