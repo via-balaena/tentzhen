@@ -15,15 +15,18 @@
 //! What it makes, all from TPM A unless named:
 //! - `ak_a`: TPM A's attestation key, a restricted ECDSA P-256 signing key made as a primary in the
 //!   endorsement hierarchy, as SEC1 x || y;
-//! - `out`: a quote of PCRs 0 to 10 at check-out, after one extend into each;
+//! - `out`: a quote of PCRs 0 to 10 at check-out, after the boot in `tests/boot/mod.rs` and one
+//!   extend into PCR 10 that no boot log holds;
 //! - `in`: a quote of the same PCRs in the same boot, with a new challenge;
-//! - `extended`: one more extend into PCR 9, then a quote, still in the same boot;
+//! - `extended`: one more entry measured into PCR 9 (`boot::later`), then a quote, still in the same
+//!   boot;
 //! - `restarted`: swtpm stopped and started again on the same state (a TPM Reset), the key made
-//!   again from the same template, the same extends, and a quote;
+//!   again from the same template, the same boot, and a quote;
 //! - `eight`: a quote of PCRs 0 to 7 only, in the same boot as `extended`;
 //! - `sha1`: a quote of the SHA-1 bank's PCRs 0 to 10, and `two`: of both banks' PCRs 0 to 10,
 //!   each kept with the SHA-256 values, as a hub would pass them on;
-//! - `ak_b` and `other`: TPM B's key, and its quote of PCRs 0 to 10 with `in`'s challenge.
+//! - `ak_b` and `other`: TPM B's key, and its quote of PCRs 0 to 10 with `in`'s challenge, after
+//!   the same boot.
 //!
 //! Each quote has its challenge, the TPMS_ATTEST the TPM signed, the TPMT_SIGNATURE, and the
 //! SHA-256 values of the PCRs it covers, as PCR_Read returned them (PCRs 0 to 10 for `sha1` and
@@ -36,6 +39,12 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 use std::thread::sleep;
 use std::time::Duration;
+
+// The boot `tests/judge.rs` writes the log of. This program doesn't read what each entry says it
+// measured, nor each entry's SHA-256 alone.
+#[allow(dead_code)]
+#[path = "../tests/boot/mod.rs"]
+mod boot;
 
 const ST_NO_SESSIONS: u16 = 0x8001;
 const ST_SESSIONS: u16 = 0x8002;
@@ -225,19 +234,29 @@ fn create_ak(tpm: &Swtpm) -> (u32, Vec<u8>) {
     (handle, [x, y].concat())
 }
 
-fn extend(tpm: &Swtpm, pcr: u32, digest: [u8; 32]) {
+/// Extends `pcr` with each digest, each into its own bank.
+fn extend(tpm: &Swtpm, pcr: u32, digests: &[(u16, Vec<u8>)]) {
     let mut p = Vec::new();
-    u32b(&mut p, 1);
-    u16b(&mut p, ALG_SHA256);
-    p.extend_from_slice(&digest);
+    u32b(&mut p, digests.len() as u32);
+    for (alg, digest) in digests {
+        u16b(&mut p, *alg);
+        p.extend_from_slice(digest);
+    }
     tpm.send(&command(CC_PCR_EXTEND, &[pcr], true, &p));
 }
 
-/// One extend into each of PCRs 0 to 10, each with its own digest.
-fn boot(tpm: &Swtpm) {
-    for pcr in 0..=10 {
-        extend(tpm, pcr, [0xB0 + pcr as u8; 32]);
+fn measure(tpm: &Swtpm, entry: &boot::Entry) {
+    assert!(entry.extended());
+    extend(tpm, entry.pcr, &entry.digests);
+}
+
+/// The boot, entry by entry, as firmware extends it, then one extend into PCR 10, where IMA's
+/// entries go (step 1c), that no boot log holds.
+fn boot_up(tpm: &Swtpm) {
+    for entry in boot::boot().iter().filter(|e| e.extended()) {
+        measure(tpm, entry);
     }
+    extend(tpm, 10, &[(ALG_SHA256, vec![0xA0; 32])]);
 }
 
 /// The values of PCRs 0 to `last`, read eight at a time, as PCR_Read returns at most eight.
@@ -325,10 +344,10 @@ fn main() {
 
     let tpm = Swtpm::start(&state_a, 23210);
     let (ak, ak_a) = create_ak(&tpm);
-    boot(&tpm);
+    boot_up(&tpm);
     let out = quote(&tpm, ak, [0x01; 32], 10);
     let in_ = quote(&tpm, ak, [0x02; 32], 10);
-    extend(&tpm, 9, [0xEE; 32]);
+    measure(&tpm, &boot::later());
     let extended = quote(&tpm, ak, [0x03; 32], 10);
     let eight = quote(&tpm, ak, [0x04; 32], 7);
     let sha1 = quote_banks(&tpm, ak, [0x06; 32], &[ALG_SHA1], 10);
@@ -341,13 +360,13 @@ fn main() {
         again, ak_a,
         "the same template under the same seed makes the same key"
     );
-    boot(&tpm);
+    boot_up(&tpm);
     let restarted = quote(&tpm, ak, [0x05; 32], 10);
     tpm.stop();
 
     let tpm = Swtpm::start(&state_b, 23220);
     let (ak, ak_b) = create_ak(&tpm);
-    boot(&tpm);
+    boot_up(&tpm);
     let other = quote(&tpm, ak, [0x02; 32], 10);
     tpm.stop();
 
