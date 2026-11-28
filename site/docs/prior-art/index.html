@@ -585,18 +585,18 @@ chip was found in a process older than 180 nm, or from an open fab, and no Wave 
 on p-bits or Ising machines.</p>
 <h2 id="attesting-a-fabs-computers">Attesting a fab's computers</h2>
 <p>Searched 2026-11-27, for <a href="../fab/index.html"><code>fab.md</code></a>, "Security": a device someone carries that checks TPM quotes for
-its owner, and the open tools around it. Two web searches, then GitHub's API for seven
-repositories, and the sources below read in their own text, through <code>gh</code> and <code>curl</code>. Not seen:
-the patents the web searches returned (unread), papers behind paywalls, and Chinese-language
-sources. What it can show is what these searches found, not that nothing closer exists.</p>
+its owner, and the open tools around it. Two web searches, then GitHub's API for seven candidates'
+repositories, and the sources below read in their own text, through <code>gh</code> and <code>curl</code>. Not seen: the
+patents the web searches returned (unread), papers behind paywalls, and Chinese-language sources.
+What it can show is what these searches found, not that nothing closer exists.</p>
 <table><thead><tr><th>work</th><th>closest part</th><th>different</th><th>source</th></tr></thead><tbody>
 <tr><td>André Sperrle, "Remote attestation in an isolated server setting through the usage of a tamper-resistant hardware token" (KIT master's thesis, 2025)</td><td>a token the verifier carries to the servers, which "audits the Prover on behalf of the verifier" and reports "over a visual channel like the server rooms camera feedback"; TPM quotes; MakeCredential for the attestation key; a security analysis, with "nail-glitter patterns" as seals</td><td>servers behind a data diode; Go on TamaGo, bare metal on a USB Armory Mk II, not Rust on Tock; no code repository named in its text</td><td>DOI 10.5445/IR/1000190847, its PDF, <strong>re-read</strong></td></tr>
 <tr><td>Heads (linuxboot/heads, GPL-2.0)</td><td>a secret "sealed to PCRs 0,1,2,3,4,7"; "Reverse HOTP ──▶ USB dongle (verifies code)", so a USB key judges the boot</td><td>one computer, at its own boot, with Heads as its firmware's payload</td><td>at 5f835ca4, <code>doc/security-model.md</code>, <strong>re-read</strong></td></tr>
 <tr><td>tpm2-totp (tpm2-software, BSD-3-Clause)</td><td>"Attest the trustworthiness of a device against a human using time-based one-time passwords"</td><td>a person judges one computer at a time, by its one-time password; last pushed 2024-06-26</td><td>its GitHub description</td></tr>
-<tr><td>Keylime (CNCF, Apache-2.0)</td><td>TPM attestation of measured boot and IMA, for many computers; a push-model agent in keylime/rust-keylime</td><td>its verifier is a server: here, the hub we don't trust</td><td>keylime/keylime 7.14.3; rust-keylime's tree</td></tr>
+<tr><td>Keylime (CNCF, Apache-2.0)</td><td>TPM attestation of measured boot and IMA, for many computers; a push-model agent in keylime/rust-keylime</td><td>its verifier is a server: here, the hub we don't trust</td><td>keylime/keylime 7.14.3, README at 552c98bd ("integrity measurements", "runtime and measured boot policies"); rust-keylime's tree</td></tr>
 <tr><td>GrapheneOS Auditor</td><td>pairing on first use, then checks by "another Android device running the app in the Auditor mode", or by its attestation.app service</td><td>it verifies phones, not TPMs</td><td>attestation.app/about, <strong>re-read</strong></td></tr>
 <tr><td>Tillitis TKey</td><td>"an open source, open hardware FPGA-based USB security token" with "DICE-like measured boot"</td><td>a key with no screen; its licence not read</td><td>tillitis/tillitis-key1 at 591089ac, README, <strong>re-read</strong></td></tr>
-<tr><td>Dasharo (3mdeb)</td><td>coreboot and UEFI with measured boot, tested for each release, for the ODROID-H4 among others</td><td>built binaries come with a paid Pro Package; TrustRoot ties a board to the vendor's key</td><td>Dasharo/docs at 54aa76c8; Dasharo/osfv-results, <strong>re-read</strong></td></tr>
+<tr><td>Dasharo (3mdeb)</td><td>coreboot and UEFI with measured boot, with published test results, for the ODROID-H4's v0.9.1 among others</td><td>built binaries come with a paid Pro Package; TrustRoot ties a board to the vendor's key</td><td>Dasharo/docs at 54aa76c8; Dasharo/osfv-results, <strong>re-read</strong></td></tr>
 </tbody></table>
 <p>Nothing we found carries one verifier to a fab's computers to judge, on its own screen, whether
 any of them restarted, booted something other than our build, or ran something new. Sperrle's

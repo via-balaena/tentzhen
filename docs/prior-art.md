@@ -611,20 +611,20 @@ on p-bits or Ising machines.
 ## Attesting a fab's computers
 
 Searched 2026-11-27, for `fab.md`, "Security": a device someone carries that checks TPM quotes for
-its owner, and the open tools around it. Two web searches, then GitHub's API for seven
-repositories, and the sources below read in their own text, through `gh` and `curl`. Not seen:
-the patents the web searches returned (unread), papers behind paywalls, and Chinese-language
-sources. What it can show is what these searches found, not that nothing closer exists.
+its owner, and the open tools around it. Two web searches, then GitHub's API for seven candidates'
+repositories, and the sources below read in their own text, through `gh` and `curl`. Not seen: the
+patents the web searches returned (unread), papers behind paywalls, and Chinese-language sources.
+What it can show is what these searches found, not that nothing closer exists.
 
 | work | closest part | different | source |
 |---|---|---|---|
 | André Sperrle, "Remote attestation in an isolated server setting through the usage of a tamper-resistant hardware token" (KIT master's thesis, 2025) | a token the verifier carries to the servers, which "audits the Prover on behalf of the verifier" and reports "over a visual channel like the server rooms camera feedback"; TPM quotes; MakeCredential for the attestation key; a security analysis, with "nail-glitter patterns" as seals | servers behind a data diode; Go on TamaGo, bare metal on a USB Armory Mk II, not Rust on Tock; no code repository named in its text | DOI 10.5445/IR/1000190847, its PDF, **re-read** |
 | Heads (linuxboot/heads, GPL-2.0) | a secret "sealed to PCRs 0,1,2,3,4,7"; "Reverse HOTP ──▶ USB dongle (verifies code)", so a USB key judges the boot | one computer, at its own boot, with Heads as its firmware's payload | at 5f835ca4, `doc/security-model.md`, **re-read** |
 | tpm2-totp (tpm2-software, BSD-3-Clause) | "Attest the trustworthiness of a device against a human using time-based one-time passwords" | a person judges one computer at a time, by its one-time password; last pushed 2024-06-26 | its GitHub description |
-| Keylime (CNCF, Apache-2.0) | TPM attestation of measured boot and IMA, for many computers; a push-model agent in keylime/rust-keylime | its verifier is a server: here, the hub we don't trust | keylime/keylime 7.14.3; rust-keylime's tree |
+| Keylime (CNCF, Apache-2.0) | TPM attestation of measured boot and IMA, for many computers; a push-model agent in keylime/rust-keylime | its verifier is a server: here, the hub we don't trust | keylime/keylime 7.14.3, README at 552c98bd ("integrity measurements", "runtime and measured boot policies"); rust-keylime's tree |
 | GrapheneOS Auditor | pairing on first use, then checks by "another Android device running the app in the Auditor mode", or by its attestation.app service | it verifies phones, not TPMs | attestation.app/about, **re-read** |
 | Tillitis TKey | "an open source, open hardware FPGA-based USB security token" with "DICE-like measured boot" | a key with no screen; its licence not read | tillitis/tillitis-key1 at 591089ac, README, **re-read** |
-| Dasharo (3mdeb) | coreboot and UEFI with measured boot, tested for each release, for the ODROID-H4 among others | built binaries come with a paid Pro Package; TrustRoot ties a board to the vendor's key | Dasharo/docs at 54aa76c8; Dasharo/osfv-results, **re-read** |
+| Dasharo (3mdeb) | coreboot and UEFI with measured boot, with published test results, for the ODROID-H4's v0.9.1 among others | built binaries come with a paid Pro Package; TrustRoot ties a board to the vendor's key | Dasharo/docs at 54aa76c8; Dasharo/osfv-results, **re-read** |
 
 Nothing we found carries one verifier to a fab's computers to judge, on its own screen, whether
 any of them restarted, booted something other than our build, or ran something new. Sperrle's

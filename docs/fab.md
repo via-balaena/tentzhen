@@ -457,7 +457,7 @@ wafers by lot. Each is a proposal, `unknown` until it earns a grade. Wafer lots 
 where Hacker Fab's database can take them, written to it or beside it, once its code has been
 read.
 
-## Security: showing no one touched the fab's computers
+## Security: checking the fab's computers are as they were left
 
 Jon, 2026-11-27: "a persistent/trusted/tamperproof environment would be extemely important for a
 fab like this. you dont want anyone messing with important work, it could cost money, be
@@ -477,7 +477,7 @@ tampered computer must be unable to make a tool dangerous, whatever this check s
 Leave the fab, come back, and show in about a minute, for each of its computers, that:
 - it didn't restart while no one was there;
 - its firmware, bootloader, kernel and initramfs are the ones our build made;
-- nothing new ran on it;
+- nothing ran on it that the image and its containers don't hold;
 - no case, cabinet or door was opened (seals and sensors, "The room", below).
 
 ### Trust only the device in your pocket
@@ -500,25 +500,30 @@ Leave the fab, come back, and show in about a minute, for each of its computers,
 
 Out of scope: attacks on the chips themselves, such as fault injection or decapping, given long
 unattended access. The seals and cameras are there to make those hard to do unseen. Not seen by
-any check here: an attack on a running computer that neither restarts it nor runs a new file.
+any check here: an attack on a running computer that neither restarts it nor runs a file the
+image and its containers don't hold, such as one that uses only programs already there. What IMA
+measures is set by its policy, which is still to write.
 
 ### Enrolling a computer
 
 Once, when the computer is known to be clean:
 1. The computer makes an attestation key in its TPM.
 2. The verifier proves that key is in that TPM, by credential activation against the TPM's
-   endorsement key, recorded at the same moment or checked against its maker's certificate. The
-   verifier makes the challenge itself (MakeCredential), so it trusts the TPM, not the system
-   that is enrolling it.
+   endorsement key. It makes the challenge itself (MakeCredential). Checked against the TPM
+   maker's certificate, the endorsement key puts the verifier's trust in the TPM, not in the
+   system enrolling it. An endorsement key only recorded at enrollment trusts that system, at
+   that one clean moment. Whether the verifier can check the maker's certificate itself is
+   `unknown`.
 3. The computer shows the key's fingerprint on its own screen and the verifier on its own, and a
    person compares at least 80 bits of it before pressing accept.
 
 ### Each check, leaving and coming back
 
-The verifier asks the hub for its list of computers, then sends each one a challenge: 32 bytes
-from the RP2350's random-number generator, hashed with SHA-256, new for each computer and each
-check. The computer answers with a quote of PCRs 0 to 10, its boot event log, and the IMA entries
-added since the last check. Each message is a CBOR object in a frame with its length and a CRC32.
+The verifier sends a challenge to every computer it enrolled, from its own list, not the hub's, so a
+computer the hub leaves out shows red. Each challenge is 32 bytes from the RP2350's random-number
+generator, hashed with SHA-256, new for each computer and each check. The computer answers with a
+quote of PCRs 0 to 10, its boot event log, and the IMA entries added since the last check. Each
+message is a CBOR object in a frame with its length and a CRC32.
 
 The verifier checks that:
 1. the quote is signed by the enrolled key;
@@ -528,7 +533,7 @@ The verifier checks that:
 4. the PCR values the hub passed on hash to the digest inside the signed quote;
 5. the event log replays to PCRs 0 to 9, and its entries match the reference values;
 6. the new IMA entries replay from the last check's PCR 10 to this one, and each is a file the
-   image holds.
+   image or its containers hold.
 
 It reads the reset and restart counts, the clock and the TPM's firmware version from the signed
 quote.
@@ -536,7 +541,7 @@ quote.
 | finding | result |
 |---|---|
 | the reset or restart count changed | red: restarted |
-| a PCR from 0 to 9, or an event log entry, isn't the reference | red: boot chain changed |
+| a PCR from 0 to 9, or an event log entry, isn't the reference | red: boot chain isn't ours |
 | a new IMA entry isn't a file in the image | red: something new ran |
 | the TPM's firmware version changed | red: TPM firmware changed |
 | no valid answer | red: missing |
@@ -552,14 +557,16 @@ measures is `unknown`.
 **Reference values, not only the last snapshot.** Comparing with the last check alone would pass a
 computer that was already wrong when it was left. So:
 - **Firmware** is ours: built from Dasharo's public source, or a release whose sha256 Dasharo
-  signs. Dasharo's tests on the ODROID-H4 include "Identical configuration results in identical
-  measurements" (MBO006.001, passed on v0.9.1). So identical boards with identical firmware and
-  settings should report identical PCRs 0 to 7, and each computer is checked against its twins,
-  the other boards like it, as well as against itself. Whether that holds across two boards is
-  `unknown` until two are measured.
+  signs. Its reference values are what a board reports on its first boot after that firmware is
+  flashed. Dasharo's tests on the ODROID-H4 include "Identical configuration results in identical
+  measurements" (MBO006.001, passed on v0.9.1), on one board. Whether two identical boards report
+  identical PCRs 0 to 7 is `unknown` until two are measured; if they do, each computer is also
+  checked against its twins, the other boards like it.
 - **Boot software,** the shim, GRUB, the kernel and initramfs: the image's build computes the
-  digests the event log will hold.
-- **What runs:** the build publishes one Merkle root over the hashes of every file in the image.
+  digests the event log will hold. The kernel command line, in PCR 8, is written on each computer
+  when an update is deployed; whether the build can compute it is `unknown`.
+- **What runs:** the build publishes one Merkle root over the hashes of every file in the image
+  and in the container images it pins.
   The hub sends a proof with each new IMA entry, and the verifier, holding only the root, checks
   it. How many entries a quiet computer adds in a day is `unknown` until measured.
 
@@ -584,25 +591,26 @@ the verifier's, at the next check.
 - **Signing its firmware:** secure boot with our key's hash in OTP, and the debug port locked.
   Both are irreversible, so each needs a person's approval in the session, on a board approved
   for flashing (CLAUDE.md). Practise on a Pico 2 W first: it has the same RP2350.
-- **Its stored state** lives in the Pico 2's external flash. Secure boot doesn't cover it, and a
-  clip on the chip can rewrite it. Keeping the verifier on you covers that. A MAC over the state,
+- **Its stored state** lives in the Pico 2's external flash. Secure boot doesn't cover it, so anyone
+  holding the board can rewrite it. Keeping the verifier on you covers that. A MAC over the state,
   with a key in OTP, would go further, and would make that key the verifier's one secret.
 - How long the RP2350 takes to check a P-256 signature is `unknown` until measured.
 
 ### The fab's computers
 
-- **One board for every computer that stays on:** the hub, the stores' server, each tool's
+- **One board for every computer the verifier checks:** the hub, the stores' server, each tool's
   station, and a spare. One board means one firmware build, one set of reference values, twins to
   compare, and a spare that replaces any of them.
 - **The candidate is the ODROID-H5** (Hardkernel, May 2026): an i3-N300, "fTPM enabled" and
   10 GbE, $230 for the board alone (hardkernel.com, read 2026-11-27). The H4, H4+ and H4 Ultra
-  are marked "(DISCONTINUED)" there. A used H4+ is the surplus route: our own build replaces all
-  of its firmware, and the board goes through incoming QA like any part (`sourcing.md`).
+  are marked "(DISCONTINUED)" there. A used H4+ is the surplus route: our own build replaces what
+  its BIOS flash holds, and the board goes through incoming QA like any part (`sourcing.md`).
 - **Its firmware is Dasharo:**
-  - for the H5, a release candidate only (`hardkernel_odroid_h5_v0.9.0-rc2`, Dasharo/coreboot,
-    2026-10-15);
-  - for the H4, v0.9.1 (2025-09-03), which passed every TPM and measured-boot test Dasharo ran
-    on it, among them "Check if event log PCRs match actual values" (Dasharo/osfv-results).
+  - For the H5, only a release candidate (`hardkernel_odroid_h5_v0.9.0-rc2`, Dasharo/coreboot,
+    2026-10-15).
+  - For the H4, v0.9.1 (2025-09-03). It passed all 35 of the TPM and measured-boot tests Dasharo
+    ran on it, among them "Check if event log PCRs match actual values", and two more were not
+    run (Dasharo/osfv-results, `v0.9.1_results.csv`).
   - The H4's built binaries come with Dasharo's paid Pro Package. Its source is tagged in public
     and its docs give a building manual, so we build it.
   - **Not TrustRoot.** It checks firmware "against a specific private key managed by the device
@@ -614,14 +622,16 @@ the verifier's, at the next check.
 - **Not fully open:** Dasharo carries Intel's binary firmware, and its openness charts measure how
   much. Dasharo also supports a POWER9 board, Raptor's Talos II; how open its firmware is, and
   what it costs, weren't read here.
-- **Software:** one bootc image of Fedora IoT on every computer, so one Keylime runtime policy
-  covers them all; Keylime (7.14.3, 2026-07-06); Ansible for every configuration and update; and
-  Podman for the services.
-- **Disks** are unlocked by the TPM and a PIN (`systemd-cryptenroll`). Bound to PCR 7 alone, the
-  unlock follows the Secure Boot keys, not what booted, so a swapped initramfs still unseals the
-  disk and catches the PIN. A signed policy on PCR 11 follows the kernel and initramfs, once the
-  image boots unified kernel images (systemd's `docs/TPM2_PCR_MEASUREMENTS.md`: "on systems that
-  are not booted via a UKI, PCR 11 does not cover the kernel and initrd").
+- **Software:** one bootc image, built from Fedora, on every computer the verifier checks, so one
+  Keylime runtime policy covers them all; Keylime (7.14.3, 2026-07-06); Ansible for every
+  configuration and update; and Podman for the services.
+- **Disks** are unlocked by the TPM and a PIN (`systemd-cryptenroll`). PCR 7 is the "Secure Boot
+  state", which "changes when UEFI SecureBoot mode is enabled/disabled, or firmware certificates
+  (PK, KEK, db, dbx, …) changes" (`man/systemd-cryptenroll.xml`, systemd at 39c2bf5f). Bound to PCR
+  7 alone, the unlock follows the Secure Boot keys, not what booted, so a swapped initramfs still
+  unseals the disk and catches the PIN. A signed policy on PCR 11 follows the kernel and initramfs,
+  once the image boots unified kernel images (systemd's `docs/TPM2_PCR_MEASUREMENTS.md`: "on systems
+  that are not booted via a UKI, PCR 11 does not cover the kernel and initrd").
 
 ### The network
 
@@ -637,15 +647,15 @@ the verifier's, at the next check.
   them. Then the hub needs no way into the other zones. How ready it is is `unknown`.
 - **The router** is the OpenWrt project's own board, the OpenWrt One: an MT7981, 1 GB of RAM, NAND
   with NOR for recovery, and 2.5 GbE and 1 GbE ports (openwrt.org's table of hardware, read
-  2026-11-27). It's the one computer the verifier can't check, so it goes in the locked cabinet.
+  2026-11-27). The verifier can't check it, so it goes in the locked cabinet.
 - **Alerts while no one is there** need a way out of the lab network, which CLAUDE.md keeps
   closed without approval ("Open decisions", below).
 
 ### The room
 
 - A locked cabinet for the router, the hub, the servers and the UPS.
-- A UPS that is bought and listed, used as sold (rule 3), and read over USB by NUT. A power cut
-  would restart the computers and show red; the UPS's log says whether the power went.
+- A UPS that is bought and listed, used as sold (rule 3), and read over USB by NUT. Without it, a
+  power cut would restart the computers and show red; its log says whether the power went.
 - Chassis intrusion switches, where a board has the header. Whether the H5 has one is `unknown`.
 - Tamper seals on cases, the cabinet and unused ports, photographed when leaving and compared on
   coming back.
@@ -676,7 +686,7 @@ the verifier's, at the next check.
 
 ### Where this came from
 
-Jon's plan, drafted with Claude on 2026-11-27. Changed here, each against the source named above:
+Jon's plan, drafted with Claude on 2026-11-27. Changed here:
 1. The hub and server board: the H4 family is discontinued, so the H5 is the candidate, and
    Dasharo is still a release candidate for it.
 2. What ran is judged by the verifier from PCR 10, not by Keylime on a hub the plan itself calls
@@ -691,6 +701,7 @@ Jon's plan, drafted with Claude on 2026-11-27. Changed here, each against the so
 9. The backup verifier is a second Pico, not a phone app that verifies phones.
 10. The hub's reach into every zone ends once the computers push to it, if Keylime's push model
     is ready.
+11. The verifier challenges the computers it enrolled, not the list the hub sends.
 
 Left out: the plan's prices, which were estimates, and its computers that aren't the fab's.
 
