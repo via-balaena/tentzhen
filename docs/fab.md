@@ -586,6 +586,15 @@ the verifier's, at the next check.
 - **Tock's drivers:** upstream's `chips/rp2350` (tock/tock at b89939e0, 2026-11-23) has UART,
   SPI, GPIO and timers, and Jon's `via-balaena/tock` adds `trng.rs` on its `main`. Drivers for the
   SHA-256 accelerator and the OTP are still to write; SHA-256 in software is the fallback.
+- **Its randomness** is the RP2350's own TRNG, an Arm block on its own ring oscillator, which
+  "Produces approximately 7.5 kb/s of entropy when the core runs at 150 MHz" (RP2350 datasheet,
+  build-date 2026-11-19, section 12.12). The bootrom "streams raw TRNG ROSC samples (the TRNG
+  random source) directly into the hardware SHA-256 accelerator", and so "bypasses all internal
+  checking and conditioning in the TRNG". The verifier would do the same, after running SP
+  800-90B's health tests on the raw samples: the tests of project #6's step 4 (`pbits.md`), from
+  the Rust model its gateware is checked against. A failed test stops the check. Jon's `trng.rs`
+  (at d343c1e5) reads the conditioned `EHR_DATA` registers, so reading the raw samples is new
+  driver work.
 - **Processes:** the parser, the judge and the display run as separate Tock processes, so a bug
   in the part the hub talks to can't reach the keys or the snapshots.
 - **Signing its firmware:** secure boot with our key's hash in OTP, and the debug port locked.

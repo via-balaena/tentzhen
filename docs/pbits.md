@@ -95,6 +95,10 @@ Each is a proposal, `unknown` until it earns a grade.
 - **The noise source of step 4** is not claimed fit for keys. SP 800-90B asks that its health
   tests "shall include both continuous and start-up tests", run "before any conditioning is
   done", and that on a persistent failure "the entropy source shall not produce any outputs".
+- **The fab's verifier uses step 4's health tests too,** on a different source: the RP2350's
+  ring oscillator, before it hashes each challenge (`fab.md`, "Security"). So the tests are
+  written once more, in Rust, as the model the gateware's tests are checked against, and the
+  verifier runs that model.
 - **Loading the i9** follows the lab-target rules, as project #3's board runs do (`littlebit.md`).
   Steps 1 to 4 handle no chemicals, heat, high voltage, vacuum or pressure; step 5's own process
   is the fab's, under its safety rules (`fab.md`, "Safety first").
