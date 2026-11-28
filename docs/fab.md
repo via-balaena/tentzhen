@@ -540,9 +540,11 @@ quote.
 
 Checks 1 to 4, the verifier's own list, and the findings table's rows for restarts and for PCRs
 against the last snapshot are `tested` on real quotes from swtpm, a software TPM, and on copies
-changed as a hub could change them. The rows for the TPM's firmware and for the clock are
-`tested` on values made up for the test (`firmware/verifier`; `architecture.md`, "Rules"). Checks
-5 and 6, and the reference values, are not built yet.
+changed as a hub could change them. Check 5, and the row for PCRs 0 to 9 against the reference,
+are `tested` on those quotes with the event log of a made-up boot that swtpm was given entry by
+entry, and on logs changed as a hub could change them. The rows for the TPM's firmware and for
+the clock are `tested` on values made up for the test (`firmware/verifier`; `architecture.md`,
+"Rules"). Check 6 is not built yet, nor how the verifier is given its reference values.
 
 | finding | result |
 |---|---|
@@ -729,6 +731,8 @@ Left out: the plan's prices, which were estimates, and its computers that aren't
 - How ready Keylime's push model is.
 - How long the RP2350 takes to check a P-256 signature.
 - Whether the H5 has a chassis intrusion header.
+- Whether the H5's firmware starts its TPM from locality 3, which the verifier's replay doesn't
+  read yet, so it refuses that computer's log (step 1b).
 - Prices for everything but the board.
 
 ### Getting to v1.0
@@ -758,8 +762,9 @@ PCRs.
 | 4 | **A Pico 2 W already on hand:** how long a P-256 check takes; the raw ring oscillator with the health tests | Jon's approval to flash it, since it isn't a lab target; no OTP step; waits until Jon can reach the board (2026-11-27) |
 | 5 | **An attack read by someone else:** a reviewer given only this section and Sperrle's security analysis, not the reviews before | nothing |
 
-- **Step 3 answers,** in a virtual machine, whether Fedora's GRUB measures into PCRs 8 and 9, how
-  many IMA entries an idle computer adds in a day, and how ready Keylime's push model is. Step 4
+- **Step 3 answers,** in a virtual machine, whether Fedora's GRUB measures into PCRs 8 and 9,
+  whether a boot's entries for PCRs 0 to 9 are the same from one boot to the next, how many IMA
+  entries an idle computer adds in a day, and how ready Keylime's push model is. Step 4
   answers how long the RP2350 takes to check a P-256 signature. The H5's Dasharo release, the
   twins, its chassis header and the prices need the board or a later read.
 - **Before step 1a's parser is written,** an existing one is looked for (CLAUDE.md,
@@ -774,6 +779,19 @@ PCRs.
 - **The software TPM:** swtpm 0.10.2 is in Homebrew; tpm2-tools is not (searched 2026-11-27). So
   step 1a's test inputs come from swtpm, driven by a small Rust program that writes the TPM's
   commands byte by byte, so the inputs don't come from the parser they test.
+- **Step 1b's parser is our own:** none found checks every size in a log it is handed, without the
+  standard library or a heap (`prior-art.md`, "A parser for the boot event log", searched
+  2026-11-27). It reads the log as the PC Client Platform Firmware Profile 1.05 r23 lays it out
+  (§10), and replays PCR 0 from zeros: it doesn't read the Startup Locality event, which tpm2-tools
+  starts PCR 0 from, so it refuses the log of a TPM started from locality 3. Its test logs are
+  written by the tests, from the same boot that the quotes' program gives swtpm, so they don't come
+  from the parser either.
+- **With the reference an exact list, the log adds only a refusal:** PCRs 0 to 9 are the
+  reference's exactly when the reference, replayed, gives the quoted values (`tested`:
+  `the_reference_replayed_alone_gives_the_log_s_answer`). The log is needed for a reference that
+  lets an entry vary from one boot to the next, or to show which entry differs. Whether a boot's
+  entries vary is `unknown` until step 3; if none do, the verifier could hold PCR values and not
+  read the log at all.
 
 ## Later: a gradiometer, engineered with CortenForge
 

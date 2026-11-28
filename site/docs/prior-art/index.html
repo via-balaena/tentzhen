@@ -601,6 +601,24 @@ What it can show is what these searches found, not that nothing closer exists.</
 <p>Nothing we found carries one verifier to a fab's computers to judge, on its own screen, whether
 any of them restarted, booted something other than our build, or ran something new. Sperrle's
 token is the closest: the same delegation, for servers behind a data diode.</p>
+<p><strong>A parser for the boot event log, with no standard library.</strong> Searched 2026-11-27, for step 1b of
+<a href="../fab/index.html"><code>fab.md</code></a>, "Getting to v1.0": crates.io's API for "tcg event log", "event log tpm", "eventlog",
+"measured boot", "tcg_pcr_event2", "crypto agile log", "uefi event log", "tpm2 eventlog", "ccel"
+and "pcr replay"; GitHub's code search, in Rust, for <code>TCG_PCR_EVENT2</code> and "Spec ID Event03", the
+first 30 results of each, from 30 repositories. Looked at: each crate's <code>Cargo.toml</code> and source,
+and in six of the repositories the file the search found. Not looked at: the other 24.</p>
+<table><thead><tr><th>work</th><th>closest part</th><th>different</th><th>source</th></tr></thead><tbody>
+<tr><td><code>uefi</code> 0.41.0 (rust-osdev, MIT OR Apache-2.0)</td><td><code>no_std</code>; walks a crypto-agile log's entries and their digests</td><td>reads only the log its own firmware hands it, through raw pointers, and "the size of the last event is taken from the log without a check"</td><td>the crate's <code>src/proto/tcg/v2.rs</code></td></tr>
+<tr><td>eventlog-rs 0.1.8, uefi-eventlog 0.3.0, tcg-log-core-rs 0.1.2, tcglog_parser</td><td>parse a TCG event log</td><td>each needs the standard library: <code>use std::</code> in the first three's source, and serde_json with its default features in tcglog_parser's</td><td>each one's <code>Cargo.toml</code>, and the crates' source; tcglog_parser's at 8a403d05</td></tr>
+<tr><td>rust-keylime, <code>keylime/src/uefi/uefi_log_handler.rs</code> (Apache-2.0)</td><td>Keylime's own agent parses the UEFI log</td><td>the standard library, and a <code>HashMap</code> of digests per entry</td><td>at 54c62fac</td></tr>
+<tr><td>td-shim, <code>cc-measurement</code> (BSD-2-Clause-Patent)</td><td><code>no_std</code>; reads and writes an event log</td><td>SHA-384 digests only (<code>TPML_ALG_SHA384</code>); needs a heap (<code>alloc</code>); not on crates.io</td><td><code>cc-measurement/src/lib.rs</code> and <code>log.rs</code> at ca796924</td></tr>
+<tr><td>irlume, <code>crates/irlume-common/src/event_log.rs</code></td><td>parses and replays a log, with a fuzz target</td><td>GPL-3.0-or-later; needs a heap (<code>Vec</code>)</td><td>at 57383ca9</td></tr>
+<tr><td>fstart, <code>crates/tcg/src/log.rs</code> (MIT OR Apache-2.0)</td><td>the log in firmware, in "a caller-provided buffer"</td><td>it writes the log; no reader among its public functions</td><td>at 1a06f0cc</td></tr>
+</tbody></table>
+<p>tpm2-tools' replay, in C on a host, starts PCR 0 from the locality the log's Startup Locality event
+gives (<code>lib/tpm2_eventlog.c</code> at 915443b3, lines 88-89 and 485-498). None of these checks every size
+in a log it is handed, without the standard library or a heap, so the verifier's parser is our own,
+for step 2 to check with Kani.</p>
 <h2 id="what-we-take-from-it">What we take from it</h2>
 <p>Each is a candidate, to be proposed where it lands:</p>
 <ol>
