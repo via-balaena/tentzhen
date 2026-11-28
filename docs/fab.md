@@ -760,7 +760,14 @@ PCRs.
   "Conventions"). tpm2-tools' `tpm2_checkquote` already makes checks 1 to 4 on a host: its man
   page names the signature, the qualifying data and the PCR values, and its source checks the
   magic and the type (`tools/misc/tpm2_checkquote.c`, tpm2-software/tpm2-tools at 915443b3).
-  Whether a Rust one exists that also runs on a microcontroller is `unknown` until searched.
+  A Rust one exists that runs on a microcontroller: tpm2-protocol 1.2.4 (MIT OR Apache-2.0,
+  jarkkojs/tpm2-library at c77e90fa), "A unipolar `no_std` TPM 2.0 implementation that does not
+  require heap allocator and has zero dependencies", with `TpmsAttest`, `TpmsQuoteInfo` and
+  `TpmsClockInfo` among its types. Step 1a builds on it. Searched on crates.io, 2026-11-27, for
+  "tpm2", "tpm quote", "tpms_attest", "tpm attestation" and "tpm2-protocol".
+- **The software TPM:** swtpm 0.10.2 is in Homebrew; tpm2-tools is not (searched 2026-11-27). So
+  step 1a's test inputs come from swtpm, driven by a small Rust program that speaks the TPM's
+  commands through tpm2-protocol.
 
 ## Later: a gradiometer, engineered with CortenForge
 

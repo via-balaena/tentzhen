@@ -712,7 +712,7 @@ Each is a candidate, to be proposed where it lands:
 | Red Pitaya's equalizer and decimation, Haasoscope Pro's FIR calibration, ngscopeclient's de-embed filter | equalizing and averaging each unit | `scope.md` (planned) |
 | WLED's JSON API; WLEDger, or InvenTree if WLEDger fails a measure | the parts wall's gateway answers the API; the store drives it | `makerspace.md` (planned) |
 | `cortenforge-sim-thermostat` 0.9.0; neoTRNG (BSD-3-Clause) | the p-bits' exact distribution; ring oscillators for true randomness | `pbits.md` (planned) |
-| Keylime; Dasharo; Tock | the alarm while no one is there; the fab computers' firmware; the verifier's OS | `fab.md`, "Security" (planned) |
+| Keylime; Dasharo; Tock; tpm2-protocol; swtpm | the alarm while no one is there; the fab computers' firmware; the verifier's OS; reading quotes on the verifier; a software TPM for the tests | `fab.md`, "Security" (planned) |
 
 ## People worth writing to
 
