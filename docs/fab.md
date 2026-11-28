@@ -731,6 +731,50 @@ Left out: the plan's prices, which were estimates, and its computers that aren't
 - Whether the H5 has a chassis intrusion header.
 - Prices for everything but the board.
 
+### Getting to v1.0
+
+Jon, 2026-11-27: "great idea", to auditing the design by making it run before anything is
+bought. The review that found the hub could leave a computer out did it by reading; a test of
+the verifier's own list would have failed.
+
+**v1.0 is reached when:**
+1. every threat in "Trust only the device in your pocket" and every row of the findings table has
+   a named test, and taking out the check it covers makes that test fail (`tested`);
+2. the parser that the hub's messages reach is checked with Kani, up to a stated bound
+   (`checked`);
+3. one whole leave-and-return runs on virtual machines, with each attack staged;
+4. each item of "Before anything is bought" is answered, or marked as needing the board.
+
+Then one H5 is worth buying, Jon's decision, and a second answers whether twins report identical
+PCRs.
+
+| step | what | needs |
+|---|---|---|
+| 1a | **The judge,** in Rust, built for the host and for the RP2350 alike (`no_std`): the quote's signature, challenge, PCR digest and counts; the findings table; and the verifier's own list of computers. Its test inputs are real quotes from a software TPM, committed with the program that makes them, so the Quality Gate needs no TPM. | nothing bought |
+| 1b | **The boot event log,** replayed to PCRs 0 to 9 and checked against reference values | nothing bought |
+| 1c | **The IMA entries** since the last check, replayed to PCR 10, each with a proof against the image's Merkle root | nothing bought |
+| 2 | **Kani** on the parser and the findings table | nothing bought |
+| 3 | **Virtual machines:** Fedora's bootc image under QEMU, with a software TPM and UEFI measured boot, and Keylime's push model between them | nothing bought; whether this Mac runs it, or the x86 desktop is needed, is `unknown` |
+| 4 | **A Pico 2 W already on hand:** how long a P-256 check takes; the raw ring oscillator with the health tests | Jon's approval to flash it, since it isn't a lab target; no OTP step; waits until Jon can reach the board (2026-11-27) |
+| 5 | **An attack read by someone else:** a reviewer given only this section and Sperrle's security analysis, not the reviews before | nothing |
+
+- **Step 3 answers,** in a virtual machine, whether Fedora's GRUB measures into PCRs 8 and 9, how
+  many IMA entries an idle computer adds in a day, and how ready Keylime's push model is. Step 4
+  answers how long the RP2350 takes to check a P-256 signature. The H5's Dasharo release, the
+  twins, its chassis header and the prices need the board or a later read.
+- **Before step 1a's parser is written,** an existing one is looked for (CLAUDE.md,
+  "Conventions"). tpm2-tools' `tpm2_checkquote` already makes checks 1 to 4 on a host: its man
+  page names the signature, the qualifying data and the PCR values, and its source checks the
+  magic and the type (`tools/misc/tpm2_checkquote.c`, tpm2-software/tpm2-tools at 915443b3).
+  A Rust one exists that runs on a microcontroller: tpm2-protocol 1.2.4 (MIT OR Apache-2.0,
+  jarkkojs/tpm2-library at c77e90fa), "A unipolar `no_std` TPM 2.0 implementation that does not
+  require heap allocator and has zero dependencies", with `TpmsAttest`, `TpmsQuoteInfo` and
+  `TpmsClockInfo` among its types. Step 1a builds on it. Searched on crates.io, 2026-11-27, for
+  "tpm2", "tpm quote", "tpms_attest", "tpm attestation" and "tpm2-protocol".
+- **The software TPM:** swtpm 0.10.2 is in Homebrew; tpm2-tools is not (searched 2026-11-27). So
+  step 1a's test inputs come from swtpm, driven by a small Rust program that writes the TPM's
+  commands byte by byte, so the inputs don't come from the parser they test.
+
 ## Later: a gradiometer, engineered with CortenForge
 
 Jon, 2026-11-25: "the gradiometer is from cortenforge. its a goal of mine to use cortenforge to
