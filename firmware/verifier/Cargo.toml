@@ -1,0 +1,22 @@
+[package]
+name = "tentzhen-verifier"
+version = "0.0.0"
+description = "The fab verifier's judge for Tentzhen: each computer's TPM quote, checked against the verifier's own list and the last snapshot"
+publish = false
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# What goes into the verifier's firmware on the Pico 2, so nothing here needs the standard library.
+[dependencies]
+tpm2-protocol = "=1.2.4"
+p256 = { version = "=0.14.0", default-features = false, features = ["ecdsa"] }
+sha2 = { version = "=0.11.0", default-features = false }
+
+# The tests sign with a key outside any TPM, and hash what they sign.
+[dev-dependencies]
+p256 = { version = "=0.14.0", default-features = false, features = ["ecdsa"] }
+sha2 = { version = "=0.11.0", default-features = false }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)"] }
