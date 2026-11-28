@@ -538,6 +538,11 @@ The verifier checks that:
 It reads the reset and restart counts, the clock and the TPM's firmware version from the signed
 quote.
 
+Checks 1 to 4, the counts, the verifier's own list, and the table's rows for restarts, for PCRs
+against the last snapshot, for the TPM's firmware and for the clock are `tested`, on real quotes
+from swtpm, a software TPM, in `firmware/verifier` (`architecture.md`, "Rules"). Checks 5 and 6,
+and the reference values, are not built yet.
+
 | finding | result |
 |---|---|
 | the reset or restart count changed | red: restarted |

@@ -793,6 +793,16 @@ mod tests {
         );
     }
 
+    /// The fab verifier's judge goes into the verifier's firmware on the Pico 2, so at run time it
+    /// reads TPM structures, checks P-256 signatures and hashes with SHA-256, and nothing more.
+    #[test]
+    fn the_verifier_depends_only_on_what_its_checks_need() {
+        assert_eq!(
+            runtime_dependencies("firmware/verifier"),
+            ["p256", "sha2", "tpm2-protocol"]
+        );
+    }
+
     /// Every workflow in .github/workflows, by file name, with its text.
     fn workflows() -> Vec<(String, String)> {
         let mut out: Vec<(String, String)> = fs::read_dir(root().join(".github/workflows"))
