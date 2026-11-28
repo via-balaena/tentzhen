@@ -131,6 +131,8 @@ jobs:
           python3 -m pytest -q -rA gateware
       - name: The enforcer builds for the RP2350, with no standard library
         run: cargo build -p tentzhen-enforcer --target thumbv8m.main-none-eabi --locked
+      - name: The fab verifier's judge builds for the RP2350, with no standard library
+        run: cargo build -p tentzhen-verifier --target thumbv8m.main-none-eabi --locked
       - name: Kani checks the enforcer's rules
         # Kani is pinned here; `cargo kani setup` fetches the toolchain that release uses.
         run: |

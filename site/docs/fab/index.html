@@ -622,6 +622,11 @@ image or its containers hold.</li>
 </ol>
 <p>It reads the reset and restart counts, the clock and the TPM's firmware version from the signed
 quote.</p>
+<p>Checks 1 to 4, the verifier's own list, and the findings table's rows for restarts and for PCRs
+against the last snapshot are <code>tested</code> on real quotes from swtpm, a software TPM, and on copies
+changed as a hub could change them. The rows for the TPM's firmware and for the clock are
+<code>tested</code> on values made up for the test (<code>firmware/verifier</code>; <a href="../architecture/index.html"><code>architecture.md</code></a>, "Rules"). Checks
+5 and 6, and the reference values, are not built yet.</p>
 <table><thead><tr><th>finding</th><th>result</th></tr></thead><tbody>
 <tr><td>the reset or restart count changed</td><td>red: restarted</td></tr>
 <tr><td>a PCR from 0 to 9, or an event log entry, isn't the reference</td><td>red: boot chain isn't ours</td></tr>
