@@ -74,6 +74,11 @@ of record. Each part exists on its own, and several were built in 2026.
   a Tiny Tapeout tile, with RTL results so far. p-bits on an ECP5 with open tools, checked bit for
   bit against a Rust model and fed by a health-tested on-chip entropy source, are in nothing we
   found.
+- **Attesting a fab's computers** (project #4's security): a token that checks TPM quotes for its
+  owner exists, in a 2025 KIT thesis, for servers behind a data diode. Heads and tpm2-totp let a
+  USB key or a person judge one computer's boot, and Keylime attests many from a server. One
+  verifier in a pocket, judging a fab's computers for restarts and what ran, is in nothing we
+  found.
 - **In Chinese,** there are many more open instruments, supplies and loads, several with one unit's
   accuracy measured and published, and agents on instruments from RIGOL and others. The pattern is
   the same: at most one unit's measurements behind some of the numbers, and every limit read in
@@ -603,6 +608,28 @@ from an on-chip entropy source whose SP 800-90B health tests run in the same gat
 chip was found in a process older than 180 nm, or from an open fab, and no Wave Function Collapse
 on p-bits or Ising machines.
 
+## Attesting a fab's computers
+
+Searched 2026-11-27, for `fab.md`, "Security": a device someone carries that checks TPM quotes for
+its owner, and the open tools around it. Two web searches, then GitHub's API for seven candidates'
+repositories, and the sources below read in their own text, through `gh` and `curl`. Not seen: the
+patents the web searches returned (unread), papers behind paywalls, and Chinese-language sources.
+What it can show is what these searches found, not that nothing closer exists.
+
+| work | closest part | different | source |
+|---|---|---|---|
+| André Sperrle, "Remote attestation in an isolated server setting through the usage of a tamper-resistant hardware token" (KIT master's thesis, 2025) | a token the verifier carries to the servers, which "audits the Prover on behalf of the verifier" and reports "over a visual channel like the server rooms camera feedback"; TPM quotes; MakeCredential for the attestation key; a security analysis, with "nail-glitter patterns" as seals | servers behind a data diode; Go on TamaGo, bare metal on a USB Armory Mk II, not Rust on Tock; no code repository named in its text | DOI 10.5445/IR/1000190847, its PDF, **re-read** |
+| Heads (linuxboot/heads, GPL-2.0) | a secret "sealed to PCRs 0,1,2,3,4,7"; "Reverse HOTP ──▶ USB dongle (verifies code)", so a USB key judges the boot | one computer, at its own boot, with Heads as its firmware's payload | at 5f835ca4, `doc/security-model.md`, **re-read** |
+| tpm2-totp (tpm2-software, BSD-3-Clause) | "Attest the trustworthiness of a device against a human using time-based one-time passwords" | a person judges one computer at a time, by its one-time password; last pushed 2024-06-26 | its GitHub description |
+| Keylime (CNCF, Apache-2.0) | TPM attestation of measured boot and IMA, for many computers; a push-model agent in keylime/rust-keylime | its verifier is a server: here, the hub we don't trust | keylime/keylime 7.14.3, README at 552c98bd ("integrity measurements", "runtime and measured boot policies"); rust-keylime's tree |
+| GrapheneOS Auditor | pairing on first use, then checks by "another Android device running the app in the Auditor mode", or by its attestation.app service | it verifies phones, not TPMs | attestation.app/about, **re-read** |
+| Tillitis TKey | "an open source, open hardware FPGA-based USB security token" with "DICE-like measured boot" | a key with no screen; its licence not read | tillitis/tillitis-key1 at 591089ac, README, **re-read** |
+| Dasharo (3mdeb) | coreboot and UEFI with measured boot, with published test results, for the ODROID-H4's v0.9.1 among others | built binaries come with a paid Pro Package; TrustRoot ties a board to the vendor's key | Dasharo/docs at 54aa76c8; Dasharo/osfv-results, **re-read** |
+
+Nothing we found carries one verifier to a fab's computers to judge, on its own screen, whether
+any of them restarted, booted something other than our build, or ran something new. Sperrle's
+token is the closest: the same delegation, for servers behind a data diode.
+
 ## What we take from it
 
 Each is a candidate, to be proposed where it lands:
@@ -662,6 +689,10 @@ Each is a candidate, to be proposed where it lands:
     gateware, as WobblyBits ported them to SKY130 without the tests.
 26. **Compare our p-bit core with ferrotherm's,** whose rule, "software model == emulator ==
     emitted configuration", is the one project #6 follows.
+27. **Read Sperrle's thesis before writing the fab's verifier,** for its security analysis and its
+    use of MakeCredential (`fab.md`, "Security").
+28. **Use Keylime as the alarm while no one is there,** not as the judgement, and Dasharo built
+    from its public source as the fab computers' firmware.
 
 ## Building blocks we use
 
@@ -681,6 +712,7 @@ Each is a candidate, to be proposed where it lands:
 | Red Pitaya's equalizer and decimation, Haasoscope Pro's FIR calibration, ngscopeclient's de-embed filter | equalizing and averaging each unit | `scope.md` (planned) |
 | WLED's JSON API; WLEDger, or InvenTree if WLEDger fails a measure | the parts wall's gateway answers the API; the store drives it | `makerspace.md` (planned) |
 | `cortenforge-sim-thermostat` 0.9.0; neoTRNG (BSD-3-Clause) | the p-bits' exact distribution; ring oscillators for true randomness | `pbits.md` (planned) |
+| Keylime; Dasharo; Tock | the alarm while no one is there; the fab computers' firmware; the verifier's OS | `fab.md`, "Security" (planned) |
 
 ## People worth writing to
 
@@ -695,7 +727,8 @@ For project #3: kenchangh and Petros Emmanouilidis, whose hardwired networks are
 tiles; FPGA-Gym's authors, whose environments run in Verilog; and the authors of EnvPool's Craftax
 port, who matched a JAX environment exactly outside JAX.
 For project #4: Hacker Fab's contributors, the authors of its stepper paper, SputterOS's author,
-and the impedance matcher's authors.
+and the impedance matcher's authors; for its security, André Sperrle, whose token audits TPM
+quotes for its owner.
 For project #5: WLEDger's author, inventree-wled-locator's author, and NEMO's team at NIST.
 For project #6: ferrotherm's author, WobblyBits' author, neoTRNG's author, and the authors of the
 sparse Ising machine and of quantinfo's open Verilog.
