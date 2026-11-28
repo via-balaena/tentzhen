@@ -13,10 +13,5 @@ tpm2-protocol = "=1.2.4"
 p256 = { version = "=0.14.0", default-features = false, features = ["ecdsa"] }
 sha2 = { version = "=0.11.0", default-features = false }
 
-# The tests sign with a key outside any TPM, and hash what they sign.
-[dev-dependencies]
-p256 = { version = "=0.14.0", default-features = false, features = ["ecdsa"] }
-sha2 = { version = "=0.11.0", default-features = false }
-
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)"] }
