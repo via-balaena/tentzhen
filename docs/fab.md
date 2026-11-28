@@ -729,7 +729,7 @@ Left out: the plan's prices, which were estimates, and its computers that aren't
 
 Jon, 2026-11-27: "great idea", to auditing the design by making it run before anything is
 bought. The review that found the hub could leave a computer out did it by reading; a test of
-that row would have failed.
+the verifier's own list would have failed.
 
 **v1.0 is reached when:**
 1. every threat in "Trust only the device in your pocket" and every row of the findings table has
@@ -744,7 +744,7 @@ PCRs.
 
 | step | what | needs |
 |---|---|---|
-| 1a | **The judge,** in Rust, built for the host and for the RP2350 alike (`no_std`): the quote's signature, challenge, PCR digest and counts; the findings table; and the verifier's own list of computers. Its test inputs are real quotes from a software TPM, committed with the script that makes them, so the Quality Gate needs no TPM. | nothing bought |
+| 1a | **The judge,** in Rust, built for the host and for the RP2350 alike (`no_std`): the quote's signature, challenge, PCR digest and counts; the findings table; and the verifier's own list of computers. Its test inputs are real quotes from a software TPM, committed with the program that makes them, so the Quality Gate needs no TPM. | nothing bought |
 | 1b | **The boot event log,** replayed to PCRs 0 to 9 and checked against reference values | nothing bought |
 | 1c | **The IMA entries** since the last check, replayed to PCR 10, each with a proof against the image's Merkle root | nothing bought |
 | 2 | **Kani** on the parser and the findings table | nothing bought |
@@ -766,8 +766,8 @@ PCRs.
   `TpmsClockInfo` among its types. Step 1a builds on it. Searched on crates.io, 2026-11-27, for
   "tpm2", "tpm quote", "tpms_attest", "tpm attestation" and "tpm2-protocol".
 - **The software TPM:** swtpm 0.10.2 is in Homebrew; tpm2-tools is not (searched 2026-11-27). So
-  step 1a's test inputs come from swtpm, driven by a small Rust program that speaks the TPM's
-  commands through tpm2-protocol.
+  step 1a's test inputs come from swtpm, driven by a small Rust program that writes the TPM's
+  commands byte by byte, so the inputs don't come from the parser they test.
 
 ## Later: a gradiometer, engineered with CortenForge
 

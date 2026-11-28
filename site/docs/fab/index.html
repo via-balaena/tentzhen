@@ -811,7 +811,7 @@ is ready.</li>
 <h3 id="getting-to-v10">Getting to v1.0</h3>
 <p>Jon, 2026-11-27: "great idea", to auditing the design by making it run before anything is
 bought. The review that found the hub could leave a computer out did it by reading; a test of
-that row would have failed.</p>
+the verifier's own list would have failed.</p>
 <p><strong>v1.0 is reached when:</strong></p>
 <ol>
 <li>every threat in "Trust only the device in your pocket" and every row of the findings table has
@@ -824,7 +824,7 @@ a named test, and taking out the check it covers makes that test fail (<code>tes
 <p>Then one H5 is worth buying, Jon's decision, and a second answers whether twins report identical
 PCRs.</p>
 <table><thead><tr><th>step</th><th>what</th><th>needs</th></tr></thead><tbody>
-<tr><td>1a</td><td><strong>The judge,</strong> in Rust, built for the host and for the RP2350 alike (<code>no_std</code>): the quote's signature, challenge, PCR digest and counts; the findings table; and the verifier's own list of computers. Its test inputs are real quotes from a software TPM, committed with the script that makes them, so the Quality Gate needs no TPM.</td><td>nothing bought</td></tr>
+<tr><td>1a</td><td><strong>The judge,</strong> in Rust, built for the host and for the RP2350 alike (<code>no_std</code>): the quote's signature, challenge, PCR digest and counts; the findings table; and the verifier's own list of computers. Its test inputs are real quotes from a software TPM, committed with the program that makes them, so the Quality Gate needs no TPM.</td><td>nothing bought</td></tr>
 <tr><td>1b</td><td><strong>The boot event log,</strong> replayed to PCRs 0 to 9 and checked against reference values</td><td>nothing bought</td></tr>
 <tr><td>1c</td><td><strong>The IMA entries</strong> since the last check, replayed to PCR 10, each with a proof against the image's Merkle root</td><td>nothing bought</td></tr>
 <tr><td>2</td><td><strong>Kani</strong> on the parser and the findings table</td><td>nothing bought</td></tr>
@@ -847,8 +847,8 @@ require heap allocator and has zero dependencies", with <code>TpmsAttest</code>,
 <code>TpmsClockInfo</code> among its types. Step 1a builds on it. Searched on crates.io, 2026-11-27, for
 "tpm2", "tpm quote", "tpms_attest", "tpm attestation" and "tpm2-protocol".</li>
 <li><strong>The software TPM:</strong> swtpm 0.10.2 is in Homebrew; tpm2-tools is not (searched 2026-11-27). So
-step 1a's test inputs come from swtpm, driven by a small Rust program that speaks the TPM's
-commands through tpm2-protocol.</li>
+step 1a's test inputs come from swtpm, driven by a small Rust program that writes the TPM's
+commands byte by byte, so the inputs don't come from the parser they test.</li>
 </ul>
 <h2 id="later-a-gradiometer-engineered-with-cortenforge">Later: a gradiometer, engineered with CortenForge</h2>
 <p>Jon, 2026-11-25: "the gradiometer is from cortenforge. its a goal of mine to use cortenforge to
