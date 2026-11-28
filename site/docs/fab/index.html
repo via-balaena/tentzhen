@@ -808,6 +808,41 @@ is ready.</li>
 <li>Whether the H5 has a chassis intrusion header.</li>
 <li>Prices for everything but the board.</li>
 </ul>
+<h3 id="getting-to-v10">Getting to v1.0</h3>
+<p>Jon, 2026-11-27: "great idea", to auditing the design by making it run before anything is
+bought. The review that found the hub could leave a computer out did it by reading; a test of
+that row would have failed.</p>
+<p><strong>v1.0 is reached when:</strong></p>
+<ol>
+<li>every threat in "Trust only the device in your pocket" and every row of the findings table has
+a named test, and taking out the check it covers makes that test fail (<code>tested</code>);</li>
+<li>the parser that the hub's messages reach is checked with Kani, up to a stated bound
+(<code>checked</code>);</li>
+<li>one whole leave-and-return runs on virtual machines, with each attack staged;</li>
+<li>each item of "Before anything is bought" is answered, or marked as needing the board.</li>
+</ol>
+<p>Then one H5 is worth buying, Jon's decision, and a second answers whether twins report identical
+PCRs.</p>
+<table><thead><tr><th>step</th><th>what</th><th>needs</th></tr></thead><tbody>
+<tr><td>1a</td><td><strong>The judge,</strong> in Rust, built for the host and for the RP2350 alike (<code>no_std</code>): the quote's signature, challenge, PCR digest and counts; the findings table; and the verifier's own list of computers. Its test inputs are real quotes from a software TPM, committed with the script that makes them, so the Quality Gate needs no TPM.</td><td>nothing bought</td></tr>
+<tr><td>1b</td><td><strong>The boot event log,</strong> replayed to PCRs 0 to 9 and checked against reference values</td><td>nothing bought</td></tr>
+<tr><td>1c</td><td><strong>The IMA entries</strong> since the last check, replayed to PCR 10, each with a proof against the image's Merkle root</td><td>nothing bought</td></tr>
+<tr><td>2</td><td><strong>Kani</strong> on the parser and the findings table</td><td>nothing bought</td></tr>
+<tr><td>3</td><td><strong>Virtual machines:</strong> Fedora's bootc image under QEMU, with a software TPM and UEFI measured boot, and Keylime's push model between them</td><td>nothing bought; whether this Mac runs it, or the x86 desktop is needed, is <code>unknown</code></td></tr>
+<tr><td>4</td><td><strong>A Pico 2 W already on hand:</strong> how long a P-256 check takes; the raw ring oscillator with the health tests</td><td>Jon's approval to flash it, since it isn't a lab target; no OTP step; waits until Jon can reach the board (2026-11-27)</td></tr>
+<tr><td>5</td><td><strong>An attack read by someone else:</strong> a reviewer given only this section and Sperrle's security analysis, not the reviews before</td><td>nothing</td></tr>
+</tbody></table>
+<ul>
+<li><strong>Step 3 answers,</strong> in a virtual machine, whether Fedora's GRUB measures into PCRs 8 and 9, how
+many IMA entries an idle computer adds in a day, and how ready Keylime's push model is. Step 4
+answers how long the RP2350 takes to check a P-256 signature. The H5's Dasharo release, the
+twins, its chassis header and the prices need the board or a later read.</li>
+<li><strong>Before step 1a's parser is written,</strong> an existing one is looked for (CLAUDE.md,
+"Conventions"). tpm2-tools' <code>tpm2_checkquote</code> already makes checks 1 to 4 on a host: its man
+page names the signature, the qualifying data and the PCR values, and its source checks the
+magic and the type (<code>tools/misc/tpm2_checkquote.c</code>, tpm2-software/tpm2-tools at 915443b3).
+Whether a Rust one exists that also runs on a microcontroller is <code>unknown</code> until searched.</li>
+</ul>
 <h2 id="later-a-gradiometer-engineered-with-cortenforge">Later: a gradiometer, engineered with CortenForge</h2>
 <p>Jon, 2026-11-25: "the gradiometer is from cortenforge. its a goal of mine to use cortenforge to
 engineer one in the future."</p>
