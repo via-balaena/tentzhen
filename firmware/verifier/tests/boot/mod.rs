@@ -5,8 +5,8 @@
 //!
 //! It is made up: each entry's name stands for a part of a boot through shim and GRUB, each SHA-256
 //! digest is of that name, not of a file, and the SHA-1 digests are 20 made-up bytes (the verifier
-//! reads only SHA-256). Which PCRs a real boot uses, and a real firmware's log, come in step 3, from
-//! OVMF under QEMU.
+//! judges by SHA-256 alone). Which PCRs a real boot uses, and a real firmware's log, come in step
+//! 3, from OVMF under QEMU.
 
 use sha2::{Digest as _, Sha256};
 
@@ -75,8 +75,8 @@ impl Entry {
     }
 }
 
-/// The boot, from the firmware to the initramfs. It ends with an entry for PCR 9, so every log cut
-/// short loses an entry the quote holds.
+/// The boot, from the firmware to the initramfs. It ends with an entry for PCR 9, so every log
+/// cut short loses an entry the quote holds.
 pub fn boot() -> Vec<Entry> {
     let mut v = vec![
         // A vendor's event that is only recorded; its data starts with a 16-byte signature (§10.1).

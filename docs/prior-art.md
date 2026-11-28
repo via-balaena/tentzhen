@@ -640,15 +640,16 @@ and in six of the repositories the file the search found. Not looked at: the oth
 | work | closest part | different | source |
 |---|---|---|---|
 | `uefi` 0.41.0 (rust-osdev, MIT OR Apache-2.0) | `no_std`; walks a crypto-agile log's entries and their digests | reads only the log its own firmware hands it, through raw pointers, and "the size of the last event is taken from the log without a check" | the crate's `src/proto/tcg/v2.rs` |
-| eventlog-rs 0.1.8, uefi-eventlog 0.3.0, tcg-log-core-rs 0.1.2, tcglog_parser | parse a TCG event log | each needs the standard library: `use std::` in the first three's source, and serde_json with its default features in tcglog_parser's | each one's `Cargo.toml`, and the crates' source |
+| eventlog-rs 0.1.8, uefi-eventlog 0.3.0, tcg-log-core-rs 0.1.2, tcglog_parser | parse a TCG event log | each needs the standard library: `use std::` in the first three's source, and serde_json with its default features in tcglog_parser's | each one's `Cargo.toml`, and the crates' source; tcglog_parser's at 8a403d05 |
 | rust-keylime, `keylime/src/uefi/uefi_log_handler.rs` (Apache-2.0) | Keylime's own agent parses the UEFI log | the standard library, and a `HashMap` of digests per entry | at 54c62fac |
 | td-shim, `cc-measurement` (BSD-2-Clause-Patent) | `no_std`; reads and writes an event log | SHA-384 digests only (`TPML_ALG_SHA384`); needs a heap (`alloc`); not on crates.io | `cc-measurement/src/lib.rs` and `log.rs` at ca796924 |
-| irlume, `crates/irlume-common/src/event_log.rs` | parses and replays a log, with a fuzz target | GPL-3.0; needs a heap (`Vec`) | at 57383ca9 |
+| irlume, `crates/irlume-common/src/event_log.rs` | parses and replays a log, with a fuzz target | GPL-3.0-or-later; needs a heap (`Vec`) | at 57383ca9 |
 | fstart, `crates/tcg/src/log.rs` (MIT OR Apache-2.0) | the log in firmware, in "a caller-provided buffer" | it writes the log; no reader among its public functions | at 1a06f0cc |
 
 tpm2-tools' replay, in C on a host, starts PCR 0 from the locality the log's Startup Locality event
-gives (`lib/tpm2_eventlog.c` at 915443b3, lines 88-89 and 485-498). So the verifier's parser is our
-own, 81 lines of Rust, which step 2 checks with Kani.
+gives (`lib/tpm2_eventlog.c` at 915443b3, lines 88-89 and 485-498). None of these checks every size
+in a log it is handed, without the standard library or a heap, so the verifier's parser is our own,
+for step 2 to check with Kani.
 
 ## What we take from it
 

@@ -177,6 +177,20 @@ fn position(entries: &[Entry], data: &str) -> usize {
         .unwrap()
 }
 
+/// `digests` extended, in order, into a PCR that started at `start`, as a TPM extends it.
+fn replayed(start: Digest, digests: &[Digest]) -> Digest {
+    digests.iter().fold(start, |pcr, digest| {
+        let mut out = [0; 32];
+        out.copy_from_slice(
+            &Sha256::new()
+                .chain_update(pcr)
+                .chain_update(digest)
+                .finalize(),
+        );
+        out
+    })
+}
+
 fn checked(k: &VerifyingKey, q: &Quote) -> Result<Quoted, Refused> {
     check_quote(k, &q.challenge, &q.attest, &q.signature, &q.pcrs())
 }
@@ -666,6 +680,80 @@ fn a_computer_already_wrong_when_it_was_left_is_red() {
     assert_eq!(
         verdicts(&list, &[answer(1, a, &booted), answer(2, b, &booted)]),
         [red, red]
+    );
+}
+
+/// With the reference an exact list for each PCR, as now, the log's entries decide nothing the
+/// reference doesn't: a log that replays to the quote finds PCRs 0 to 9 the reference's exactly
+/// when the reference, replayed from zeros, gives the quoted values (`docs/fab.md`, "Getting to
+/// v1.0"). A reference that lets an entry vary would end that, and this test with it.
+#[test]
+fn the_reference_replayed_alone_gives_the_log_s_answer() {
+    let t = quotes();
+    let boot = boot::boot();
+    let mut then = boot.clone();
+    then.push(boot::later());
+    let mut references = vec![reference(&boot), reference(&then)];
+    for pcr in 0..BOOT_PCRS {
+        // Each PCR's last entry changed, dropped, or followed by one more.
+        for change in 0..3 {
+            let mut r = reference(&boot);
+            match change {
+                0 => r[pcr].last_mut().unwrap()[0] ^= 1,
+                1 => {
+                    r[pcr].pop();
+                }
+                _ => r[pcr].push(boot::later().sha256()),
+            }
+            // PCR 9 with one more entry is the extended boot's reference, already listed.
+            if !references.contains(&r) {
+                references.push(r);
+            }
+        }
+    }
+    let mut ours = 0;
+    for (name, entries) in [("in", &boot), ("extended", &then)] {
+        let pcrs = t.get(name).pcrs();
+        for (i, r) in references.iter().enumerate() {
+            let alone = (0..BOOT_PCRS).all(|pcr| replayed([0; 32], &r[pcr]) == pcrs[pcr]);
+            ours += usize::from(alone);
+            assert_eq!(
+                check_log(&log(entries), &pcrs, &held(r)),
+                Ok(alone),
+                "{name}, reference {i}"
+            );
+        }
+    }
+    assert_eq!(
+        ours, 2,
+        "each log is its own boot's reference, and no other"
+    );
+}
+
+/// A TPM started from locality 3 has PCR 0 start from 3, not zeros, as tpm2-tools replays it
+/// (`lib/tpm2_eventlog.c` at 915443b3). The verifier doesn't read the Startup Locality event that
+/// says so (§10.4.5.3), so it refuses that log, and never reads it as ours.
+#[test]
+fn a_pcr_0_started_from_locality_3_is_refused() {
+    let t = quotes();
+    let q = t.get("in");
+    let boot = boot::boot();
+    let r = reference(&boot);
+    let mut with_locality = boot.clone();
+    // Table 22: the signature, then the locality; before any entry that extends PCR 0.
+    with_locality.insert(1, Entry::not_extended(b"StartupLocality\0\x03"));
+    let mut three = [0; 32];
+    three[31] = 3;
+    let mut pcrs = q.pcrs();
+    pcrs[0] = replayed(three, &r[0]);
+    assert_eq!(
+        check_log(&log(&with_locality), &pcrs, &held(&r)),
+        Err(Refused::EventLog)
+    );
+    assert_eq!(
+        check_log(&log(&with_locality), &q.pcrs(), &held(&r)),
+        Ok(true),
+        "the event itself is only recorded"
     );
 }
 

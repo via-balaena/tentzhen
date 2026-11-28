@@ -18,8 +18,8 @@
 //! - `out`: a quote of PCRs 0 to 10 at check-out, after the boot in `tests/boot/mod.rs` and one
 //!   extend into PCR 10 that no boot log holds;
 //! - `in`: a quote of the same PCRs in the same boot, with a new challenge;
-//! - `extended`: one more entry measured into PCR 9 (`boot::later`), then a quote, still in the same
-//!   boot;
+//! - `extended`: one more entry measured into PCR 9 (`boot::later`), then a quote, still in the
+//!   same boot;
 //! - `restarted`: swtpm stopped and started again on the same state (a TPM Reset), the key made
 //!   again from the same template, the same boot, and a quote;
 //! - `eight`: a quote of PCRs 0 to 7 only, in the same boot as `extended`;

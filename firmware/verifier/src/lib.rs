@@ -153,12 +153,16 @@ const SPEC_ID: &[u8; 16] = b"Spec ID Event03\0";
 const ALG_SHA256: u16 = 0x000B;
 
 /// Checks a boot event log, as the hub passed it on, against the quoted PCRs, and returns whether
-/// each of PCRs 0 to 9 is the reference's.
+/// PCRs 0 to 9 are all the reference's.
 ///
-/// The verifier reads, of each entry, only its PCR, whether its type is `EV_NO_ACTION` (never
-/// extended, §10.4.5), and its SHA-256 digest; what an entry says it measured is held by no PCR.
-/// Entries for PCRs 10 and up aren't this check's. PCR 0 is replayed from zeros: the Startup
-/// Locality event, which a reader needs to start PCR 0 right (§10.4.5.3), isn't read.
+/// Of each entry, the answer rests on its PCR, whether its type is `EV_NO_ACTION` (never extended,
+/// §10.4.5), and its SHA-256 digest; the rest need only be readable, and what an entry says it
+/// measured is held by no PCR. Entries for PCRs 10 and up aren't this check's. PCR 0 is replayed
+/// from zeros: the Startup Locality event, which a reader needs to start PCR 0 right (§10.4.5.3),
+/// isn't read, so the log of a TPM started from locality 3 is refused.
+///
+/// With the reference an exact list for each PCR, the answer is whether the reference, replayed
+/// from zeros, gives the quoted PCRs: the log's entries add only the refusal.
 ///
 /// # Errors
 ///
@@ -259,7 +263,7 @@ impl<'a> Bytes<'a> {
 pub enum Red {
     /// The reset or restart count changed: the computer restarted.
     Restarted,
-    /// A PCR changed, or a PCR from 0 to 9 isn't the reference's: the boot chain isn't ours.
+    /// A PCR changed since the snapshot, or one from 0 to 9 isn't the reference's.
     BootChainChanged,
     /// The TPM's firmware version changed.
     TpmFirmwareChanged,
